@@ -52,12 +52,14 @@ Potential things to keep in mind or to leave a space for:
 ### Backend & Machine Learning Team
 There are two directions:
 * Set up a Supabase on your local, try to create a `conversation` table. It needs to contain at least,
+```
 | Field Name        | Type               | Description                                      |
 | ----------------- | ------------------ | ------------------------------------------------ |
 | `id`              | UUID (Primary Key) | Unique identifier for the message                |
 | `sender`          | `text` (or enum)   | `"user"` or `"assistant"`                        |
 | `message`         | `text`             | Prompt/response if sender="user"/"assistant"     |
 | `created_at`      | `timestamp`        | Time the message was created                     |
+```
 * Then, implement the CRUD  methods based on the table. The point for these two tasks is to have a skeleton for the backend.
 
 * The other direction is, while going through the legacy code, check whether any useful APIs can be reused in the new repo. Move them here.
