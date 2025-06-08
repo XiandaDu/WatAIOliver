@@ -59,8 +59,9 @@ There are two directions:
 | `sender`          | `text` (or enum)   | `"user"` or `"assistant"`                        |
 | `message`         | `text`             | Prompt/response if sender="user"/"assistant"     |
 | `created_at`      | `timestamp`        | Time the message was created                     |
+| `updated_at`      | `timestamp`        | Time the message was updated                     |
 ```
-* Then, implement the CRUD  methods based on the table. The point for these two tasks is to have a skeleton for the backend.
+* Then, implement the CRUD (create, read, update and delete) methods based on the table. The point for these two tasks is to have a skeleton for the backend.
 
 * The other direction is, while going through the legacy code, check whether any useful APIs can be reused in the new repo. Move them here.
 
