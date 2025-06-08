@@ -2,9 +2,9 @@
 
 This is the **Oliver** repo for **WatAI** — an LLM-based RAG (Retrieval-Augmented Generation) project.
 
-Oliver is an intelligent assistant to help instructors and students interact with course materials through conversational AI. This is a new implementation based on the legacy Oliver project.
+Oliver is an intelligent assistant who helps instructors and students interact with course materials through conversational AI. This is a new implementation based on the legacy Oliver project.
 
-Instructors can upload course content, and Oliver will use a RAG pipeline to generate better, more context-aware answers when students ask questions about their courses.
+Instructors can upload course content, and Oliver will use an RAG pipeline to generate better, more context-aware answers when students ask questions about their courses.
 
 ## Technology Stack
 
@@ -28,7 +28,7 @@ We will maintain **three main branches**:
 
 * Only `staging` can be merged into `main`.
 * Only `development` can be merged into `staging`.
-* For feature work, create a branch off `development`, I suggest to named it as:
+* To create a new feature, create a branch from the `development`, I suggest naming it:
   `@frontend/feature-name` or `@backend/feature-name`
 
 Example:
@@ -36,6 +36,31 @@ Example:
 `@backend/chat-api`
 
 Make a PR when a feature is implemented — as it is easier for peer review and debug.
+
+## Week 2 🚀
+I hope you guys have some understanding of the legacy workflow. Let's ship some code now.
+
+### Frontend Team
+Based on your choice of technology stack, ignoring the login page for now, let's try to create a ChatGPT-like front page. It needs to have:
+* a conversation window for users to input prompts and agents to give answers.
+* a sidebar that can separate different conversations.
+Potential things to keep in mind or to leave a space for:
+* model choice dropdown bar
+* a search icon to search a keyword from past conversations
+* able to hide the sidebar
+
+### Backend & Machine Learning Team
+There are two directions:
+* Set up a Supabase on your local, try to create a `conversation` table. It needs to contain at least,
+| Field Name        | Type               | Description                                      |
+| ----------------- | ------------------ | ------------------------------------------------ |
+| `id`              | UUID (Primary Key) | Unique identifier for the message                |
+| `sender`          | `text` (or enum)   | `"user"` or `"assistant"`                        |
+| `message`         | `text`             | Prompt/response if sender="user"/"assistant"     |
+| `created_at`      | `timestamp`        | Time the message was created                     |
+* Then, implement the CRUD  methods based on the table. The point for these two tasks is to have a skeleton for the backend.
+
+* The other direction is, while going through the legacy code, check whether any useful APIs can be reused in the new repo. Move them here.
 
 ## First Mission 🚀
 Those tasks are for the first (few) weeks. I've included all the first steps I thought of, so it's okay if you can't complete them all in a week.
