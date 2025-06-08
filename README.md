@@ -56,6 +56,7 @@ There are two directions:
 | Field Name        | Type               | Description                                      |
 | ----------------- | ------------------ | ------------------------------------------------ |
 | `id`              | UUID (Primary Key) | Unique identifier for the message                |
+| `user_id`         | UUID (Foreign Key) | Owner of the conversation                        |
 | `sender`          | `text` (or enum)   | `"user"` or `"assistant"`                        |
 | `message`         | `text`             | Prompt/response if sender="user"/"assistant"     |
 | `created_at`      | `timestamp`        | Time the message was created                     |
