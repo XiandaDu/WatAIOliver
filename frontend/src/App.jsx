@@ -5,10 +5,10 @@ import Chat from './pages/Chat'
 function App() {
   return (
     <div className="p-4">
-      {/* <nav className="space-x-4">
+      <nav className="space-x-4">
         <Link to="/" className="text-blue-500">Home</Link>
         <Link to="/about" className="text-blue-500">About</Link>
-      </nav> */}
+      </nav>
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/chat" element={<Chat />} />
