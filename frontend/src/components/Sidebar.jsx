@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Search, MessageSquare } from "lucide-react"
+import { Search, MessageSquare, Plus } from "lucide-react"
 
 const mockConversations = [
   { id: 1, title: "CS 245 Doubt", lastMessage: "Need help with logic proofs", timestamp: "2h ago" },
@@ -13,24 +13,39 @@ const mockConversations = [
 export function Sidebar({ onSelectConversation }) {
   const [isCollapsed, setIsCollapsed] = useState(false)
 
+  const handleNewChat = () => {
+    onSelectConversation(null) // This will clear the conversation and show welcome screen
+  }
+
   return (
     <aside 
       className={`border-r h-screen ${isCollapsed ? 'w-16' : 'w-64'} transition-all duration-300`}
       aria-label="Conversation history"
     >
       <div className="p-4 space-y-4">
-        <div className="flex items-center justify-between">
+        <div className={`flex ${isCollapsed ? 'flex-col' : 'items-center justify-between'}`}>
           {!isCollapsed && <h2 className="text-lg font-semibold">Conversations</h2>}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="hover:bg-gray-100"
-            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            aria-expanded={!isCollapsed}
-          >
-            {isCollapsed ? <MessageSquare className="h-5 w-5" /> : "←"}
-          </Button>
+          <div className={`flex ${isCollapsed ? 'flex-col' : 'items-center'} gap-2`}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleNewChat}
+              className="hover:bg-gray-100"
+              aria-label="Start new chat"
+            >
+              <Plus className="h-5 w-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="hover:bg-gray-100"
+              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-expanded={!isCollapsed}
+            >
+              {isCollapsed ? <MessageSquare className="h-5 w-5" /> : "←"}
+            </Button>
+          </div>
         </div>
 
         {!isCollapsed && (
