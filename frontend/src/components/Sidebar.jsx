@@ -12,10 +12,20 @@ const mockConversations = [
 
 export function Sidebar({ onSelectConversation }) {
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const [search, setSearch] = useState("")
 
   const handleNewChat = () => {
     onSelectConversation(null) // This will clear the conversation and show welcome screen
   }
+
+  // Filter conversations based on search
+  const filteredConversations = mockConversations.filter(conversation => {
+    const q = search.toLowerCase()
+    return (
+      conversation.title.toLowerCase().includes(q) ||
+      conversation.lastMessage.toLowerCase().includes(q)
+    )
+  })
 
   return (
     <aside 
@@ -56,26 +66,29 @@ export function Sidebar({ onSelectConversation }) {
                 placeholder="Search conversations..." 
                 className="pl-8"
                 aria-label="Search conversations"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
               />
             </div>
 
             <ScrollArea className="h-[calc(100vh-8rem)]">
               <nav aria-label="Conversation list">
                 <div className="space-y-2">
-                  {mockConversations.map((conversation) => (
+                  {filteredConversations.map((conversation) => (
                     <Button
                       key={conversation.id}
                       variant="ghost"
-                      className="w-full justify-start"
+                      className="w-full justify-start h-auto py-3 px-3 rounded-lg transition-colors duration-200 hover:bg-gray-100/80 focus:bg-gray-200/80 mb-1"
                       onClick={() => onSelectConversation(conversation)}
                       aria-label={`Open conversation: ${conversation.title}`}
+                      style={{ textAlign: 'left' }}
                     >
-                      <div className="flex flex-col items-start">
-                        <span className="font-medium">{conversation.title}</span>
-                        <span className="text-sm text-muted-foreground truncate">
+                      <div className="flex flex-col items-start gap-0.5 w-full">
+                        <span className="font-medium leading-tight">{conversation.title}</span>
+                        <span className="text-sm text-muted-foreground truncate w-full">
                           {conversation.lastMessage}
                         </span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-muted-foreground mt-0.5">
                           {conversation.timestamp}
                         </span>
                       </div>

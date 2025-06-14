@@ -16,6 +16,12 @@ export default function ChatPage() {
   const [selectedConversation, setSelectedConversation] = useState(null)
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
+  const [selectedModel, setSelectedModel] = useState("GPT-4")
+  const modelOptions = [
+    { label: "Model 1", value: "model-1" },
+    { label: "Model 2", value: "model-2" },
+    { label: "Model 3", value: "model-3" },
+  ]
 
   const scrollToBottom = () => {
     if (messagesContainerRef.current) {
@@ -108,11 +114,14 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen bg-white">
       <Sidebar onSelectConversation={handleSelectConversation} />
-      <div className="flex-1 py-8 flex flex-col">
-        <div className="max-w-4xl w-[800px] mx-auto bg-white rounded-lg border shadow-sm flex-1 flex flex-col min-h-0">
-          <ChatContainer className="h-full flex flex-col ">
+      <div className="flex-1 flex flex-col items-center justify-center w-full h-screen">
+        <div
+          className="flex flex-col min-h-0 w-full h-full items-center justify-center"
+          style={{ aspectRatio: '16/10', maxWidth: '100vw', maxHeight: '100vh' }}
+        >
+          <ChatContainer className="flex flex-col h-full w-full">
             {isEmpty ? (
               <div className="flex-1 flex flex-col items-center justify-center gap-8 p-8">
                 <div className="text-center">
@@ -155,15 +164,25 @@ export default function ChatPage() {
               </div>
             ) : (
               <>
-                <div className="bg-white px-6 py-4 rounded-lg flex-shrink-0">
-                  <h1 className="text-xl font-semibold text-gray-900">
-                    Oliver Chat
-                  </h1>
+                <div className="px-6 py-4 flex-shrink-0">
+                  <div className="flex flex-col items-start">
+                    <h1 className="text-xl font-semibold text-gray-900">Oliver Chat</h1>
+                    <select
+                      id="model-select"
+                      value={selectedModel}
+                      onChange={e => setSelectedModel(e.target.value)}
+                      className="mt-2 w-40 rounded-md border border-gray-300 bg-white py-2 px-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    >
+                      {modelOptions.map(option => (
+                        <option key={option.value} value={option.label}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-                
-                <div 
+                <div
                   ref={messagesContainerRef}
                   className="flex-1 overflow-y-auto px-6 py-6 min-h-0"
+                  style={{ minHeight: 0 }}
                 >
                   <ChatMessages className="py-6">
                     <div className="space-y-4">
@@ -172,8 +191,8 @@ export default function ChatPage() {
                         isTyping={isTyping}
                         showTimeStamps={true}
                         messageOptions={(message) => ({
-                          className: message.role === "user" 
-                            ? "bg-blue-500 text-white ml-auto rounded-2xl px-4 py-3 max-w-[75%]" 
+                          className: message.role === "user"
+                            ? "bg-blue-500 text-white ml-auto rounded-2xl px-4 py-3 max-w-[75%]"
                             : "bg-gray-100 text-gray-900 rounded-2xl px-4 py-3 max-w-[75%]"
                         })}
                       />
@@ -181,8 +200,7 @@ export default function ChatPage() {
                     <div ref={messagesEndRef} />
                   </ChatMessages>
                 </div>
-                
-                <div className="border-t bg-white rounded-b-lg p-4 flex-shrink-0">
+                <div className="px-6 py-4 flex-shrink-0 bg-white mb-12">
                   <ChatForm
                     isPending={isLoading || isTyping}
                     handleSubmit={handleSubmit}
