@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Request, UploadFile, File, Form, Query, HTTPException, status
 from . import service
+from .models import ConversationBase, ConversationCreate, ConversationUpdate, ConversationOut
 
 router = APIRouter(
     prefix='/chat',
@@ -7,6 +8,9 @@ router = APIRouter(
 )
 
 @router.get("/")
-async def chat(request: Request, question: str):
-    # question = "explain newton's laws of physics."
-    return service.nebula_text_endpoint(question)
+async def chat(data: ConversationUpdate):
+    return service.nebula_text_endpoint(data.message)
+
+@router.post("/open_ask")
+async def open_ask(data: ConversationBase):
+    return service.open_ask(data)
