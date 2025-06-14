@@ -10,6 +10,7 @@ click==8.2.1
 colorama==0.4.6
 deprecation==2.1.0
 dnspython==2.7.0
+docx==0.2.4
 email_validator==2.2.0
 fastapi==0.115.12
 fastapi-cli==0.0.7
@@ -25,11 +26,13 @@ hyperframe==6.1.0
 idna==3.10
 iniconfig==2.1.0
 Jinja2==3.1.6
+lxml==5.4.0
 markdown-it-py==3.0.0
 MarkupSafe==3.0.2
 mdurl==0.1.2
 multidict==6.4.4
 packaging==25.0
+pillow==11.2.1
 pluggy==1.6.0
 postgrest==1.0.2
 propcache==0.3.2
