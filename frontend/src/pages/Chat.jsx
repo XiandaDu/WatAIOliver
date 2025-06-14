@@ -91,16 +91,20 @@ export default function ChatPage() {
 
   const handleSelectConversation = (conversation) => {
     setSelectedConversation(conversation)
-    // Here you would typically load the conversation messages
-    // For now, we'll just set some mock messages
-    setMessages([
-      {
-        id: "1",
-        role: "assistant",
-        content: `Welcome to ${conversation.title}! How can I help you today?`,
-        createdAt: new Date()
-      }
-    ])
+    if (conversation === null) {
+      // Clear messages to show welcome screen
+      setMessages([])
+    } else {
+      // Load conversation messages
+      setMessages([
+        {
+          id: "1",
+          role: "assistant",
+          content: `Welcome to ${conversation.title}! How can I help you today?`,
+          createdAt: new Date()
+        }
+      ])
+    }
   }
 
   return (
