@@ -48,27 +48,29 @@ export default function AdminPage() {
   const handleUpdate = (row) => {
     setSelectedRow(row)
     setIsUpdateModalOpen(true)
+    console.log(`Update clicked for: ${row.name}`)
   }
 
   const handleUpload = (id) => {
     console.log("Upload clicked for id:", id)
     fileInputRef.current.click()
+    console.log(`Upload clicked for id: ${id}`)
   }
 
   const handleDelete = (id) => {
-    console.log("Delete clicked for id:", id)
+    console.log(`Delete clicked for id: ${id}`)
   }
 
   const handleRemoveDocs = (id) => {
-    console.log("Remove Docs clicked for id:", id)
+    console.log(`Remove Docs clicked for id: ${id}`)
   }
 
   const handleExportLog = (id) => {
-    console.log("Export Log clicked for id:", id)
+    console.log(`Export Log clicked for id: ${id}`)
   }
 
   const handleQandA = (id) => {
-    console.log("Q and A clicked for id:", id)
+    console.log(`Q and A clicked for id: ${id}`)
   }
 
   const handleFileChange = (event) => {
