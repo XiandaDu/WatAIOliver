@@ -6,6 +6,7 @@ import { MessageInput } from "@/components/ui/message-input"
 import { transcribeAudio } from "@/lib/utils/audio"
 import { MessageList } from "@/components/ui/message-list"
 import { PromptSuggestions } from "@/components/ui/prompt-suggestions"
+import { CustomSelect } from "@/components/ui/custom-select"
 import { Sidebar } from "@/components/Sidebar"
 
 export default function ChatPage() {
@@ -16,7 +17,7 @@ export default function ChatPage() {
   const [selectedConversation, setSelectedConversation] = useState(null)
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
-  const [selectedModel, setSelectedModel] = useState("GPT-4")
+  const [selectedModel, setSelectedModel] = useState("Model 1")
   const modelOptions = [
     { label: "Model 1", value: "model-1" },
     { label: "Model 2", value: "model-2" },
@@ -132,16 +133,13 @@ export default function ChatPage() {
                     Ask me anything about your course!
                   </p>
                   <div className="mt-4 flex flex-col items-center">
-                    <select
-                      id="model-select-empty"
+                    <CustomSelect
                       value={selectedModel}
-                      onChange={e => setSelectedModel(e.target.value)}
-                      className="w-48 rounded-md border border-gray-300 bg-white py-2 px-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    >
-                      {modelOptions.map(option => (
-                        <option key={option.value} value={option.label}>{option.label}</option>
-                      ))}
-                    </select>
+                      onChange={setSelectedModel}
+                      options={modelOptions}
+                      placeholder="Select a model"
+                      className="w-48"
+                    />
                   </div>
                 </div>
                 <PromptSuggestions
@@ -179,16 +177,15 @@ export default function ChatPage() {
                 <div className="px-6 py-4 flex-shrink-0">
                   <div className="flex flex-col items-start">
                     <h1 className="text-xl font-semibold text-gray-900">Oliver Chat</h1>
-                    <select
-                      id="model-select"
-                      value={selectedModel}
-                      onChange={e => setSelectedModel(e.target.value)}
-                      className="mt-2 w-40 rounded-md border border-gray-300 bg-white py-2 px-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    >
-                      {modelOptions.map(option => (
-                        <option key={option.value} value={option.label}>{option.label}</option>
-                      ))}
-                    </select>
+                    <div className="mt-2">
+                      <CustomSelect
+                        value={selectedModel}
+                        onChange={setSelectedModel}
+                        options={modelOptions}
+                        placeholder="Select a model"
+                        className="w-40"
+                      />
+                    </div>
                   </div>
                 </div>
                 <div
@@ -198,21 +195,39 @@ export default function ChatPage() {
                 >
                   <ChatMessages className="py-6">
                     <div className="space-y-4">
-                      <MessageList
-                        messages={messages}
-                        isTyping={isTyping}
-                        showTimeStamps={true}
-                        messageOptions={(message) => ({
-                          className: message.role === "user"
-                            ? "bg-blue-500 text-white ml-auto rounded-2xl px-4 py-3 max-w-[75%]"
-                            : "bg-gray-100 text-gray-900 rounded-2xl px-4 py-3 max-w-[75%]"
-                        })}
-                      />
+                      {messages.map((message) => (
+                        <div
+                          key={message.id}
+                          className={`flex ${
+                            message.role === "user" ? "justify-end" : "justify-start"
+                          }`}
+                        >
+                          <div
+                            className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                              message.role === "user"
+                                ? "bg-blue-500 text-white"
+                                : "bg-gray-100 text-gray-900"
+                            }`}
+                          >
+                            {message.content}
+                          </div>
+                        </div>
+                      ))}
+                      {isTyping && (
+                        <div className="flex justify-start">
+                          <div className="bg-gray-100 text-gray-900 px-4 py-2 rounded-lg">
+                            <div className="flex space-x-1">
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div ref={messagesEndRef} />
                   </ChatMessages>
                 </div>
-                <div className="px-6 py-4 flex-shrink-0 bg-white mb-12">
+                <div className="px-6 py-4 flex-shrink-0">
                   <ChatForm
                     isPending={isLoading || isTyping}
                     handleSubmit={handleSubmit}
@@ -225,9 +240,9 @@ export default function ChatPage() {
                         files={files}
                         setFiles={setFiles}
                         stop={stop}
-                        isGenerating={isLoading}
+                        isGenerating={false}
                         transcribeAudio={transcribeAudio}
-                        placeholder="Ask about Waterloo..."
+                        placeholder="Ask me about school..."
                       />
                     )}
                   </ChatForm>

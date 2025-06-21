@@ -1,4 +1,5 @@
 import { useState, useRef } from "react"
+import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import {
   Table,
@@ -8,16 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import AdminSidebar from "@/components/AdminSidebar"
 
 const data = [
   {
@@ -41,14 +33,12 @@ const data = [
 ]
 
 export default function AdminPage() {
-  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false)
-  const [selectedRow, setSelectedRow] = useState(null)
   const fileInputRef = useRef(null)
+  const navigate = useNavigate()
 
   const handleUpdate = (row) => {
-    setSelectedRow(row)
-    setIsUpdateModalOpen(true)
-    console.log(`Update clicked for: ${row.name}`)
+    // Navigate to edit page with row data
+    navigate('/admin/edit', { state: { entry: row } })
   }
 
   const handleUpload = (id) => {
@@ -83,6 +73,7 @@ export default function AdminPage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
+      <AdminSidebar title="Admin Panel" />
       <div className="flex-1 flex flex-col">
         <header className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
           <h1 className="text-2xl font-semibold text-gray-900">Admin Panel</h1>
@@ -133,33 +124,6 @@ export default function AdminPage() {
           </div>
         </main>
       </div>
-
-      {selectedRow && (
-        <Dialog open={isUpdateModalOpen} onOpenChange={setIsUpdateModalOpen}>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Update Row</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">
-                  Name
-                </Label>
-                <Input id="name" defaultValue={selectedRow.name} className="col-span-3" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="notes" className="text-right">
-                  Notes
-                </Label>
-                <Input id="notes" defaultValue={selectedRow.notes} className="col-span-3" />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="submit" onClick={() => setIsUpdateModalOpen(false)}>Save changes</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
 
       <input
         type="file"

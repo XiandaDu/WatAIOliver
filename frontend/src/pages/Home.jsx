@@ -13,7 +13,7 @@ export default function Home() {
         <p className="text-lg leading-8 text-gray-600 max-w-2xl mx-auto">
           Your intelligent education assistant.
         </p>
-        <div className="mt-10">
+        <div className="mt-10 space-y-4">
           <Button 
             size="lg"
             onClick={() => navigate('/chat')}
@@ -21,6 +21,16 @@ export default function Home() {
           >
             Start Chatting
           </Button>
+          <div className="pt-2">
+            <Button 
+              variant="outline"
+              size="lg"
+              onClick={() => navigate('/admin')}
+              className="border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 px-8 py-6 text-lg"
+            >
+              Admin Panel
+            </Button>
+          </div>
         </div>
       </div>
     </div>
