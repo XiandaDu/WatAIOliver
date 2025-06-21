@@ -11,10 +11,19 @@ class ConversationCreate(ConversationBase):
     id: Optional[str] = None
 
 class ConversationUpdate(BaseModel):
+    conversation_id: str
     message: Optional[str] = None
-    reasoning: Optional[bool] = None
 
-class ConversationOut(ConversationBase):
-    id: str
-    created_at: datetime
-    updated_at: datetime
+class ConversationDelete(BaseModel):
+    conversation_id: str
+
+class MessageCreate(BaseModel):
+    user_id: str    
+    sender: Literal["user", "assistant"]
+    content: str
+
+class MessageUpdate(BaseModel):
+    content: Optional[str] = None
+
+class MessageDelete(BaseModel):
+    message_id: str
