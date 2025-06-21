@@ -1,3 +1,4 @@
+import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Table,
@@ -7,6 +8,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 const data = [
   {
@@ -30,14 +41,18 @@ const data = [
 ]
 
 export default function AdminPage() {
-  const handleUpdate = (id) => {
-    console.log("Update clicked for id:", id)
-    // Placeholder for update logic
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false)
+  const [selectedRow, setSelectedRow] = useState(null)
+  const fileInputRef = useRef(null)
+
+  const handleUpdate = (row) => {
+    setSelectedRow(row)
+    setIsUpdateModalOpen(true)
   }
 
   const handleUpload = (id) => {
     console.log("Upload clicked for id:", id)
-    // Placeholder for upload logic
+    fileInputRef.current.click()
   }
 
   const handleDelete = (id) => {
@@ -54,6 +69,14 @@ export default function AdminPage() {
 
   const handleQandA = (id) => {
     console.log("Q and A clicked for id:", id)
+  }
+
+  const handleFileChange = (event) => {
+    const file = event.target.files[0]
+    if (file) {
+      console.log("Selected file:", file.name)
+      // Placeholder for upload logic
+    }
   }
 
   return (
@@ -93,7 +116,7 @@ export default function AdminPage() {
                     <TableCell className="max-w-xs whitespace-normal text-xs">{row.prompt}</TableCell>
                     <TableCell>
                       <div className="flex flex-col space-y-2">
-                        <Button variant="outline" size="sm" onClick={() => handleUpdate(row.id)}>Update</Button>
+                        <Button variant="outline" size="sm" onClick={() => handleUpdate(row)}>Update</Button>
                         <Button variant="destructive" size="sm" onClick={() => handleDelete(row.id)}>Delete</Button>
                         <Button variant="outline" size="sm" onClick={() => handleUpload(row.id)}>Upload</Button>
                         <Button variant="outline" size="sm" onClick={() => handleRemoveDocs(row.id)}>Remove Docs</Button>
@@ -108,6 +131,40 @@ export default function AdminPage() {
           </div>
         </main>
       </div>
+
+      {selectedRow && (
+        <Dialog open={isUpdateModalOpen} onOpenChange={setIsUpdateModalOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Update Row</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="name" className="text-right">
+                  Name
+                </Label>
+                <Input id="name" defaultValue={selectedRow.name} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="notes" className="text-right">
+                  Notes
+                </Label>
+                <Input id="notes" defaultValue={selectedRow.notes} className="col-span-3" />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="submit" onClick={() => setIsUpdateModalOpen(false)}>Save changes</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        style={{ display: "none" }}
+      />
     </div>
   )
 } 
