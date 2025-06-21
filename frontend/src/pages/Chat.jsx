@@ -131,6 +131,18 @@ export default function ChatPage() {
                   <p className="text-gray-600">
                     Ask me anything about your course!
                   </p>
+                  <div className="mt-4 flex flex-col items-center">
+                    <select
+                      id="model-select-empty"
+                      value={selectedModel}
+                      onChange={e => setSelectedModel(e.target.value)}
+                      className="w-48 rounded-md border border-gray-300 bg-white py-2 px-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    >
+                      {modelOptions.map(option => (
+                        <option key={option.value} value={option.label}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 <PromptSuggestions
                   label="Get started with some examples"
