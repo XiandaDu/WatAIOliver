@@ -2,27 +2,25 @@ from pydantic import BaseModel
 from typing import Literal, Optional
 from datetime import datetime
 
-class ConversationBase(BaseModel):
+class ConversationCreate(BaseModel):
     user_id: str
-    sender: Literal["user", "assistant"]
-    message: str
-
-class ConversationCreate(ConversationBase):
-    id: Optional[str] = None
+    title: Optional[str] = None
 
 class ConversationUpdate(BaseModel):
     conversation_id: str
-    message: Optional[str] = None
+    title: Optional[str] = None
 
 class ConversationDelete(BaseModel):
     conversation_id: str
 
 class MessageCreate(BaseModel):
+    conversation_id: str
     user_id: str    
     sender: Literal["user", "assistant"]
     content: str
 
 class MessageUpdate(BaseModel):
+    message_id: str
     content: Optional[str] = None
 
 class MessageDelete(BaseModel):

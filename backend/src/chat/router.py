@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, UploadFile, File, Form, Query, HTTPException, status
 from . import service
-from .models import ConversationBase, ConversationCreate, ConversationUpdate, ConversationDelete, MessageCreate, MessageUpdate, MessageDelete
+from .models import ConversationCreate, ConversationUpdate, ConversationDelete, MessageCreate, MessageUpdate, MessageDelete
 from . import CRUD as supabase_crud
 
 router = APIRouter(
@@ -13,7 +13,7 @@ async def chat(data: ConversationUpdate):
     return service.nebula_text_endpoint(data.message)
 
 @router.post("/open_ask")
-async def open_ask(data: ConversationBase):
+async def open_ask(data: ConversationCreate):
     return service.open_ask(data)
 
 @router.post("/create_conversation")

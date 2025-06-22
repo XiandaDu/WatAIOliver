@@ -1,13 +1,17 @@
 from supabase_client import supabase
-from .models import ConversationCreate, ConversationUpdate, ConversationDelete, MessageCreate, MessageUpdate, MessageDelete
+from .models import ConversationBase, ConversationUpdate, ConversationDelete, MessageCreate, MessageUpdate, MessageDelete
+from datetime import datetime
+import uuid
 
 ##### CONVERSATION TABLE #####
 # CREATE
-def create_conversation(data: ConversationCreate):
+def create_conversation(data: ConversationBase):
     data = {
+        "conversation_id": str(uuid.uuid4()),
         "user_id": data.user_id,
-        "sender": data.sender,
-        "message": data.message,
+        "title": data.title,
+        "created_at": datetime.now(),
+        "updated_at": datetime.now(),
     }
     response = supabase.table("conversation").insert(data).execute()
     return response.data
@@ -19,7 +23,7 @@ def get_conversations(user_id: str):
 
 # UPDATE (update message by id)
 def update_conversation(data: ConversationUpdate):
-    response = supabase.table("conversation").update({"message": data.message}).eq("conversation_id", data.conversation_id).execute()
+    response = supabase.table("conversation").update([{"title": data.title}, {"updated_at": datetime.now()}]).eq("conversation_id", data.conversation_id).execute()
     return response.data
 
 # DELETE (delete conversation by id)
@@ -32,9 +36,13 @@ def delete_conversation(data: ConversationDelete):
 # CREATE
 def create_message(data: MessageCreate):
     data = {
+        "message_id": str(uuid.uuid4()),
+        "conversation_id": data.conversation_id,
         "user_id": data.user_id,
         "sender": data.sender,
         "content": data.content,
+        "created_at": datetime.now(),
+        "updated_at": datetime.now(),
     }
     response = supabase.table("messages").insert(data).execute()
     return response.data
@@ -46,7 +54,7 @@ def get_messages(conversation_id: str):
 
 # UPDATE (update message by id)
 def update_message(data: MessageUpdate):
-    response = supabase.table("messages").update({"content": data.content}).eq("message_id", data.message_id).execute()
+    response = supabase.table("messages").update([{"content": data.content}, {"updated_at": datetime.now()}]).eq("message_id", data.message_id).execute()
     return response.data
 
 # DELETE (delete message by id)

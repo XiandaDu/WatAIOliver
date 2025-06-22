@@ -1,6 +1,6 @@
 import requests
 from logger import logger
-from .models import ConversationBase, ConversationUpdate, ConversationOut
+from .models import ConversationCreate, ConversationUpdate, MessageCreate, MessageUpdate, MessageDelete
 
 BASE_URL = "http://ece-nebula07.eng.uwaterloo.ca:8976"  # This is the stable endpoint
 
@@ -35,7 +35,7 @@ def nebula_text_endpoint(data: ConversationUpdate) -> str:
     response = requests.post(f"{BASE_URL}/generate", data)
     return response.json().get("result", "No result returned")
 
-def open_ask(data: ConversationBase):
+def open_ask(data: ConversationCreate):
     pass
     # course_id = -1
     # model_name = 'qwen'
