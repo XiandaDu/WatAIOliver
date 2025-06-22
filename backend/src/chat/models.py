@@ -2,6 +2,13 @@ from pydantic import BaseModel
 from typing import Literal, Optional
 from datetime import datetime
 
+class ConversationBase(BaseModel):
+    conversation_id: str
+    user_id: str
+    title: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
 class ConversationCreate(BaseModel):
     user_id: str
     title: Optional[str] = None
@@ -12,6 +19,19 @@ class ConversationUpdate(BaseModel):
 
 class ConversationDelete(BaseModel):
     conversation_id: str
+
+class ConversationOut(BaseModel):
+    data: list[ConversationBase]
+    count: Optional[int] = None
+
+class MessageBase(BaseModel):
+    message_id: str
+    conversation_id: str
+    user_id: str
+    sender: Literal["user", "assistant"]
+    content: str
+    created_at: datetime
+    updated_at: datetime
 
 class MessageCreate(BaseModel):
     conversation_id: str
@@ -25,3 +45,7 @@ class MessageUpdate(BaseModel):
 
 class MessageDelete(BaseModel):
     message_id: str
+
+class MessageOut(BaseModel):
+    data: list[MessageBase]
+    count: Optional[int] = None
