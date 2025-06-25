@@ -16,8 +16,11 @@ import math
 import traceback
 from pathlib import Path
 
-# Set the correct API key directly (bypasses any env issues)
-os.environ["GEMINI_API_KEY"] = "AIzaSyBaScj_-dVfG180veLDhCAnSr3av2wRBac"
+# Get API key from environment
+if not os.getenv("GEMINI_API_KEY"):
+    print("❌ Error: GEMINI_API_KEY environment variable not set")
+    print("Please set your API key: export GEMINI_API_KEY='your_api_key_here'")
+    sys.exit(1)
 
 # Add the rag_system to Python path
 sys.path.append(str(Path(__file__).parent.parent / "rag_system"))
