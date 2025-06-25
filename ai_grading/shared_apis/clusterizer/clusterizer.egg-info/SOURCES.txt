@@ -1,0 +1,6 @@
+clusterizer.py
+pyproject.toml
+clusterizer.egg-info/PKG-INFO
+clusterizer.egg-info/SOURCES.txt
+clusterizer.egg-info/dependency_links.txt
+clusterizer.egg-info/top_level.txt

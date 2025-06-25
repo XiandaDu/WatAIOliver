@@ -1,0 +1,2064 @@
+\setlength{\columnseprule}{1pt}
+\def\columnseprulecolor{\color{blue}}
+
+
+\begin{frame}[fragile]
+\STitle{Virtual Memory}
+\begin{itemize}
+	\item Level of memory hierarchy between main memory and secondary
+		storage (disks)
+	\item Motivations: 
+	\begin{itemize}
+		\item Sharing memory among multiple programs
+		\item Allowing single user program to exceed size of main memory
+	\end{itemize}
+	\item Different terminology:
+	\begin{itemize}
+		\item Page: virtual memory block
+		\item Page fault: virtual memory miss
+	\end{itemize} 
+	\item Idea similar to cache:
+	\begin{itemize}
+		\item Complete program (instructions and data) stored on disk
+		\item Only keep parts you need in memory
+		\item Use large (4KB+) blocks to reduce cost
+	\end{itemize}
+\end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item What are the problems in sharing memory among multiple programs?
+Only one can be executing at any given time, but the user should be
+given the illusion that all are executing. This can be done by sharing
+the CPU in small timeslices. But when the execution of one program is
+suspended to allow another program to execute, what is done with the
+first program's data? Keep in mind that typically each program is
+using only a small fraction of the total address space, in total, and
+even less when you consider ``active'' use.
+\item One radical choice is to save all of main memory on disk, but
+this is clearly ridiculous. Another is to divide up main memory into
+sections and confine each program to one section. But the situation is
+dynamic: when compiling a program, we know nothing about what other
+programs will be running with it, and we don't want to plan for the
+worst case.
+\item One solution is to have a virtual address space for each
+program, and then translate the references to virtual memory into
+references to physical memory as the references are made at run time.
+\item For the second motivation, invoke the days of old when
+microprocessors were lucky to have 1K of memory. 
+
+Now with base configurations start at 4GB, there is less of a problem
+with programs (+data) that don't fit in memory.  Maybe video editing, but
+probably little else in the consumer market.  Of course, on a smart phone...
+
+\item Emphasize that virtual memory is really the same idea as caches,
+but at a different level (main memory vs disk), with different choices
+because of the physical differences and motivations,
+and different terminology because of historical development. 
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{How to run two programs at once?}
+
+\begin{itemize}
+\item Each program\footnote{Instruction addresses go up to $2^{64}-4$; D-format instructions can have addresses that go up to $2^{64}-8$.} starts at address 0 and goes up to $2^{64}-4$ (64 bit)
+
+\item How do we run two programs?
+\item A \textbf{Process }is a running program. 
+
+\item \textbf{Time slice}: each process gets to run for a while, and the operating system switches between multiple processes.
+
+\item How do we switch between processes?
+
+\end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+	\item Instruction addresses go up to $2^{64}-4$; load word/store word
+		addresses go up to $2^{64}-8$.
+	\item Note: on the following slides, figures will often show
+		memory going from 0 to $2^{64}$.  This is to save space
+		on the slides; the address space really just runs to $2^{64}-8$.
+	\item With 32 bit computers, addresses start at 0 and go up to $2^{32}-4$
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+
+
+
+% % \ifnum\slides=0
+% \begin{frame}[fragile]
+% \Title{Idea 1: Copy back/forth to disk}
+% \begin{itemize}
+% \item When changing programs, copy current program onto disk and \\
+% 	read next program from disk
+
+% \TwoFigure{!}{2in}{1.5in}{VM/vm1}{VM/vm2}
+
+% % \TwoFigure{!}{3in}{2in}{VM/vm3}{VM/vm4}
+
+% \item  At 70MB/s, swapping between two 100MB programs takes over 2 seconds
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% ~
+% \fi\ENotes
+% \end{frame}
+
+% % \else
+
+% \begin{frame}[fragile]
+% \Title{Idea 1: Copy back/forth to disk}
+% \begin{itemize}
+% \item When changing programs, copy current program onto disk and \\
+% 	read next program from disk
+
+% % \TwoFigure{!}{2in}{2in}{VM/vm1}{VM/vm2}
+
+% \TwoFigure{!}{2in}{2in}{VM/vm3}{VM/vm4}
+
+% \item  At 70MB/s, swapping between two 100MB programs takes over 2 seconds
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% 	\item This is to illustrate what would happen with a copy scheme.
+% 	\item Note: these four figures are shown as a sequence on the
+% 		slides.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \else
+
+\begin{frame}[fragile]
+\Title{Idea 1: Copy back/forth to disk}
+\begin{itemize}
+\item When switching processes, copy current program from memory\footnote{assume physical memory is $2^{32}$} back to disk and read (copy) next program from disk to memory
+\begin{figure}[H]
+\centering
+	{\includegraphics[width=0.7\textwidth]{06-memory-hierarchies/figures/vm-idea1-modified}}
+\end{figure}
+\item  At 70MB/s, switching between two, say, 100MB programs takes over 2 seconds
+\end{itemize}
+\end{frame}
+
+
+% \begin{frame}[fragile]
+% \Title{Idea 1: Copy back/forth to disk}
+% \begin{itemize}
+% \item When changing programs, copy current program onto disk and \\
+% 	read next program from disk
+
+% \includegraphics[height=1.75in]{VM/vm2}
+
+% \end{itemize}
+
+% \end{frame}
+
+
+% \begin{frame}[fragile]
+% \Title{Idea 1: Copy back/forth to disk}
+% \begin{itemize}
+% \item When changing programs, copy current program onto disk and \\
+% 	read next program from disk
+
+% \includegraphics[height=1.75in]{VM/vm3}
+
+% %\item  At 70MB/s, swapping between two 100MB programs takes over 2 seconds
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% ~
+% \fi\ENotes
+% \end{frame}
+
+
+% \begin{frame}[fragile]
+% \Title{Idea 1: Copy back/forth to disk}
+% \begin{itemize}
+% \item When changing programs, copy current program onto disk and \\
+% 	read next program from disk
+
+% \includegraphics[height=2in]{VM/vm4}
+
+% \item  At 70MB/s, swapping between two 100MB programs takes over 2 seconds
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% ~
+% \fi\ENotes
+% \end{frame}
+% % \fi
+% % \fi % \ifnum\slides=0
+
+
+\begin{frame}[fragile]
+\Title{Idea 2: Keep both programs in memory}
+\begin{itemize}
+\item Keep both programs in memory as follows:\\
+\begin{columns}[c] % The "c" option specifies centered vertical alignment while the "t" option is used for top vertical alignment
+\column{.47\textwidth} % Left column and width
+
+
+% \begin{minipage}{4in}
+\begin{itemize}
+    \item Assume 4GB+ memory
+    \item Assume 2GB program size
+    \item Program 1: 0 to $2^{31}-4$
+    \item Program 2: $2^{31}$ to $2^{32}-4$
+\end{itemize}
+% \end{minipage}
+
+\column{.41\textwidth} % Right column and width
+% \begin{figure}[H]
+% \centering
+	{\includegraphics[scale=0.17]{06-memory-hierarchies/figures/vm-idea2-modified}}
+% \end{figure}
+\end{columns}
+
+    \item Compiler creates Program 2's address space to start at $2^{31}$
+
+    \item Switch between processes by changing \texttt{PC}
+\end{itemize}
+\begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+  title=Think About It,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+\begin{enumerate}
+ \item What if two programs overlap?
+    \item What if both programs need more than 2GB?
+\end{enumerate}
+  \end{tcolorbox}
+    
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item The numbers to the left of Memory are physical memory addresses;
+	the numbers to the right are program memory addresses.
+\item The idea is that programs are created to use a memory space that
+	does NOT necessarily start at 0.  By coordinating creation
+	of programs, we could keep multiple programs in memory at
+	once, and just update the PC to switch between them.
+\item The point of Problem 1 is that the compiler has to decide where a
+	program stops and starts in physical memory, and if two programs
+	are given overlapping addresses, we'd have to swap them out.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+
+\begin{frame}[fragile]
+\Title{Idea 3: Keep both programs in memory}
+\begin{itemize}
+\item Keep both programs in memory as follows:
+\begin{columns}[c] % The "c" option specifies centered vertical alignment while the "t" option is used for top vertical alignment
+\column{.47\textwidth} % Left column and width
+
+\begin{itemize}
+    \item Assume 4GB+ memory
+    \item Assume 2GB program size
+    \item Program 1: 0 to $2^{31}-4$
+    \item Program 2: stored in $2^{31}$ to $2^{32}-4$ \\
+	BUT program addresses are virtually from 0 to $2^{31}-4$
+\end{itemize}
+
+
+\column{.41\textwidth} % Right column and width
+{\includegraphics[scale=0.18]{06-memory-hierarchies/figures/vm-idea3}}
+
+\end{columns}
+
+    \item Switch between processes by changing \texttt{PC}. \textbf{But}, Program 2's addresses need to be converted to physical addresses 
+\end{itemize}
+
+    \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+  title=Think About It,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+{\footnotesize
+\begin{enumerate}
+    \item How to convert from virtual to physical addresses
+    \item What if both programs need more than 2GB?
+    \item Slow to load large programs
+\end{enumerate}
+}
+  \end{tcolorbox}
+
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item The numbers to the left of Memory are physical memory addresses;
+	the numbers to the right are program memory addresses.
+\item Problem 3 may not be too bad in general, since most programs
+	are small.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+
+\begin{frame}[fragile]
+\Title{Idea 4: Virtual Memory}
+\begin{itemize}
+    \item Improving on idea 3, split memory into pages (e.g., blocks of 4KB).  
+    \item Each page of program can be in any page of physical memory.
+
+\begin{figure}[H]
+\centering
+	{\includegraphics[height=0.6\textheight]{06-memory-hierarchies/figures/vm-idea4-modified}}
+\end{figure}
+
+    \item Use page table to map program address to physical address.
+    \item If a process wants more space, give it a new page.
+
+	If no pages available, use page replacement policy to replace pages 
+\end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+    \item The number on the right of the MEMORY is the start address of that block that the program sees (the virtual address).  Note the arbitrary order, and note for the blue program, blocks start at 0, 4K, and 24K (ie, a lot are missing).
+	\item The key idea is that you don't need all of any one program
+		in memory to execute it; you just need the parts that
+		contain the instructions/data currently being used.
+	\item Note that the entire program (instructions, data) are on
+		disk; only parts of them are in memory.
+	\item Note that any subset of the pages of a program can be anywhere
+		in memory (and thus the scrambled program addresses).
+
+		The program addresses are {\it virtual memory addresses.}
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{Virtual Memory Mappings}
+\bigskip
+{\includegraphics[scale=0.1]{06-memory-hierarchies/figures/map-virtual-physical-addr-1to1.png}}
+
+\PHFigure{!}{1in}{1in}{PHALL/F0721-64}{Figure 5.26}\footnote{Note: ARMv8 doesn't use the upper 16-bits
+  of the address space}
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item Note: this figure differs from 5.26 of the text, which only has 48-bits
+  in the virtual address.  That's because ARMv8 doesn't use the upper 16-bits
+  of the address space.
+\item Note that the address translation, which is also called memory
+  mapping, allows us to map the virtual address space of a program
+  anywhere in physical memory. 
+\item Thus two different programs can be
+  compiled to use overlapping parts of virtual memory (or even exactly
+  the same part) because their physical memory counterparts can be
+  arranged so that they don't overlap. Furthermore, doing the mapping in
+  small chunks means that memory can be managed effectively. 
+
+\item Note that figure erroneously has two virtual pages pointing to
+	same physical page.  Point this out and state that this is
+	incorrect: a physical can be pointed to by at most one virtual
+	page.  The exception would be for a page shared by two programs,
+        but then each program would have its own page table.
+
+\item Instructor should draw a second page table (program) and show it
+	linking one page to the only empty page in physical addresses.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{Virtual Memory Mappings}
+\bigskip
+{\includegraphics[width=\textwidth]{06-memory-hierarchies/figures/virtual-memory-mappings-anno.png}}
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{Virtual Memory Mappings}
+\bigskip
+{\includegraphics[width=\textwidth]{06-memory-hierarchies/figures/virtual-memory-mappings-anno-1.png}}
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{Virtual Memory Mappings}
+\bigskip
+{\includegraphics[width=\textwidth]{06-memory-hierarchies/figures/virtual-memory-mappings-anno-2.png}}
+\end{frame}
+
+\begin{frame}[fragile]\frametitle{Key Decisions for Virtual Memory}
+
+Design choices in virtual memory are motivated by the high cost of a page fault, which can take millions of clock cycles. This enormous penalty is dominanted by the time to get the first word. Consecutive words after the first can be fetched at a small incremental cost 
+
+
+\begin{itemize}
+\item Pages should be large to amortize high access time. \textbf{Page size} range from \textbf{4KiB}, to 64 KiB. Embedded systems use small pages of around 1 KiB. 
+% This course prefers 4 KiB pages.
+
+\item \textbf{Full associativity }lowers the page fault rate which is the overwhelming concern. Thus, pages can be placed anywhere in physical memory and located using a \textbf{page table}, instead of a full search of memory.
+
+\item \textbf{Operating System (software) to handle page faults} because the overhead is small compared to disk access.
+
+\item Write-through takes too long so use \textbf{write-back}\footnote{called \textbf{copyout} in this level of the memory hierarchy}.\begin{itemize}
+    \item Dirty bit
+\end{itemize}
+\end{itemize}
+
+\end{frame}
+
+
+% \begin{frame}[fragile]
+% \Title{Key Decisions for Virtual Memory}
+% \begin{itemize}
+% \item Misses very expensive (millions of cycles)
+% \item Pages are larger (1KB to 4KB up to 64KB)
+% \item Fully-associative schemes pay off, though full search too expensive
+% \item Page faults handled in software (OS)
+% \item Write-back used (write-through too expensive)
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item The 1KB is (according to the book) for embedded devices.  We will
+%   use 4KB pages because it makes the hex address translation easy.
+
+%   ARMv8 apparently supports 4KB, 16KB, or 64 KB pages.
+%   \item
+% The decisions are motivated by the high miss penalty. A page size of
+% 4KB (1K words) was standard for many years but the page sizes are now
+% increasing. Typically magnetic memory allow consecutive words after
+% the first to be fetched at a small incremental cost compared to the
+% cost of the first access, so having a larger page makes sense. Increasing
+% associativity lowers the page fault rate which is the overwhelming
+% concern, so pages can be placed anywhere in physical memory. It is
+% more expensive to process page faults in software rather than in
+% hardware, but this overhead is dwarfed by the cost of a page
+% replacement, so clever schemes that take a little more time pay
+% off. The operating system takes care of this with hardware assistance.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+%-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{Page Replacement Schemes}
+% When a page needs replacement, we must decide which to replace.
+% \begin{itemize}
+% \item An ideal page would be one that is never used again, a computer cannot compute this.
+% \item A reasonable approximation to ``never used" is used ``furthest into the future". Again, the computer cannot compute that.
+% \end{itemize}
+% Note that caches have to make a similar decision.
+% \end{frame}
+
+%-----------------------------------------------------
+\begin{frame}[fragile]\frametitle{Page Replacement Schemes}
+% {\footnotesize
+Page Replacement policy observations:
+\begin{itemize}
+\item Optimal: replace page used farthest into the future - not possible
+\item Good approximation: LRU (Least Recently Used)
+\end{itemize}
+Page Replacement schemes:
+\begin{itemize}
+\item \textbf{LRU - Least Recently Used}: requires time stamping pages and sorting time stamps.
+% \begin{itemize}
+%      % \item Too expensive to implement exactly, use approximation (e.g.
+% % reference bits)
+% \end{itemize}
+\item \textbf{LFU - Least Frequently Used}: requires counter to estimate frequency of access to a page.
+
+\item \textbf{FIFO - First In, First Out}: Queues up the pages in to order in which they were allocated and replaces the oldest page. 
+
+\item \textbf{Randomly Replace a Page}: When a program has a lot of pages, it is very unlikely that a page that is needed is replaced.
+\end{itemize}
+% Page Replacement policy observations:
+% \begin{itemize}
+% \item Optimal: replace page used farthest into the future - not possible
+% \item Good approximation: LRU (Least Recently Used)
+% \item Too expensive to implement exactly, use approximation (e.g.
+% reference bits)
+% \end{itemize}
+% }
+\end{frame}
+%-----------------------------------------------------
+
+% 
+% \begin{frame}[fragile]
+% \Title{Page Replacement Schemes}
+% When a page needs replacement, we must decide which to replace.
+% \begin{itemize}
+% 	\item LRU (Least Recently Used)
+% 	\item LFU (Least Frequently Used)
+% 	\item FIFO (First In, First Out)
+% 	\item Random
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item An ideal page would be one that is never used again, but can't
+% 	compute that.
+% \item A reasonable approximation to "never used" is used "furthest into
+% 	the future".  Again, we can't compute that.
+% \item LRU is a guess as to which page we won't need or won't need until
+% 	furthest into the future.  Requires time stamping your pages
+% 	and sorting time stamps.
+% \item LFU is also a guess as to which one page we won't need or won't
+% 	need until furthest into the future.  The idea is that we
+% 	have a counter as well as a time stamp (for when page was
+% 	created) and we can check how frequently a page gets used.
+% \item FIFO just queues up the pages in to order in which they were
+% 	allocated (not used) and replaces the oldest page.  Probably
+% 	not the best way, but it's easy to implement.  Of course, if
+% 	you're going to queue pages, and you can access into the
+% 	queue when you access a page, you could move pages to end of
+% 	the queue to get LRU, but then page access becomes too expensive.
+% \item If you have LOTS of pages, then just randomly pick a page to replace.
+% 	The advantage is that the method is cheap and requires no book
+% 	keeping.  And while it's possible you will toss the very next
+% 	page needed, it's very unlikely (if you have lots of pages).
+% \item Note that caches have to make a similar decision.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{More on Page Tables}
+% % \begin{itemize}
+% % \item Page replacement policies:
+% % \begin{itemize}
+% % \item Optimal: replace page used farthest into the future
+% % \item Good approximation: LRU (Least Recently Used)
+% % \item Too expensive to implement exactly, use approximation (eg
+% % reference bits)
+% % \end{itemize}
+
+% \begin{itemize}
+% \item Approximation to LRU:
+% \begin{itemize}
+%     \item Reference bits mark pages that have been used recently
+%     \item Periodically the OS goes through and clears them all. \item When a page fault occurs, any
+% page with the reference bit cleared is considered one of the LRU pages that the OS can select to replace.
+% \end{itemize}
+% \end{itemize}
+
+% \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+%   title=Think About It,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+
+% Page tables are large (contain mappings for every virtual page) in the virtual address space of a process.
+%   \end{tcolorbox}
+
+%   \begin{itemize}
+% \item Multi-level page tables reduce space needed 
+% \item Page tables can themselves be paged
+% \end{itemize}
+
+% % \item Page tables are large (contain mappings for every virtual page)
+% % \begin{itemize}
+% % \item Multi-level page tables reduce space needed 
+% % \item Page tables can themselves be paged
+% % \end{itemize}
+% % \item VM must use writeback (called copyback here)
+% % \begin{itemize}
+% % \item Dirty bit
+% % \end{itemize}
+% % \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item
+% Reference bits mark pages that have been used recently; periodically
+% the OS goes through and clears them all. When a page fault occurs, any
+% page with the reference bit cleared is game for replacement.
+% \item 
+% The size of page tables can be reduced by making them multi-level,
+% where the highest level entries have an indication as to whether or
+% not there are any lower-level entries (like an incomplete tree). The
+% entries in multi-level page tables can themselves be pages that can be
+% kicked out of memory, provided care is taken to not create situations
+% where a long series of page faults occurs. 
+% \item
+% Copy-back refers to the writeback scheme applied to
+% pages. Write-through makes no sense with VM because every write to a
+% single word in memory would result in the entire page being copied
+% back to disk. A page can be augmented with a
+% dirty bit that is set when it is written to while in memory. If a page
+% is only read, it doesn't have to be written back to disk when ejected
+% from memory.
+
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+\begin{frame}[fragile]
+\Title{More on Page Tables}
+% \begin{itemize}
+% \item Page replacement policies:
+% \begin{itemize}
+% \item Optimal: replace page used farthest into the future
+% \item Good approximation: LRU (Least Recently Used)
+% \item Too expensive to implement exactly, use approximation (eg
+% reference bits)
+% \end{itemize}
+
+\begin{itemize}
+\item Approximation to LRU:
+\begin{itemize}
+    \item Reference bits mark pages that have been used recently
+    \item Periodically the OS goes through and clears them all. \item When a page fault occurs, any
+page with the reference bit cleared is considered one of the LRU pages that the OS can select to replace.
+\end{itemize}
+\end{itemize}
+
+\begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+  title=Think About It,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+
+Page tables are \textbf{large} (contain mappings for every virtual page) in the virtual address space of a process.
+  \end{tcolorbox}
+Reduce space used by page tables:
+  \begin{itemize}
+\item Multi-level page tables reduce space needed 
+\item Page tables can themselves be paged
+\end{itemize}
+
+% \item Page tables are large (contain mappings for every virtual page)
+% \begin{itemize}
+% \item Multi-level page tables reduce space needed 
+% \item Page tables can themselves be paged
+% \end{itemize}
+% \item VM must use writeback (called copyback here)
+% \begin{itemize}
+% \item Dirty bit
+% \end{itemize}
+% \end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item
+Reference bits mark pages that have been used recently; periodically
+the OS goes through and clears them all. When a page fault occurs, any
+page with the reference bit cleared is game for replacement.
+\item 
+The size of page tables can be reduced by making them multi-level,
+where the highest level entries have an indication as to whether or
+not there are any lower-level entries (like an incomplete tree). The
+entries in multi-level page tables can themselves be pages that can be
+kicked out of memory, provided care is taken to not create situations
+where a long series of page faults occurs. 
+\item
+Copy-back refers to the writeback scheme applied to
+pages. Write-through makes no sense with VM because every write to a
+single word in memory would result in the entire page being copied
+back to disk. A page can be augmented with a
+dirty bit that is set when it is written to while in memory. If a page
+is only read, it doesn't have to be written back to disk when ejected
+from memory.
+
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+% for comprehensive
+\newpage
+\begin{frame}[fragile]
+\Title{Page Tables}
+\PHFigure{!}{4in}{3in}{PHALL/F0722-64}{Figure 5.27}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item
+This is figure 5.22 from the text, modified to be 64-bit, showing the page table for a
+virtual address space of $2^{64}$ bytes, and physical
+address space of 8GB. The page size is $2^{12}$ bytes or
+4 Kb. 
+\item
+Note the size of the page table is $2^{52}$ entries, much too big for 
+physical memory in 2016!  There
+is a detailed discussion on page 450 of what to do about this, but we
+sketch some ideas on the next slide.
+\item
+Note the page table register, a hardware register containing the
+address of the page table. The lookup algorithm can be implemented
+either in hardware or software.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{Page Table Example}
+\begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+  title=Try this,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+Given, page size is 4KB and the page table below, translate a 64-bit virtual address into a physical addresses.   
+\Figure{!}{2.1in}{1.8in}{Figs/pt}
+\end{tcolorbox}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item This is an example of converting a virtual address to a physical address.
+
+	First, note that this is only a small part of the page table.
+
+	Second, the '...' means we need another 32 0's to complete the 64-bit
+	address.
+
+	Third, do the mapping in the three cases.  Use the first 5 blocks
+	as an index into the page table to get the physical address.  Note
+	that in the 3rd case, the valid bit is 0, so this page isn't in memory
+	and you can't do the mapping.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+%-----------------------------------------------------
+% for comprehensive
+\newpage
+\ifnum\Ans=1{
+\begin{frame}[fragile]\frametitle{Solution: Page Table Example Part 1}
+The first virtual address has index
+\begin{verbatim}
+0000 ... 0000 0000 0000 0000
+\end{verbatim}
+Look up this index in the page table, its valid bit is 1. So map to the physical page number and copy the page offset.
+\begin{figure}[H]
+\centering
+	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/pagetable-ex-ix}}
+\end{figure}
+The first virtual address is translated to its physical address as:
+\begin{figure}[H]
+\centering
+	{\includegraphics[width=0.9\textwidth]{06-memory-hierarchies/figures/virtual-physical-ex1}}
+\end{figure}
+
+\end{frame}
+
+%-----------------------------------------------------
+\begin{frame}[fragile]\frametitle{Solution: Page Table Example Part 2}
+The second virtual address has index
+\begin{verbatim}
+0000 ... 0000 0000 0000 0001
+\end{verbatim}
+Look up this index in the page table, its valid bit is 1. So map to the physical page number and copy the page offset.
+\begin{figure}[H]
+\centering
+	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/pagetable-ex-ix}}
+\end{figure}
+The second virtual address is translated to its physical address as:
+\begin{figure}[H]
+\centering
+	{\includegraphics[width=0.9\textwidth]{06-memory-hierarchies/figures/virtual-physical-ex2}}
+\end{figure}
+
+\end{frame}
+
+%-----------------------------------------------------
+
+\begin{frame}[fragile]\frametitle{Solution: Page Table Example Part 3}
+The third virtual address has index
+\begin{verbatim}
+0000 ... 0000 0000 0000 0010
+\end{verbatim}
+Look up this index in the page table, its valid bit is 0. So this virtual page is not in memory, this is a \emph{page fault}. Page must be loaded from disk. 
+\begin{figure}[H]
+\centering
+	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/pagetable-ex-ix}}
+\end{figure}
+The third virtual address triggers a page fault.
+\begin{figure}[H]
+\centering
+	{\includegraphics[width=0.9\textwidth]{06-memory-hierarchies/figures/virtual-physical-ex3}}
+\end{figure}
+
+\end{frame}
+}\fi
+
+
+% \begin{frame}[fragile]
+% \Title{More on Page Tables}
+% \begin{itemize}
+% \item Page replacement policies:
+% \begin{itemize}
+% \item Optimal: replace page used farthest into the future
+% \item Good approximation: LRU (Least Recently Used)
+% \item Too expensive to implement exactly, use approximation (eg
+% reference bits)
+% \end{itemize}
+% \item Page tables are large (contain mappings for every virtual page)
+% \begin{itemize}
+% \item Multi-level page tables reduce space needed 
+% \item Page tables can themselves be paged
+% \end{itemize}
+% \item VM must use writeback (called copyback here)
+% \begin{itemize}
+% \item Dirty bit
+% \end{itemize}
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item
+% Reference bits mark pages that have been used recently; periodically
+% the OS goes through and clears them all. When a page fault occurs, any
+% page with the reference bit cleared is game for replacement.
+% \item 
+% The size of page tables can be reduced by making them multi-level,
+% where the highest level entries have an indication as to whether or
+% not there are any lower-level entries (like an incomplete tree). The
+% entries in multi-level page tables can themselves be pages that can be
+% kicked out of memory, provided care is taken to not create situations
+% where a long series of page faults occurs. 
+% \item
+% Copy-back refers to the writeback scheme applied to
+% pages. Write-through makes no sense with VM because every write to a
+% single word in memory would result in the entire page being copied
+% back to disk. A page can be augmented with a
+% dirty bit that is set when it is written to while in memory. If a page
+% is only read, it doesn't have to be written back to disk when ejected
+% from memory.
+
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \ifnum\slides=1
+
+% \else
+% \begin{tabular}{cc}
+% Picture initially on disk&When read, copied to memory,swap\\
+% \includegraphics[height=2.5in]{Figs/swap1.pdf}&
+% \includegraphics[height=2.5in]{Figs/swap2}\\
+% Set dirty bit if picture modifed & Copy to swap if pic page swapped out\\
+% \includegraphics[height=2.5in]{Figs/swap3}&
+% \includegraphics[height=2.5in]{Figs/swap4}\\
+% Picture only in swap&Copy back to memory when used again\\
+% \includegraphics[height=2.5in]{Figs/swap5}&
+% \includegraphics[height=2.5in]{Figs/swap6}
+% \end{tabular}
+% \fi
+
+
+
+% \begin{frame}[fragile]
+% \Title{More on Page Tables}
+% % \begin{itemize}
+% % \item Page replacement policies:
+% % \begin{itemize}
+% % \item Optimal: replace page used farthest into the future
+% % \item Good approximation: LRU (Least Recently Used)
+% % \item Too expensive to implement exactly, use approximation (eg
+% % reference bits)
+% % \end{itemize}
+
+% \begin{itemize}
+% \item Approximation to LRU:
+% \begin{itemize}
+%     \item Reference bits mark pages that have been used recently
+%     \item Periodically the OS goes through and clears them all. \item When a page fault occurs, any
+% page with the reference bit cleared is considered one of the LRU pages that the OS can select to replace.
+% \end{itemize}
+% \end{itemize}
+
+% \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+%   title=Think About It,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+
+% Page tables are large (contain mappings for every virtual page) in the virtual address space of a process.
+%   \end{tcolorbox}
+
+%   \begin{itemize}
+% \item Multi-level page tables reduce space needed 
+% \item Page tables can themselves be paged
+% \end{itemize}
+
+% % \item Page tables are large (contain mappings for every virtual page)
+% % \begin{itemize}
+% % \item Multi-level page tables reduce space needed 
+% % \item Page tables can themselves be paged
+% % \end{itemize}
+% % \item VM must use writeback (called copyback here)
+% % \begin{itemize}
+% % \item Dirty bit
+% % \end{itemize}
+% % \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item
+% Reference bits mark pages that have been used recently; periodically
+% the OS goes through and clears them all. When a page fault occurs, any
+% page with the reference bit cleared is game for replacement.
+% \item 
+% The size of page tables can be reduced by making them multi-level,
+% where the highest level entries have an indication as to whether or
+% not there are any lower-level entries (like an incomplete tree). The
+% entries in multi-level page tables can themselves be pages that can be
+% kicked out of memory, provided care is taken to not create situations
+% where a long series of page faults occurs. 
+% \item
+% Copy-back refers to the writeback scheme applied to
+% pages. Write-through makes no sense with VM because every write to a
+% single word in memory would result in the entire page being copied
+% back to disk. A page can be augmented with a
+% dirty bit that is set when it is written to while in memory. If a page
+% is only read, it doesn't have to be written back to disk when ejected
+% from memory.
+
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+
+\begin{frame}[fragile]
+\Title{A Problem With Virtual Memory}
+\begin{itemize}
+	\item Convert virtual address to physical address: 
+
+		use virtual page number as index in Page Table
+  % look up virtual address in Page Table
+	\item Page Table stored in memory
+	\item To do \texttt{LDUR A}, we have to
+	\begin{itemize}
+		\item Look up virtual address \texttt{A} in Page Table to get
+			physical address \texttt{A'}
+		\item Read \texttt{A'} from physical memory
+	\end{itemize}
+\begin{figure}[H]
+\centering
+	{\includegraphics[width=0.7\textwidth]{06-memory-hierarchies/figures/two-memory-access}}
+\end{figure}
+	With virtual memory, \texttt{LDUR} requires {\bf two} memory accesses
+
+	(Four memory addresses are accessed if \texttt{LDUR} instruction is not in instruction cache)
+\end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item The example assumes \texttt{LDUR} is in cache, otherwise \texttt{LDUR} would
+	take 4 memory looks ups!
+\item This is all lead-in to the TLB material on the next slides
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+
+\begin{frame}[fragile]
+\STitle{Conclusion}
+ \underline{\textbf{Lecture Summary}}
+ \begin{itemize}
+\item Introduction to Virtual Memory
+\item Paging and page tables
+\item Virtual to physical address translations
+\end{itemize}
+
+ \underline{\textbf{Assigned Textbook Readings}}
+\begin{itemize}
+     % \item \textbf{Read} Section 5.5, 5.6 and 5.8
+   \item \textbf{Read} Section 5.7
+     \end{itemize}
+    \underline{\textbf{Next Steps}}
+    \begin{itemize}
+     \item \textbf{Review} Virtual memory and page tables
+\begin{itemize}
+    % \item Start the exercises in A6
+    \item A7 will be on virtual memory concepts
+\end{itemize}
+\item Next class, we will discuss how to resolve virtual memory problems.
+\item \textbf{Attempt} questions in this week's tutorial. 
+    \item \textbf{Ask} questions in office hours or the next tutorial.
+ \end{itemize}
+
+\end{frame}
+
+ \begin{frame}{Additional Slides}
+     Remaining slides are additional notes for your information.
+ \end{frame}
+
+
+
+ \begin{frame}[fragile]
+\Title{Data Initially On Disk}
+\centerline{\includegraphics[height=3in]{Figs/swap1}}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item In this example, we have a picture stored on disk
+\item Note the disk is partitioned into a swap space and other space
+\item Note page table in memory
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{Program Reads File Into Memory}
+\centerline{\includegraphics[height=3in]{Figs/swap2}}
+OS copies PIC to swap space\footnote{invisible to the program}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item When a program reads the image, the image is copied into memory,\\
+  to OS copies it into swap space,\\
+  and an entry made in the page table.
+\item Note the dirty bit in the page table is 0
+\item Note that the green copy is explicitly caused by the program, \\
+			while the blue copy is done by the OS, invisible to
+			the program.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{Picture Is Modified In Memory}
+\centerline{\includegraphics[height=3in]{Figs/swap3}}
+Dirty bit set to 1, swap copy differs from memory copy
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item If the image is edited, the copy in memory changes, but the copies on disk are unchanged.
+\item The dirty bit is set in the page table to reflect that the memory copy differs from the swap space copy.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{If Picture Page In Memory Is Swapped Out...}
+\centerline{\includegraphics[height=2.5in]{Figs/swap4}}
+Since dirty bit is 1, have to copyout\footnote{write-back} PIC' to DISK to reuse that page in memory. This copy out of memory is invisible to the program
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item This copy out of memory is invisible to the program
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+
+\begin{frame}[fragile]
+\Title{Picture only in swap, not in memory}
+\centerline{\includegraphics[height=3in]{Figs/swap5}}
+Copy in swap space differs from DISK
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item Note copy in swap differs from copy on disk
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+% for comprehensive
+\newpage
+\begin{frame}[fragile]
+\Title{Picture Read Into Memory When Needed}
+\centerline{\includegraphics[height=2in]{Figs/swap6}}
+\begin{itemize}
+\item This copy into memory of PIC' is invisible to the program
+\item Physical memory location will probably be different than where it was before, despite having same virtual address 
+\item Note that copy in swap/memory (PIC') differs from PIC on DISK; the program has to explicitly save the picture to update the other copy on disk.
+\end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item This copy into memory is invisible to the program
+\item Note that location in physical memory will probably be different than where it was before, despite having same virtual address 
+\item Also note that copy in swap/memory differs from other copy on disk; the program has to explicitly save the picture to update the other copy on disk.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+
+\begin{frame}{Multi-level Page Table\footnote{notes from CS350}}
+    \begin{itemize}
+        \item Instead of having a single page table to map an entire virtual memory, we can organize it and split the page table into multiple levels.
+        \item A large, contiguous table is replaced with multiple smaller tables, each fitting onto a single page   
+    \end{itemize}
+    
+\end{frame}
+
+% for comprehensive
+\newpage
+\begin{frame}{A generic example of multi level page tables}
+    \includegraphics[scale=0.7]{06-memory-hierarchies/figures/mlpt.png}
+
+\end{frame}
+
+
+\begin{frame}{A smaller multilevel page table example}
+    
+\includegraphics[scale=0.55]{06-memory-hierarchies/figures/mlpt-ex.png}
+\end{frame}
+
+
+%%%%%%%%%%%%% end of first lecture of VM
+
+% \begin{frame}[fragile]
+% \STitle{Translation Lookaside Buffers}
+% \PHFigure{!}{3.5in}{2.5in}{PH4Figs/F05-23}{Figure 5.30}
+
+% A cache for page table entries, avoids looking in the page table in \underline{memory}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item Note:  This is figure 5.29 in the 5th edition.
+
+% \item A TLB is basically a cache of recent mappings from virtual pages
+% to physical pages. Typically, it is fairly small (at most 4K
+% entries) and contains only entries for pages in memory. The TLB must
+% be flushed when a page is ejected from memory. 
+
+% \item Go through examples:
+% \begin{itemize}
+% 	\item Page is in TLB (and PT) with Valid bit 1, use Physical Address from TLB
+% 	\item Page is not in TLB but valid bit 1 in PT : use
+% 		Physical address from PT, and put page in TLB (in the
+% 		slide shown, one TLB entry has a 0 valid bit, so it can go 
+% 		there).
+% 	\item Page not in TLB and valid bit 0 in PT: fetch page from disk,
+% 		find available page in memory, update PT and TLB.  If there
+% 		are no free pages (as suggested in this figure), then use
+% 		Ref bit to find a page to replace (ie, any page with ref
+% 		bit=0 is fair game).
+
+% 		If page chosen to removed from memory has ref=0 and dirty=1 
+% 		(which can happen), then would need to write page back to disk 
+% 		before replacing it.
+% \end{itemize}
+
+% \item Integrating virtual
+% memory, TLBs, and the caches already discussed can be fairly tricky,
+% as now there are three possible levels of misses. Think of a memory
+% reference: it can miss at the cache level first, then at the TLB
+% level, and then at the page level. There are three other possibilities
+% for misses (miss-miss-hit, miss-hit-X, and hit-miss-hit). This is
+% discussed in more detail on page 440--444 of the text.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{Translation-Lookaside Buffer (TLB)}
+% {\footnotesize
+%  Typically, TLBs are:
+% \begin{itemize}
+%     \item  fairly small (at most 4K entries) and contains \textbf{only} entries for pages in
+% memory.
+% \item entry must be cleared from TLB when a page is removed from memory.
+% \end{itemize}
+% How to use TLB:
+% \begin{enumerate}
+% \item If the translation is in the TLB\footnote{the page must also have valid=1 in page table} with valid bit 1. \textbf{Use the physical address from TLB.}
+% \item If the translation is \textbf{not} in the TLB
+% \begin{itemize}
+% \item If \textbf{valid bit = 1 in the page table}: then use the physical address from the page table, and add the translation into the TLB.
+
+% \item If the \textbf{valid bit = 0 in the page table}: fetch page from disk, find available page in memory, update the page table and the TLB.
+% \item If there are no free pages, then any page with reference bit 0 can be replaced. If a page to be removed from memory, has dirty bit = 1, then write page back to disk before replacing it.
+% \end{itemize}
+% \item Adding a new entry into a \textbf{full} TLB: a TLB entry must be evicted $\Rightarrow$ replace the \emph{first} TLB entry that has valid bit = 0.
+% \end{enumerate}
+% }
+% \end{frame}
+
+
+% %-----------------------------------------------------
+
+
+% % \begin{frame}[fragile]{Recall, Virtual Memory: Two Memory Accesses}
+% % \Figure{!}{4in}{2in}{VM/VM10}
+
+% % Reading memory from a virtual address requires two memory accesses
+% % \BNotes\ifnum\Notes=1
+% % \begin{itemize}
+% % \item This figure shows fetching an instruction or data: the virtual address
+% % 	has to be converted to physical address via the page table (which is
+% % 	in RAM).  The physical address is used to fetch the data from
+% % 	RAM.
+
+% % 	The green area is the page offset and is just copied from the virtual
+% % 	address to the physical address.
+% % \item Memory is shown in red to indicate that it is slow and to be avoided.
+% % \end{itemize}
+% % \fi\ENotes
+% % \end{frame}
+
+% \begin{frame}[fragile]\frametitle{TLB and Cache}
+% Reading from the TLB and cache avoids reading from memory.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/tlb-cache-no-memory-access}}
+% \end{figure}
+% If an entry is not in the TLB or cache, we have to use the dotted lines to fetch the data, thus requiring memory access.
+% \end{frame}
+
+
+% % \begin{frame}[fragile]{Virtual Memory: TLB and Cache}
+% % \Figure{!}{4in}{2in}{VM/VM11}
+
+% % Reading from the TLB and cache avoids reading from memory
+% % \BNotes\ifnum\Notes=1
+% % \begin{itemize}
+% % \item This figure shows how the TLB and cache bypass the memory accesses.
+% % 	If an entry is not in the TLB/cache, we have to used the dashed
+% % 	lines to fetch the data, requiring memory access.
+
+% % \item The Page Table is in the RAM (ie, they shouldn't be separate), but
+% % 	separating them simplifies the idea.
+% % \end{itemize}
+% % \fi\ENotes
+% % \end{frame}
+
+% \begin{frame}[fragile]{Virtual Memory: The CPU}
+% \Figure{!}{5in}{3in}{VM/VM12}
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item This figure is a reorganized version of the previous figure, with the
+% 	ALU added as well as a box indicating the CPU.  Everything within
+% 	the CPU is fast; going outside the CPU (to memory) is slow.
+
+% 	We have also shown the Page Table as being part of the common RAM.
+% \item Also note the arc from the Page Table to both the TLB and Physical Address, and the arc from RAM to both the Register File and to Cache.  It's an implementation detail as to when going to the page table if page info goes from RAM directly to the Physical Address or if it has to go through the TLB.  Likewise, it's an implementation detail as to whether data not in Cache that we get from RAM has to go through Cache to get to the Register File or if it is sent directly to the Register file.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{The CPU with TLB and Cache}
+% The page translation from the page table can go to the TLB first, or outputted directly. Similarly, data and instruction from memory may go to cache first, or it may go to the register file or control directly. Both can vary depending on implementation.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.7\textwidth]{06-memory-hierarchies/figures/cpu-tlb-cache2}}
+% \end{figure}
+
+% \end{frame}
+
+% %---------------------------
+% \begin{frame}[fragile]\frametitle{TLB Example}
+% \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+% Consider the following code segment:
+% \begin{verbatim}
+% 0x00000100: ADD X11,X2,X3
+% 0x00000104: LDUR X10,[X6,0x000]
+% 0x00000108: LDUR X10,[X6,0x008]
+% 0x0000010C: STUR X10,[X8,0x000]
+% 0x00000110: LDUR X10,[X2,0x000]
+% 0x00000114: LDUR X10,[X1,0x000]
+% 0x00000118: LDUR X10,[X6,0x008]
+% \end{verbatim}
+% Assume: page size is 4 KB, X1=0x1000, X2=0x2000, X6=0x6000, X8=0x8000 and \texttt{R} bit is cleared after 4 instructions.
+% \end{tcolorbox}\
+% {\footnotesize
+% If page size if 4KB, then lower 3 hex digits of an address are the page offset, such that:
+% \begin{verbatim}
+% address       page number    page offset
+% 0x00000100      0x00000         100
+% \end{verbatim}
+% }
+% \end{frame}
+% %-----------------------------------------------------
+
+
+% \begin{frame}[fragile]
+% \Title{Solution: TLB Example}
+% \ifnum\slides=1
+% \else
+% \newpage
+% \fi
+% \scriptsize
+% \begin{verbatim}
+% Free pages: 0 1 2 3 4 5 6 7
+% PT:                        TLB: (4 lines)
+% Index: V D R  PG           V D R    TAG   PG
+% 00000:                   0 
+% 00001:                     
+% 00002:                   1 
+% 00003:                     
+% 00004:                   2 
+% 00005:                     
+% 00006:                   3 
+% 00007:                     
+% 00008:                     
+%  ...     ...
+%  Code (0):
+%     0x00000100: ADD  X11,X2,X3
+%     0x00000104: LDUR X10,[X6,0x000]
+%     0x00000108: LDUR X10,[X6,0x008]
+%     0x0000010c: STUR X10,[X8,0x000]
+%     0x00000110: LDUR X10,[X2,0x000]
+%     0x00000114: LDUR X10,[X1,0x000]
+%     0x00000118: LDUR X10,[X6,0x008]
+% \end{verbatim}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% %\item Run the program in /u/smann/251-PT-TLB/tlb-pt and you will get a screen similar to the above
+% \item This is for 4K page tables, addresses (and TAGs) are in hex, so the
+% 	last three digits of the address are a page offset, while the first 5
+% 	digits are the page index.
+% \item The assumed values for registers are needed since the constant field
+% 	of LD/ST is 9-bit and of ADDI is 12-bits.
+% \item Addresses are 32-bit; should be 48- or 64-bit, but left as 32 for space
+% 	reasons.
+% \item Point out the Free Pages (at the top), the Page Table (PT), the 4 line TLB, and the code.  When running the program, the code scrolls.
+% \item For each memory access, first check the TLB.  If not there, check the page table.  If not in PT, fetch from memory and update page table and TLB.  (If in PT but not TLB, update the TLB).  
+% \item Note the setting of reference bits, valid bits, and (for ST), the dirty bit.
+% \item The reference bits are cleared every four instructions executed.  This seems to be frequently enough on this example that you never get the case of all the TLB reference bits being 1 and needing a new entry in the TLB.
+% %\item If you run past the end of the code, it starts over from the beginning.  
+% \end{itemize}
+% \fi\ENotes
+
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{TLB Example}
+% Assume the TLB has only 4 entries. The TLB's tag is compared with the virtual page number. This is a \textbf{fully associative} lookup. 
+% \hfill\break
+
+% The virtual page number is used to index the page table.
+% \hfill\break
+
+% V means ``valid", D means ``dirty", and R means "reference". The R bit for the TLB and PT will be kept the same\footnote{Actual implementation may vary.}
+% \hfill\break
+
+% \emph{Assume the R bit is cleared after 4 instructions.} 
+% \hfill\break
+
+% % Assume the following register values:
+% % \begin{verbatim}
+% % X1=0x1000, X2=0x2000, X6=0x6000, X8=0x8000
+% % \end{verbatim}
+
+% \end{frame}
+
+
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{TLB Example: Instruction 1}
+% \begin{verbatim}
+% 0x00000100: ADD X11,X2,X3
+% \end{verbatim}
+% The virtual page number is \texttt{0x00000} and the page offset is \texttt{0x100}. Check the TLB's tag to look for a match with virtual page number \texttt{0x00000}. There is no match. Check the page table at index \texttt{0x00000}, there is also no match. This is a \textbf{page fault}.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.5\textwidth]{06-memory-hierarchies/figures/tlb-ex}}
+% \end{figure}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{TLB Example: Instruction 1}
+% \begin{verbatim}
+% 0x00000100: ADD X11,X2,X3
+% \end{verbatim}
+% Fetch page from disk, and save in physical page 7. Update the TLB and page table. R is 1 since it was just referenced. We did not write to this address, so D is 0.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.5\textwidth]{06-memory-hierarchies/figures/tlb-ex1}}
+% \end{figure}
+% Virtual address \texttt{0x00000100} is translated to \texttt{0x7100}.
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{TLB Example: Instruction 1}
+% \begin{verbatim}
+% 0x00000100: ADD X11,X2,X3
+% \end{verbatim}
+% This example starts with the right-most free page, 7, this is an arbitrary choice.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.5\textwidth]{06-memory-hierarchies/figures/tlb-ex1}}
+% \end{figure}
+% Virtual address \texttt{0x00000100} is translated to \texttt{0x7100}.
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{TLB Example: Instruction 2}
+% \begin{verbatim}
+% 0x00000104: LDUR X10,[X6,0x000]
+% \end{verbatim}
+% Virtual page number is \texttt{0x00000}, look for the tag in the TLB, which is a match with page 7. The valid bit is 1. This is a \textbf{TLB hit}.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.5\textwidth]{06-memory-hierarchies/figures/tlb-ex1}}
+% \end{figure}
+% Virtual address \texttt{0x00000104} is translated to \texttt{0x7104}.
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{TLB Example: Instruction 2}
+% \begin{verbatim}
+% 0x00000104: LDUR X10,[X6,0x000]
+% \end{verbatim}
+% Register X6 contains \texttt{0x6000}. The virtual address for load word is given by \texttt{0x00006000}. Look for the tag \texttt{0x00006} in the TLB, there is no matching tag, so look for index \texttt{0x00006} in the page table, there is no valid entry. So this is a \textbf{page fault}. 
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.5\textwidth]{06-memory-hierarchies/figures/tlb-ex1}}
+% \end{figure}
+
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{TLB Example: Instruction 2}
+% \begin{verbatim}
+% 0x00000104: LDUR X10,[X6,0x000]
+% \end{verbatim}
+% Fetch virtual address \texttt{0x00006000} from disk and place in physical page 6. Update TLB and page table.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.5\textwidth]{06-memory-hierarchies/figures/tlb-ex1a}}
+% \end{figure}
+% Virtual address \texttt{0x00006000} is translated to \texttt{0x6000}.
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{TLB Example: Instruction 3}
+% \begin{verbatim}
+% 0x00000108: LDUR X10,[X6,0x008]
+% \end{verbatim}
+% Virtual page number \texttt{0x00000} matches TLB tag for page 7 and the valid bit is 1. So this is a \textbf{TLB hit}.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.5\textwidth]{06-memory-hierarchies/figures/tlb-ex1a}}
+% \end{figure}
+% Virtual address \texttt{0x00000108} is translated to physical address \texttt{0x7108}.
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{TLB Example: Instruction 3}
+% \begin{verbatim}
+% 0x00000108: LDUR X10,[X6,0x008]
+% \end{verbatim}
+% Register X6 contains number \texttt{0x6000}. LDUR's memory access is to virtual address \texttt{0x00006008}. Virtual page number \texttt{0x00006}  matches TLB tag for page 6. So this is a \textbf{TLB hit}.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.5\textwidth]{06-memory-hierarchies/figures/tlb-ex1a}}
+% \end{figure}
+% Virtual address \texttt{0x00006008} is translated to physical address \texttt{0x6008}.
+% \end{frame}
+
+
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{TLB Example: Instruction 4}
+% \begin{verbatim}
+% 0x0000010C: STUR X10,[X8,0x000]
+% \end{verbatim}
+% Virtual page number \texttt{0x00000} matches TLB tag for page 7 and the valid bit is 1. So this is a \textbf{TLB hit}.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.5\textwidth]{06-memory-hierarchies/figures/tlb-ex1a}}
+% \end{figure}
+% Virtual address \texttt{0x0000010C} translates to physical address \texttt{0x710C}.
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{TLB Example: Instruction 4}
+% \begin{verbatim}
+% 0x0000010C: STUR X10,[X8,0x000]
+% \end{verbatim}
+% Register X8 contains \texttt{0x8000}. STUR's memory access is to virtual address \texttt{0x00008000}. Virtual page number \texttt{0x00008} does not match any TLB tag. Page table at index \texttt{0x00008} is invalid. So this is a \textbf{page fault}.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.5\textwidth]{06-memory-hierarchies/figures/tlb-ex1a}}
+% \end{figure}
+
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{TLB Example: Instruction 4}
+% \begin{verbatim}
+% 0x0000010C: STUR X10,[X8,0x000]
+% \end{verbatim}
+% Grab virtual page number \texttt{0x00008} from disk and store in physical page 5. The STUR instruction requires setting the dirty bit to 1. Update the TLB and page table.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.5\textwidth]{06-memory-hierarchies/figures/tlb-ex-after-instruction4}}
+% \end{figure}
+% Virtual address \texttt{0x00008000} translates to physical address \texttt{0x5000}.
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{TLB Example: Clear Reference Bits}
+% Since 4 instructions have passed, clear reference bits.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.5\textwidth]{06-memory-hierarchies/figures/tlb-ex-after-instruction4-clear-ref}}
+% \end{figure}
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{TLB Example: Instruction 5}
+% \begin{verbatim}
+% 0x00000110: LDUR X10,[X2,0x000]
+% \end{verbatim}
+% Virtual page number is \texttt{0x00000}, which matches the TLB tag for page 7, with valid bit 1. So this is a \textbf{TLB hit}. Set reference bit to 1 since we have accessed this page.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.5\textwidth]{06-memory-hierarchies/figures/tlb-ex-after-instruction5}}
+% \end{figure}
+% Virtual address \texttt{0x00000110} translates to physical address \texttt{0x7110}.
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{TLB Example: Instruction 5}
+% \begin{verbatim}
+% 0x00000110: LDUR X10,[X2,0x000]
+% \end{verbatim}
+% Register X2 contains \texttt{0x2000}. LDUR's memory access is to virtual address \texttt{0x00002000}. Virtual page number \texttt{0x00002} does not match any TLB tag. Page table at index \texttt{0x00002} does not contain a valid entry. So this is a \textbf{page fault}.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.5\textwidth]{06-memory-hierarchies/figures/tlb-ex-after-instruction5}}
+% \end{figure}
+
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{TLB Example: Instruction 5}
+% \begin{verbatim}
+% 0x00000110: LDUR X10,[X2,0x000]
+% \end{verbatim}
+% Fetch from disk and store in physical page 4. Update TLB and page table. 
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.5\textwidth]{06-memory-hierarchies/figures/tlb-ex-after-instruction5a}}
+% \end{figure}
+% Virtual address \texttt{0x00002000} translates to physical address \texttt{0x4000}.
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{TLB Example: Instruction 6}
+% \begin{verbatim}
+% 0x00000114: LDUR X10,[X1,0x000]
+% \end{verbatim}
+% Virtual page number is \texttt{0x00000}, which matches tag in TLB for page 7. So this is a \textbf{TLB hit}.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.5\textwidth]{06-memory-hierarchies/figures/tlb-ex-after-instruction5a}}
+% \end{figure}
+% Virtual address \texttt{0x00000114} translates to physical address \texttt{0x7114}.
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{TLB Example: Instruction 6}
+% \begin{verbatim}
+% 0x00000114: LDUR X10,[X1,0x000]
+% \end{verbatim}
+% Register X1 contains \texttt{0x1000}. LDUR's memory access is to virtual address \texttt{0x00001000}. The virtual page number \texttt{0x00001} does not match any tag in the TLB. The page table at index \texttt{0x00001} is also not a valid entry. So this is a \textbf{page fault}. Grab virtual page number \texttt{0x00001} from disk and place it in physical page 3.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.5\textwidth]{06-memory-hierarchies/figures/tlb-ex-after-instruction5a}}
+% \end{figure}
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{TLB Example: Instruction 6}
+% \begin{verbatim}
+% 0x00000114: LDUR X10,[X1,0x000]
+% \end{verbatim}
+% Update the TLB and page table. For the TLB, there are two pages with reference bit 0, kickout the lower index's entry, at index 1. 
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.5\textwidth]{06-memory-hierarchies/figures/tlb-ex-after-instruction6}}
+% \end{figure}
+% Virtual address \texttt{0x00001000} translates to physical address \texttt{0x3000}.
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{TLB Example: Instruction 7}
+% \begin{verbatim}
+% 0x00000118: LDUR X10,[X6,0x008]
+% \end{verbatim}
+% Virtual page number \texttt{0x00000} matches tag in TLB for page 7. So this is a \textbf{TLB hit}.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.5\textwidth]{06-memory-hierarchies/figures/tlb-ex-after-instruction6}}
+% \end{figure}
+% Virtual address \texttt{0x00000118} translates to physical address \texttt{0x7118}.
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{TLB Example: Instruction 7}
+% \begin{verbatim}
+% 0x00000118: LDUR X10,[X6,0x008]
+% \end{verbatim}
+% Register X6 contains \texttt{0x6000}. LDUR's memory access is to virtual address \texttt{0x00006008}. TLB tag \texttt{0x00006} was just kicked out so this is a TLB miss. However, page table index \texttt{0x00006} has a valid entry.  This access is a page table hit, but a TLB miss.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.5\textwidth]{06-memory-hierarchies/figures/tlb-ex-after-instruction6}}
+% \end{figure}
+
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{TLB Example: Instruction 7}
+% \begin{verbatim}
+% 0x00000118: LDUR X10,[X6,0x008]
+% \end{verbatim}
+% Put the page table entry into the TLB. In the TLB, there is one entry with reference bit 0, so kick this one out.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.5\textwidth]{06-memory-hierarchies/figures/tlb-ex-after-instruction7}}
+% \end{figure}
+% Virtual address \texttt{0x00006008} is translated to physical address \texttt{0x6008}.
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{Check Valid Bit Before Reference Bit}
+% When kicking out an entry in the TLB or page table, consider pages with valid bit 0 first, then check the reference bit.
+% \end{frame}
+% %-----------------------------------------------------
+
+% \begin{frame}[fragile]
+% \Title{Think About This}
+% \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+%   title=Think About It,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+  
+% {\footnotesize
+% Assume with 4K pages and instruction, and also assume 20+X2=0x2000
+
+% \texttt{LDUR X1,[X2,\#20]}
+
+% \begin{itemize}
+% \item Need to convert virtual page 2 to physical page: TLB? Page Table?
+% \item Need to load data at M[0x2000] into X1: Cache?  RAM?
+% \end{itemize}
+% \begin{center}
+% % \hspace*{-0.5in}
+% \begin{tabular}{ccccc|ccc}
+% & & & & & & \# Disk & \# Mem\\
+% TLB & PT &RAM\footnote{RAM column refers to data in physical memory not in page table} & Cache & Disk & Possible? & Reads & Access\\
+% \hline
+% HIT & HIT & HIT & HIT & HIT & Possible & 0 & 0 \\
+% Miss & Miss & Miss & Miss & HIT & &\\
+% HIT & Miss & Miss & Miss & HIT & &\\
+% 	\hline
+% Miss & Miss & HIT & HIT & HIT & &\\
+% Miss & HIT & Miss & Miss & HIT & & \\
+% Miss & HIT & HIT & Miss & HIT & &\\
+% 	\hline
+% Miss & HIT & HIT & HIT & HIT & &\\
+% \end{tabular}
+% \end{center}
+% }
+% \end{tcolorbox}
+% Note: Not all combinations are possible
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% 	\item Just considering fetch of the data used by the LDUR instruction
+% 		and not the line of code for the LDUR instruction itself
+% 	\item Page Table is stored in RAM; in this table, the RAM* column
+% 		refers to non-Page-table data in RAM.
+%     \item A (possibly out-of-date) copy of everything should be on disk
+% 	\item Answers are
+% 	\begin{itemize}
+% 	\item Row 2: Possible, 1 disk read, 2 memory writes, and 3 memory reads.
+
+% 		 After you get a miss
+% 		in the TLB, you read the PT (first memory read),
+% 		which is a miss.  You then read the page from disk and
+% 		write it to memory (4KB memory writes), 
+% 		and write a new entry to the page table.
+% 		You then read this entry from the page table (2nd memory
+% 		read) and update the TLB.  You then read the data from memory
+% 		(3rd memory read).  Maybe--hardware might avoid the 2nd PT read 
+% 		and the last mem read
+% 	\item Row 3: Impossible (if in TLB, must be in PT)
+% 	\item Row 4: Not possible (if data in memory, page table entry must be valid)
+%     \item Row 5: Not possible (if valid page table entry, then data in memory)
+
+% 	\item Row 6: Possible, no disk reads, 2 memory reads
+% 	\item Row 7: Possible, no disk reads, 1 memory read
+% 	\end{itemize}
+% \item Note that PT and RAM* should be the same (ie, either both HIT or both MISS)
+
+% 		Disk should always be HIT
+
+% \item Also, in all Possible cases, the TLB/PT/RAM*/Cache will be updated to be all HIT for 0x2000
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}{Solution:}
+%     \begin{center}
+% % \hspace*{-0.5in}
+% \begin{tabular}{ccccc|ccc}
+% & & & & & & \# Disk & \# Mem\\
+% TLB & PT &RAM\footnote{RAM column refers to data in physical memory not in page table} & Cache & Disk & Possible? & Reads & Access\\
+% \hline
+% HIT & HIT & HIT & HIT & HIT & Possible & 0 & 0 \\
+% Miss & Miss & Miss & Miss & HIT & Possible & 1 & 5\footnote{2 MEM writes and 1 MEM read} \\
+% HIT & Miss & Miss & Miss & HIT &Impossible & n/a & n/a\\
+% 	\hline
+% Miss & Miss & HIT & HIT & HIT &Impossible & n/a & n/a\\
+% Miss & HIT & Miss & Miss & HIT &Impossible & n/a & n/a\\
+% Miss & HIT & HIT & Miss & HIT &Possible & 0 & 2\footnote{2 MEM reads}\\
+% 	\hline
+% Miss & HIT & HIT & HIT & HIT & Possible & 0 & 1\footnote{1 MEM read}\\
+% \end{tabular}
+% \end{center}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Possible Scenarios}
+% Keep the following in mind:
+% \begin{itemize}
+% \item The page table is in RAM.
+
+% \item If we find a page address translation in the page table, we can find the page in RAM. So the Page Table and RAM columns should be the same.
+% \item Disk should \textbf{always} be hit. 
+% \item In addition, if a page is in the TLB, it must be in the page table\footnote{We will use a simplified hierarchy; ie, it might be possible
+% 			to have something in the TLB but not page table since they
+% 			have different replacement schemes, but we won't consider
+% 			those cases.}.
+% \end{itemize}
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Possible Scenarios}
+
+% Suppose the LDUR instruction is fetching data.
+
+% Consider the following scenarios and determine which ones are possible, which ones are not.
+
+% \begin{center}
+% 	\begin{tabular}{c|c|c|c|c|c|}
+% Scenario  & TLB & Page Table & RAM & Cache & Disk \\ \hline
+% 1 & Hit  & Hit  & Hit  & Hit  & Hit \\ %\hline
+% 2 & Miss & Miss & Miss & Miss & Hit \\%\hline
+% 3 & Hit  & Miss & Miss & Miss & Hit \\ %\hline
+% 4 & Miss & Miss & Hit  & Hit  & Hit \\
+% 5 & Miss & Hit  & Miss & Miss & Hit\\
+% 6 & Miss & Hit  & Hit  & Miss & Hit \\
+% 7 & Miss & Hit  & Hit  & Hit  & Hit\\
+% \end{tabular}
+% \end{center}\end{frame}
+
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Possible Scenarios 1}
+
+% \begin{center}
+% 	\begin{tabular}{c|c|c|c|c|c|}
+%   & TLB & Page Table & RAM & Cache & Disk \\ \hline
+% 1 & Hit  & Hit  & Hit  & Hit  & Hit \\ %\hline
+% \end{tabular}
+% \end{center}
+% This scenario is possible. No disk reads needed. No memory access needed.
+% \end{frame}
+
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Possible Scenarios 2}
+% \begin{center}
+% 	\begin{tabular}{c|c|c|c|c|c|}
+%   & TLB & Page Table & RAM & Cache & Disk \\ \hline
+% 2 & Miss & Miss & Miss & Miss & Hit \\%\hline
+% \end{tabular}
+% \end{center}
+% 1 disk read, 2 memory writes, and 3 memory reads.
+% \begin{center}
+% \begin{tabular}{l|c}
+% \makecell[l]{After TLB miss, go to memory to read\\ the page table, which is a miss.} & 1 memory read. \\ \hline
+% Read the page from disk.                                              & 1 disk read \\ \hline
+% Write page to memory.                                                 & 1 memory write \\\hline
+% Write a new entry to the page table in memory.                        & 1 memory write \\\hline
+% \makecell[l]{Read the new entry from the page table\\ and update the TLB.}           & 1 memory read\footnote{\label{note1}Hardware \emph{might} avoid this} \\\hline
+% Read the data from memory.                                            & 1 memory read\footnote{see \ref{note1}}\\\hline
+% \end{tabular}
+% \end{center}
+% % Hardware \emph{might} avoid the second page table read and the last memory read.
+
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Possible Scenarios 3}
+% \begin{center}
+% 	\begin{tabular}{c|c|c|c|c|c|}
+%   & TLB  & Page Table & RAM  & Cache & Disk \\ \hline
+% 3 & Hit  & Miss       & Miss & Miss  & Hit \\ %\hline
+% \end{tabular}
+% \end{center}
+% This scenario is impossible since if a page translation is in the TLB, it must be also in the page table.
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Possible Scenarios 4}
+% \begin{center}
+% 	\begin{tabular}{c|c|c|c|c|c|}
+%   & TLB  & Page Table & RAM & Cache & Disk \\ \hline
+% 4 & Miss & Miss       & Hit & Hit   & Hit \\
+% \end{tabular}
+% \end{center}
+% This scenario is impossible. If data is in memory, page table entry must be valid.
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Possible Scenarios 5}
+
+% \begin{center}
+% 	\begin{tabular}{c|c|c|c|c|c|}
+%   & TLB  & Page Table & RAM  & Cache & Disk \\ \hline
+% 5 & Miss & Hit        & Miss & Miss  & Hit\\
+% \end{tabular}
+% \end{center}
+% This scenario is impossible. If the page table entry is valid, then data is in RAM.
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Possible Scenarios 6}
+% \begin{center}
+% 	\begin{tabular}{c|c|c|c|c|c|}
+%   & TLB & Page Table & RAM & Cache & Disk \\ \hline
+% 6 & Miss & Hit  & Hit  & Miss & Hit \\
+% \end{tabular}
+% \end{center}
+% This scenario is possible, no disk reads, 2 memory reads since what we are looking for is not in the TLB and cache.
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Possible Scenarios 7}
+% \begin{center}
+% 	\begin{tabular}{c|c|c|c|c|c|}
+%   & TLB & Page Table & \makecell{RAM} & Cache & Disk \\ \hline
+% 7 & Miss & Hit  & Hit  & Hit  & Hit\\
+% \end{tabular}
+% \end{center}
+% This scenario is possible, no disk reads, 1 memory read to the page table, then go to cache to find the data or instruction.
+% \end{frame}
+
+% %-----------------------------------------------------
+
+
+% \begin{frame}[fragile]
+% \Title{VM and Multitasking}
+% \begin{itemize}
+% \item Need two modes: user process or operating system process
+% \item OS processes are privileged (can do more)
+% \begin{itemize}
+% \item Write page table register
+% \item Modify page tables or TLB
+% \end{itemize}
+% \item Need method of switching modes
+% \begin{itemize}
+% \item User process to OS: System call or exception
+% \item OS to user process: return-from-exception
+% \end{itemize}
+% \item To swap processes, OS rewrites page table register and flushes TLB
+% \includegraphics[scale=0.15]{06-memory-hierarchies/figures/contextswitch.png}\footnote{from CS350 notes}
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item The two modes describe the running process, and must be part of
+% the hardware design. An OS process has more privileges; certain
+% instructions are forbidden to user processes.
+% \item Page tables are kept in the OS's
+% address space, and the OS ensures that any two processes have disjoint
+% physical memory pages (or allows some limited sharing, if supported
+% and requested). 
+% \item Moving from user mode to OS mode is typically done by a system
+% 	call (special instruction) or happens in the case of certain
+% 	exceptions; in any case, the PC and associated status
+% 	information are saved and control is transferred to the OS; moving
+% 	back is done by a return-from-exception, which reverses this process.
+% 	Draw this on the board.
+
+% \bigskip
+% \item See also Section~5.13, and pg 483 in particular, for a real world
+% 	putting it together.
+% \end{itemize}
+% ~%notes text
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Review: Memory Hierarchy}
+
+% %\PHFigure{!}{3in}{4in}{PHALL/F0703}{Figure 5.3}
+% \Figure{!}{2.2in}{1.8in}{Figs/memhierarchy}
+
+% Things at lower levels in hierarchy also in all higher levels:
+% \begin{itemize}
+% 		\item Data: L1 Cache, L2 Cache, L3 Cache, Memory, Disk
+% 		\item Address: TLB, Page Table, Disk
+% \end{itemize}
+% When executing an instruction, two hierarchies active
+% \begin{itemize}
+% 		\item convert virtual address to physical address
+% 		\item load instruction from memory
+% \end{itemize}
+% (load word does this twice)
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% 		\item We will use a simplified hierarchy; ie, it might be possible
+% 			to have something in the TLB but not page table (since they
+% 			have different replacement schemes), but we won't consider
+% 			those cases.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% % \begin{frame}[fragile]
+% % \begin{itemize}
+
+% % \item Example (4K pages):
+
+% % \texttt{LDUR X1,[X2,\#20]}--where 20+X2=0x2000
+
+% % \begin{itemize}
+% % \item Need to convert virtual page 2 to physical page
+
+% % TLB? Page Table?
+
+% % \item Need to load data at M[0x2000] into X1
+
+% % Cache?  RAM?
+% % \end{itemize}
+% % \item Not all combinations possible
+% % \begin{center}
+
+% % \footnotesize
+
+% % \hspace*{-0.5in}
+% % \begin{tabular}{ccccc|ccc}
+% % TLB & PT &RAM* & Cache & Disk & Possible? & \# Disk Reads & \# Mem Access\\
+% % \hline
+% % HIT & HIT & HIT & HIT & HIT & Possible & 0 & 0 \\
+% % Miss & Miss & Miss & Miss & HIT & &\\
+% % HIT & Miss & Miss & Miss & HIT & &\\
+% % 	\hline
+% % Miss & Miss & HIT & HIT & HIT & &\\
+% % Miss & HIT & Miss & Miss & HIT & & \\
+% % Miss & HIT & HIT & Miss & HIT & &\\
+% % 	\hline
+% % Miss & HIT & HIT & HIT & HIT & &\\
+% % \end{tabular}
+% % \end{center}
+% % \end{itemize}
+
+% % \BNotes\ifnum\Notes=1
+% % \begin{itemize}
+% % 	\item Just considering fetch of the data used by the LDUR instruction
+% % 		and not the line of code for the LDUR instruction itself
+% % 	\item Page Table is stored in RAM; in this table, the RAM* column
+% % 		refers to non-Page-table data in RAM.
+% %     \item A (possibly out-of-date) copy of everything should be on disk
+% % 	\item Answers are
+% % 	\begin{itemize}
+% % 	\item Row 2: Possible, 1 disk read, 2 memory writes, and 3 memory reads.
+
+% % 		 After you get a miss
+% % 		in the TLB, you read the PT (first memory read),
+% % 		which is a miss.  You then read the page from disk and
+% % 		write it to memory (4KB memory writes), 
+% % 		and write a new entry to the page table.
+% % 		You then read this entry from the page table (2nd memory
+% % 		read) and update the TLB.  You then read the data from memory
+% % 		(3rd memory read).  Maybe--hardware might avoid the 2nd PT read 
+% % 		and the last mem read
+% % 	\item Row 3: Impossible (if in TLB, must be in PT)
+% % 	\item Row 4: Not possible (if data in memory, page table entry must be valid)
+% %     \item Row 5: Not possible (if valid page table entry, then data in memory)
+
+% % 	\item Row 6: Possible, no disk reads, 2 memory reads
+% % 	\item Row 7: Possible, no disk reads, 1 memory read
+% % 	\end{itemize}
+% % \item Note that PT and RAM* should be the same (ie, either both HIT or both MISS)
+
+% % 		Disk should always be HIT
+
+% % \item Also, in all Possible cases, the TLB/PT/RAM*/Cache will be updated to be all HIT for 0x2000
+% % \end{itemize}
+% % \fi\ENotes
+% % \end{frame}
+
+% \begin{frame}[fragile]
+%   \STitle{Virtual Memory: Summary}
+%   {\bf Problem:}
+%   \begin{itemize}
+%   \item Program address space is larger than physical memory
+
+%     $2^{64}$ vs $2^{34}$
+
+%     Program (compiler) layout in memory uses high memory addresses
+%     \item Multiple programs share memory
+%   \end{itemize}
+%   {\bf Solution:}
+%   \begin{itemize}
+%   \item Map program address (virual address) to RAM address (physical address)
+%   \item Map blocks (pages) [4KB $\Rightarrow$ 12-bit sub-address]
+%   \item PAGE TABLE CONTAINS THIS MAPPING
+%   \item Store copy of what's in RAM on disk (swap space)
+%   \item Use reference bits (occassionally cleared) to approximate LRU
+%   \end{itemize}
+
+%   \BNotes\ifnum\Notes=1
+%   \begin{itemize}
+%   \item The $2^{34}$ physical address space is an example; the exact amount
+%     will vary based on the device; likewise the $2^{64}$ is conceptual; ARM
+%     only has $2^{48}$ virtual address space
+%   \item The compiler comment is there to indicate that we have to deal with
+%     memory addresses that are larger than the largest physical memory address
+%   \item The 4KB page size isn't definite; other page sizes are possible
+%     \end{itemize}
+%   \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Virtual Memory: Making it faster}
+% \begin{itemize}
+% \item Problem with virtual memory: doubles memory accesses
+
+%   Page table stored in RAM
+% \item Solution: TLB--a cache for the page table
+% \end{itemize}
+% \Figure{!}{3in}{2in}{Figs/VMflowchart}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item The chart shows the process of a memory look up.
+
+%   Start at the diamond at the top.  End with getting data out of cache (bold oval)
+% \item Go through the chart at least twice, once where nothing is in TLB, PT, or CACHE, and once where it is in TLB and CACHE (and implicitly in PT).  The former touches on every item in the chart; the latter (the ideal case) just hits the upper left edge of the chart and is done in a single clock cycle.
+% \item Chart suggests that PT is direct map (which it mostly is, but may be
+%   multi-level) and that TLB is fully associative; a real TLB might not be
+%   fully associative, but we will treat it as such in this course.
+%   \item Details of bumping, etc., omitted
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+
+% % ///additional slides
+
+% \begin{frame}[fragile]
+% \Title{More on Page Tables}
+% % \begin{itemize}
+% % \item Page replacement policies:
+% % \begin{itemize}
+% % \item Optimal: replace page used farthest into the future
+% % \item Good approximation: LRU (Least Recently Used)
+% % \item Too expensive to implement exactly, use approximation (eg
+% % reference bits)
+% % \end{itemize}
+
+% \begin{itemize}
+% \item Approximation to LRU:
+% \begin{itemize}
+%     \item Reference bits mark pages that have been used recently
+%     \item Periodically the OS goes through and clears them all. \item When a page fault occurs, any
+% page with the reference bit cleared is considered one of the LRU pages that the OS can select to replace.
+% \end{itemize}
+% \end{itemize}
+
+% \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+%   title=Think About It,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+
+% Page tables are large (contain mappings for every virtual page) in the virtual address space of a process.
+%   \end{tcolorbox}
+
+%   \begin{itemize}
+% \item Multi-level page tables reduce space needed 
+% \item Page tables can themselves be paged
+% \end{itemize}
+
+% % \item Page tables are large (contain mappings for every virtual page)
+% % \begin{itemize}
+% % \item Multi-level page tables reduce space needed 
+% % \item Page tables can themselves be paged
+% % \end{itemize}
+% % \item VM must use writeback (called copyback here)
+% % \begin{itemize}
+% % \item Dirty bit
+% % \end{itemize}
+% % \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item
+% Reference bits mark pages that have been used recently; periodically
+% the OS goes through and clears them all. When a page fault occurs, any
+% page with the reference bit cleared is game for replacement.
+% \item 
+% The size of page tables can be reduced by making them multi-level,
+% where the highest level entries have an indication as to whether or
+% not there are any lower-level entries (like an incomplete tree). The
+% entries in multi-level page tables can themselves be pages that can be
+% kicked out of memory, provided care is taken to not create situations
+% where a long series of page faults occurs. 
+% \item
+% Copy-back refers to the writeback scheme applied to
+% pages. Write-through makes no sense with VM because every write to a
+% single word in memory would result in the entire page being copied
+% back to disk. A page can be augmented with a
+% dirty bit that is set when it is written to while in memory. If a page
+% is only read, it doesn't have to be written back to disk when ejected
+% from memory.
+
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}

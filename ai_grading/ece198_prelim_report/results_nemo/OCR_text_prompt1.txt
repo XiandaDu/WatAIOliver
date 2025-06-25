@@ -1,0 +1,8 @@
+**Are there in-text citations to help support how the customer is defined?**
+
+Yes, there are in-text citations to support how the customer is defined. The report defines the customer as farm workers in Ontario, and this is supported by the following in-text citations:
+
+- "This project seeks to focus on mitigating the danger of heat stress for farm workers in Ontario, who number over 21000 as of July 2023 [8]."
+- "The device will improve the lives of farm workers by helping them avoid the causes of heat-related illnesses."
+
+The in-text citation [8] refers to the reference list, where the source of this information is provided as "Ontario Ministry of Agriculture, Food and Rural Affairs, 'Farm Operator Statistics' (2023)." This citation helps to validate the number of farm workers in Ontario and thus supports the definition of the customer in the report.

@@ -1,0 +1,8 @@
+# Time Complexity:
+
+- push_front, push_back, pop_front, and pop_back are all O(1) constant time.
+- push_front, push_back, pop_front, and pop_back only add to or delete the front or back of the deque, making it constant time.
+- front and back checks if the deque is empty, if it is not, they return the front and back url making it constant time.
+- Size and empty check if the current size of the deque is zero and then returns an appropriate statement, making it constant time.
+
+Find, print, and clear functions are all O(n) time complexity. Find, print, and clear iterate through the deque at most linearly once, making it O(n).

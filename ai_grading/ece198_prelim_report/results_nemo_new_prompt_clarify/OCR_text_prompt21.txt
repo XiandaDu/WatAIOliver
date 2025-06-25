@@ -1,0 +1,3 @@
+<answer>No</answer>
+
+The report does not clearly associate every technical requirement with a citation that supports why it should be included. For example, the requirement for the device to update and provide warnings within 150 milliseconds of a change in stimulus is not supported by a citation.

@@ -1,0 +1,7 @@
+# Performance Consideration
+
+## Double Hashing:
+For insert, delete, and search, in the best case no collisions occur, therefore, the time complexity will be O(1). Worst case, we have n iterations of the hash function, therefore the time complexity would be O(n). However, the worst case is rare, therefore the average insertion time is O(1).
+
+## Chaining:
+For insert, delete, and search, 1 is the constant running time to reach the slot location, m is the number of elements stored, and n is the number of slots available in the hash table. Measuring when to decide to increase the hash table size is m/n. Therefore, the time complexity is O(1+m/n) -> O(1+1) -> O(1).

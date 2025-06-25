@@ -1,0 +1,15 @@
+<answer>yes</answer>
+
+Both technical requirements and functional requirements are present in the document. Here's the evidence:
+
+**Technical Requirements:**
+- "When the temperature sensor reads a body temperature greater than 37.2°C, the microcontroller turns on the sound and a red light warning."
+- "When the electrocardiogram reads heart rates that deviate from the mean of the previous 15 minutes by more than 23 beats per minute, the microcontroller turns on a blue warning light."
+- "When ultraviolet index of 8 and above is detected by the UV sensor, microcontroller turns on sound (different from the temperature warning) and a yellow light warning."
+- "Updates and provides warnings within 150 milliseconds of a change in stimulus, faster than human reaction speed."
+
+**Functional Requirements:**
+- "Measures body temperature in the range of 35.6 to 40.6 degrees Celsius and warns user of high body temperature."
+- "Measures heart rate in the range of 60 to 200 beats per minute and warns user of over-exertion."
+- "Measures ultraviolet index ranging from 1 to 11, the full range of the scale, providing warnings for potential sunburn."
+- "Displays light warnings between 150 and 200 millicandelas and sound warnings of at least 70 decibels."

@@ -1,0 +1,11 @@
+**Standard 1: Is there a statement that clearly defines the problem experienced by the customer?**
+
+**Answer:** Yes.
+
+**Evidence from the report:**
+
+In the "Customer problem" section, the report states:
+
+"As global temperatures continue to reach new highs in 2023, farm workers across Canada are at increasing risk of suffering from heat stress [1], [2]. Heat stroke, a common aspect of heat stress, is often caused by a combination of exposure to hot environments and over-exertion through physical activity [3]."
+
+This statement clearly defines the problem experienced by the customer (farm workers) as heat stress, with heat stroke being a common and serious consequence. The problem is backed up by two citations (1 and 2) that directly reference the defined problem.

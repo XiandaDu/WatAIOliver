@@ -1,0 +1,2040 @@
+\setlength{\columnseprule}{1pt}
+\def\columnseprulecolor{\color{blue}}
+
+
+% \begin{frame}[fragile]
+% \Title{Memory Hierarchies}
+% \begin{itemize}
+% \item Goal: create illusion of unlimited fast memory
+% \item Problem: faster memories are more expensive, and larger memories
+% can be slower
+% \item Solution: move items to smaller, faster memory automatically
+% when they are needed
+% \item Rationale: locality of reference
+% \begin{itemize}
+% \item Temporal: Once accessed, likely to be accessed again soon
+% \item Spatial: Items ``nearby'' also likely to be accessed
+% \end{itemize}
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% The analogy given in the text is that of having books from the library
+% on your desk for easy access. But a better analogy would be that of
+% books that you simply reach for, and if it isn't on your desk, you are
+% frozen while some mechanism gets it from the library and puts it there.
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Memory Hierarchies}
+% %\PHFigure{!}{4in}{4in}{PHALL/F0703}{Figure 5.3}
+% \Figure{!}{3in}{2in}{Figs/memhierarchy}
+% \begin{itemize}
+% \item Items not in top level are brought up when requested
+% \item Data only copied between adjacent levels (focus on two)
+% \item Block: minimum unit of information present/not present
+% \item Hit: information present when requested
+% \item Miss: information not present, must be copied up
+% \item Terminology: hit ratio, hit time, miss penalty
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% At any point in the discussion, we focus on the relationship between
+% two adjacent levels (upper and lower); this interface will have its
+% own block size. 
+% \begin{itemize}
+% 	\item The hit ratio is the fraction of memory accesses found
+% 		in the upper level; since hits are cheaper than misses, a 
+% 		higher ratio means better performance. 
+% 	\item Hit time is the time needed to determine
+% 		whether an access is a hit or a miss; 
+% 	\item the miss penalty is the
+% 		additional time needed in the case of a miss.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}\frametitle{Cache}
+% The instruction memory and data memory in the datapath are actually caches. We will assume the memory hierarchy has three levels, cache, memory, and secondary storage.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/cache-datapath}}
+% \end{figure}
+
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \STitle{Cache}
+% \begin{itemize}
+% \item Cache: level of memory hierarchy between CPU and main memory
+% \item Important questions:
+% \begin{itemize}
+% \item How do we know if a data item is in the cache?
+% \item How do we find it?
+% \end{itemize}
+% % \item Direct mapped: each memory location is mapped to exactly one
+% % location in the cache
+% % \item Typical mapping: (block address) modulo (number of blocks in
+% % cache)
+% % \item Example: block = 1 word, cache size = 8, just take lower 3 bits of
+% % word address
+% % \item Need tag for each block in cache giving original location
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item Caches were THE major factor in CPU speeds.  Using the extra transistors
+%   as cache reduced memory access times and gave performance improvements well
+%   beyond those predicted by Moore's law.
+% \item The only ``gotcha'' (well...) with caches is that you can only put
+%   so much cache near the CPU.  Ie, you are limited in the amount of primary
+%   cache; adding more will slow down the CPU access to the cache, negating
+%   its value.  Multilevel caches are used to alleviate this problem,
+%   although there are clearly diminishing returns.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Direct-Mapped Cache - Terminology}
+% In a \textbf{direct-mapped cache}, each memory address is mapped exactly to one address in the cache. If the word is in the cache, finding it is straightforward. The cache address is also called the cache \textbf{index}.
+% \begin{itemize}
+% \item Let $c$ be the cache index.
+% \item Let $m$ be the memory address.
+% \item Let $n$ be the number of blocks in cache. 
+% \end{itemize}
+%  $$c \equiv m \text{ } (mod \text{ } n) .$$
+%   \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+% If the cache has $n=8$ blocks, then memory address 29 maps to:
+% \end{tcolorbox}
+% In general, for a cache with $n$ blocks, the index $c$ has $\log_2 (n)$ bits, so it is the lower $\log_2(n)$ bits of the memory address.
+% \begin{align*}
+% 29=(11&101)_2 \\
+% 5 = (&101)_2
+% \end{align*}
+% Note: $5 \equiv 29 \text{ } (mod \text{ } 8)$
+% % Recall that $29 = 8 \times 3 + 5$ and the definition of modulo from MATH 135.
+% \end{frame}
+
+% %-----------------------------------------------------
+% % \begin{frame}\frametitle{Direct-Mapped Cache}
+
+% % In binary notation, the cache address is the lower $\log_2 (8)=3$ bits of the memory address.
+% % \begin{align*}
+% % 29=(11&101)_2 \\
+% % 5 = (&101)_2
+% % \end{align*}
+% % In general, for a cache with $n$ blocks, the index $c$ has $\log_2 (n)$ bits, so it is the lower $\log_2(n)$ bits of the memory address.
+% % \hfill\break
+
+
+
+% % \end{frame}
+
+% %-----------------------------------------------------
+% % \begin{frame}\frametitle{Direct-Mapped Cache}
+
+% % The following diagram shows more examples of memory addresses mapping to cache indices.
+% % \begin{itemize}
+% % \item 00\textbf{001}, 01\textbf{001}, 10\textbf{001}, 11\textbf{001} all map to 001.
+% % \item 00\textbf{101}, 01\textbf{101}, 10\textbf{101}, 11\textbf{101} all map to 101.
+% % \end{itemize}
+
+% % \begin{figure}[H]
+% % \centering
+% % 	{\includegraphics[scale=0.2]{06-memory-hierarchies/figures/direct-map-cache-mem}}
+% % \end{figure}
+% % \end{frame}
+
+
+% %-----------------------------------------------------
+% % \begin{frame}\frametitle{Direct-Mapped Cache - Terminology Continued}
+% % {\footnotesize
+% % \begin{itemize}
+% %     \item A cache index can contain the contents of a number of different memory locations.
+% %     \item Use \textbf{tag} to uniquely identify the data in the cache
+% %     \item Tag contains the upper portion of the address, the bits that are not used as the cache index.
+
+% % \begin{multicols}{2}
+    
+% % \begin{center}
+% % 	\begin{tabular}{c|c}
+% % Memory Address & Tag \\\hline
+% % \textbf{00}001, \textbf{00}101 & 00  \\
+% % \textbf{01}001, \textbf{01}101 & 01  \\
+% % \textbf{10}001, \textbf{10}101 & 10 \\ 
+% % \textbf{11}001, \textbf{11}101 & 11 \\
+% % \end{tabular}
+% % \end{center}
+% % \columnbreak
+% % \begin{figure}[H]
+% % \centering
+% % 	{\includegraphics[scale=0.12]{06-memory-hierarchies/figures/direct-map-cache-mem}}
+% % \end{figure}
+
+% % \end{multicols}
+
+% % \item A \textbf{valid bit} indicates whether an entry contains valid data.
+% % \item The valid bit and the tag are tested together.
+% % \end{itemize}
+% % }
+% % \end{frame}
+% % \begin{frame}\frametitle{Direct-Mapped Cache}
+% % When the processor starts up, the cache does not have good data, and the tag fields are meaningless. After executing instructions, some cache entries can still be empty.
+% % \hfill\break
+
+% % A \textbf{valid bit} indicates whether an entry contains valid data.
+
+% % \hfill\break
+% % The valid bit and the tag are checked together.
+% % \end{frame}
+% \begin{frame}[fragile]
+% \Title{Example: Direct mapped cache}
+
+% \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+%   Can you fill in the tables below?
+% % \begin{center}
+
+% % \scriptsize
+% % \begin{tabular}{ccc}
+% %  Memory Access&~~~& Cache \\
+% % \begin{tabular}[t]{|c|c|c|c|}
+% % \hline
+% % Dec  & Binary  & Hit/miss & Cache block\\
+% % \hline
+% % 20 & 10100& &\\
+% % 18 & 10010& &\\
+% % \hline
+% % 20 & 10100& &\\
+% % 18 & 10010& &\\
+% % \hline
+% % 22 & 10110& &\\
+% % 7 & 00111& &\\
+% % \hline
+% % 22 & 10110& &\\
+% % 28 & 11100& &\\
+% % \hline
+% % \end{tabular}
+% % &~~~~&
+% % \begin{tabular}[t]{|c|c|c|c|}
+% % \hline
+% % Index & V & ~~Tag~~ & ~~~~~~Data~~~~~~\\
+% % \hline
+% % 000 & & &\\
+% % 001 & & &\\
+% % \hline
+% % 010 & & &\\
+% % 011 & & &\\
+% % \hline
+% % 100 & & &\\
+% % 101 & & &\\
+% % \hline
+% % 110 & & &\\
+% % 111 & & &\\
+% % \hline
+% % \end{tabular}
+% % \end{tabular}
+% % \end{center}
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex0}}
+% \end{tcolorbox}
+% For now, ignore requirements of 4 or 8 byte aligned addresses. 
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item This is a variation of the example on page 386/7 of
+% 	the text, or an equivalent (state of cache after each miss). 
+% \item Note the
+% ``valid bit'' field (V), which distinguishes an empty entry from a full one
+% 	(an empty entry has to have some bit pattern in the registers). Yes,
+% 	everything was byte addresses before this and in this example alone
+% 	there are word addresses. Make sure everyone is clear on this (it's
+% 	like dropping off the lower two bits for a moment). 
+% \item The ``Cache block'' is computed by taking the address mod 8 (in this
+% 	example).  Initially, work with the decimal address mod 8 to get
+% 	the cache block, but then...
+% \item ...point out that the
+% 	modulo computation is very simple if the cache contains a number of
+% 	blocks which is a power of two. This example does not talk about the
+% 	fine details of what happens when there is a hit or miss.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Accessing Direct-Mapped Cache Example: Part 1}
+% Want to access memory address 10100. Lookup index 100 in the cache. The valid bit $V$ is 0, therefore this is a cache miss.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex0}}
+% \end{figure}
+
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Accessing Direct-Mapped Cache Example: Part 2}
+% Since memory address 10100 has a cache miss, go to memory address 10100 read this and store it in the cache. Update the tag and valid bits.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex1}}
+% \end{figure}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Accessing Direct-Mapped Cache Example: Part 3}
+% Want to access memory address 10010. Lookup index 010 in the cache. The valid bit $V$ is 0, therefore this is a cache miss.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex1}}
+% \end{figure}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Accessing Direct-Mapped Cache Example: Part 4}
+% Since memory address 10010 has a cache miss, go to memory address 10010 read this and store it in the cache. Update the tag and valid bits.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex2}}
+% \end{figure}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Accessing Direct-Mapped Cache Example: Part 5}
+% Want to access memory address 10100. Lookup index 100 in the cache. The valid bit is 1, therefore compare the tags. Since $10=10$, we have a cache hit.
+
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex3}}
+% \end{figure}
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Accessing Direct-Mapped Cache Example: Part 6}
+% Want to access memory address 10010. Lookup index 010 in the cache. The valid bit is 1, therefore compare the tags. Since $10=10$, we have a cache hit.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex4}}
+% \end{figure}
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Accessing Direct-Mapped Cache Example: Part 7}
+% Want to access memory address 10110. Lookup index 110 in the cache. The valid bit is 0, therefore this is a cache miss.
+
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex4}}
+% \end{figure}
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Accessing Direct-Mapped Cache Example: Part 8}
+% Since memory address 10110 has a cache miss, go to memory address 10110 read this and store it in the cache. Update the tag and valid bits.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex5}}
+% \end{figure}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Accessing Direct-Mapped Cache Example: Part 9}
+% Want to access memory address 00111. Lookup index 111 in the cache. The valid bit is 0, therefore this is a cache miss.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex5}}
+% \end{figure}
+
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Accessing Direct-Mapped Cache Example: Part 10}
+% Since memory address 00111 has a cache miss, go to memory address 00111 read this and store it in the cache. Update the tag and valid bits.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex6}}
+% \end{figure}
+
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Accessing Direct-Mapped Cache Example: Part 11}
+% Want to access memory address 10110. Lookup index 110 in the cache. The valid bit is 1, therefore compare the tags. Since $10=10$, we have a cache hit.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex7}}
+% \end{figure}
+
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Accessing Direct-Mapped Cache Example: Part 12}
+% Want to access memory address 11100. Lookup index 100 in the cache. The valid bit is 1, therefore, compare the tags. Since $10\neq 11$, we have a cache miss.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex7}}
+% \end{figure}
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Accessing Direct-Mapped Cache Example: Part 13}
+% Since memory address 11100 has a cache miss, go to memory address 11100 read this and replace what is in the cache. Update the tag.
+
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex8}}
+% \end{figure}
+% \end{frame}
+% %-----------------------------------------------------
+
+
+% %-----------------------------------------------------
+
+% \begin{frame}[fragile]
+% \Title{Testing For Cache Hit/Miss}
+% \PHFigure{!}{4.5in}{3in}{ARMFigures/Fig0510-crop}{Figure 5.10}
+% \BNotes\ifnum\Notes=1
+% This is Figure 5.10.
+% \fi\ENotes
+% \end{frame}
+
+% % \begin{frame}\frametitle{Disadvantage of Direct-Mapped Cache}
+% % In the previous example, consider if the next few memory address accesses are 20, 28, 20, 28, $\dots$ Since now address 20 is needed again, cache index 100 will be replaced again. This replacement continues, and the cache keeps on missing. Set-associative caches will help with this problem.
+
+% % \begin{figure}[H]
+% % \centering
+% % {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex8}}
+% % \end{figure}
+% % \end{frame}
+
+
+% \begin{frame}[fragile]
+% \Title{Handling Cache Misses, Writes}
+% \begin{itemize}
+% \item On a miss: stall entire processor until item fetched
+% \begin{itemize}
+%     \item either generate interrupt and OS handles cache miss
+%     \item or cache generates a miss signal that is used as input by Control unit to stall
+%     % \footnote{set all control signals to 0 in pipeline register until cache miss handled} processor
+% \end{itemize}
+% \item For miss on \texttt{STUR} instructions, often known as write miss: usually written item goes into cache
+% \item Write-through: 
+% \begin{itemize}
+%     \item immediately write item back into memory
+%     \item cache and main memory are consistent
+%     \item slow since every write causes data to be written to main memory. \item {\footnotesize A solution is to use a \textbf{write-buffer} to store all data  waiting to be written to main memory.}
+% \end{itemize}
+% \item Write-back:
+% \begin{itemize}
+%     \item write item \textbf{only} into cache
+%     \item cache and memory temporarily inconsistent
+% \item write back cache block only when it must be replaced
+% \item \textbf{dirty} bit needed to keep track of entries that need writing back
+% \end{itemize}
+% % \item Usually have separate instruction and data caches 
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item "Stall" could involve generating an interrupt.  The OS can then decide
+% 	what to do with the CPU while waiting for the memory.  Once word of
+% 	memory is in cache, it restarts the \texttt{LDUR} command.
+
+% 	Alternatively, rather than have OS involved (since \texttt{LDUR} stalls
+% 	are common and don't take that long to handle), have a stall signal
+% 	come from cache as input to Control unit, and have Control shutdown
+% 	all register updates in pipeline until word is back in memory.
+% \item An example of why the write-back strategy is useful occurs in programs
+% 	in which there are a fair amount of stores. The {\tt gcc} mix we keep
+% 	using has 11\% stores; if a memory write costs 10 cycles (not
+% 	unrealistic), this reduces performance by more than a factor of
+% 	two. 
+% \item An alternative to write back is to buffer writes. 
+% \item The reason for
+% 	the bandwidth increase with separate caches is parallelism.
+% \item Example:
+% \begin{verbatim}
+%     for (sum=0,i=0; i<100; i++) sum=sum+i;
+% \end{verbatim}
+% Each time through the loops there are two memory writes.
+
+% With 100cc memory, write-through takes 200*100+700cc =20700cc (700 being an estimate for the code time).
+
+% With write-back, total time is 900cc (assuming same code time and that i and sum are written back to memory at end of loop).
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Spatial Locality: Larger Block Sizes}
+% \PHFigure{!}{4in}{3in}{ARMFigures/Fig0513-crop}{Figure 5.13}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item
+%   This is figure 5.13 of a Intrinsity FastMATH processor (which is only a
+%   32-bit machine, thus the smaller word size).
+  
+% \item The block size is sixteen words, and
+%   total cache size is $2^{14}=16$KB. So there are 256 entries
+%   in the cache, indexed by 8 bits. The top 18 bits of the address are
+%   the tag; the bottom two bits are byte offset, and the next two bits
+%   are the block offset within the entry.
+% \item Note that with blocks in cache, then a cache write-miss may force a
+% 	cache read
+% \item The gain from block word caches is that fetching 16 words from memory
+% 	does NOT take 16 times as long.  Instead, you can design memory to
+% 	allow the 16 words to be fetched in parallel, and then sent one at
+% 	a time over the bus to the CPU.  Thus, if it takes 16cc to fetch a
+% 	word from memory, then a block size of 1 would take 17cc to fetch,
+% 	a block size of 4 would take 20cc to fetch, and a blocksize of 16
+%         words would take 32cc to fetch.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}\frametitle{Tradeoffs in Choosing Block Size}
+% For fixed size cache:
+% \begin{itemize}
+%     \item Smaller blocks: More misses for local reference.
+% \item Larger blocks can increase miss penalty:
+% \begin{itemize}
+% \item Fewer blocks in cache, so blocks can be bumped out prematurely.
+% \item Spatial locality decreases with larger blocks.
+% % \item If a block has only one word, STUR can directly write to memory. But if block has more than one word or doubleword, memory must be read on write miss to bring the block into the cache before writing to the cache. 
+% \item  If a block has multiple words, on a write miss (STUR instruction), memory must be read, block brought into the cache before writing to the cache. 
+% \item Design memory to allow multiple words to be fetched in \emph{parallel}. Then send each word over the bus to the cache/processor.
+
+% {\footnotesize
+% Suppose it takes 16cc to fetch a word from memory.
+% \begin{itemize}
+% \item A block size of 1 word would take $16 + 1 = 17$cc to fetch.
+% \item A block size of 4 words would take $16cc$ to fetch (in parallel), and sending to the CPU takes $16 + 4 = 20$cc.
+% \item A block size of 16 words would take $16cc$ to fetched (in parallel), and sending to the CPU takes $16 + 16 = 32$cc.
+% \end{itemize}
+% }
+% \end{itemize}
+% \end{itemize}
+
+% \end{frame}
+
+% % \begin{frame}\frametitle{Efficieny Gain: More Than One Word Per Block}
+% % Fetching 16 words from memory does \emph{not} take 16 times as long.
+% % \hfill\break
+
+% % Instead, design memory to allow the 16 words to be fetched in \emph{parallel}. Then sent them one at a time over the bus to the CPU.
+% % \hfill\break
+
+% % Suppose it takes 16cc to fetch a word from memory.
+% % \begin{itemize}
+% % \item A block size of 1 word would take $16 + 1 = 17$cc to fetch.
+% % \item A block size of 4 words would take $16cc$ to fetch (in parallel), fetching and sending to the CPU takes $16 + 4 = 20$cc.
+% % \item A block size of 16 words would take $16cc$ to fetched (in parallel), fetching and sending to the CPU takes $16 + 16 = 32$cc.
+% % \end{itemize}
+% % \end{frame}
+
+% % \begin{frame}[fragile]
+% % \Title{Tradeoffs in Choosing Block Size}
+% % \begin{itemize}
+% % \item Smaller blocks mean more misses for local references
+% % \item Larger blocks mean fewer blocks in cache, premature bumping
+% % \item Larger blocks increase miss penalty
+% % \item Memory must be read on write miss if block size $>$ 1
+% % \end{itemize}
+% % \BNotes\ifnum\Notes=1
+% % ~% notes text
+% % \fi\ENotes
+% % \end{frame}
+
+% \iffalse
+% % This dissappeared from the 5th edition, and I always found it hard
+% % to present, so I'm removing it from the course notes
+% \begin{frame}[fragile]
+% \Title{Designing Memory To Support Caches}
+% \Figure{!}{6in}{4in}{PHALL/F0713}
+% \BNotes\ifnum\Notes=1
+% Do the following analysis (from text, page 471 on the board. Suppose
+% it takes 1 clock cycle to send an address to memory or to get a word
+% back from memory on the bus, but 15 clock cycles for the DRAM to
+% respond. 
+% \begin{itemize}
+% \item With a block size of 4 words, the design on the left takes 
+% $1 + 15 \times 4 + 1 \times 4 = 65$ cycles for a miss, with bandwidth
+% $16/65 = 0.25$ bytes per clock cycle. 
+% \item The design in the middle, with
+% 2-word width, takes $1 + 15 \times 2 + 1 \times 2 = 33$ clock cycles,
+% with bandwidth $16/33 = 0.48$), and with 4-word width takes $1 + 15
+% \times 1 + 1 \times 1 = 17$ clock cycles, with bandwidth $16/17 =
+% 0.94$ bytes per clock cycle. 
+% \item But the design on the right takes $1 + 15
+% \times 1 + 4 \times 1 = 20$ clock cycles for bandwidth $16/20 =
+% 0.8$, and is a cheaper design.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \fi
+
+
+% % \begin{frame}[fragile]
+% % \vspace*{-.5in}\Title{Block Size Read Example}
+% % \begin{center}
+% % \begin{tabular}{r||c||c|c|c|c|}
+% %  & ~~Tag~~ & ~~~~~~00~~~~~~ & ~~~~~~01~~~~~~ & ~~~~~~10~~~~~~ & ~~~~~~11~~~~~~\\
+% % \hline
+% % \hline
+% % 000 &&&&&\\
+% % \hline
+% % 001 &&&&&\\
+% % \hline
+% % 010 &&&&&\\
+% % \hline
+% % 011 &\vspace*{.1in}&&&&\\
+% % \hline
+% % \hline
+% % 100 &&&&&\\
+% % \hline
+% % 101 &&&&&\\
+% % \hline
+% % 110 &&&&&\\
+% % \hline
+% % 111 &&&&&\\
+% % \hline
+% % \end{tabular}
+% % \end{center}
+% % \vspace*{-.2in}
+% % \begin{center}
+% % 	\begin{tabular}{lr|cccc|c}
+% % 	   & Dec & Tag & Indx & Block & Byte&Hit/Miss\\
+% % 	\hline
+% % 	\texttt{LDUR} & 96 & 000 & 011 & 00 & 000&\\
+% % 	\texttt{LDUR} & 104 & 000 & 011 & 01 & 000&\\
+% % 	\texttt{LDUR} & 112 & 000 & 011 & 10 & 000&\\
+% % 	\texttt{LDUR} & 120 & 000 & 011 & 11 & 000&\\
+% % 	\end{tabular}
+% % \end{center}
+
+% % \BNotes\ifnum\Notes=1
+% % \begin{itemize}
+% % \item Note: Either do the example on this slide followed by the example
+% % 	on the next slide, OR do the example on two slides from now.
+% % 	It's redundant to do both.  
+
+% % 	If you do the examples on this slide and the next, consider
+% % 	saving the cache from this slide and using it for the next
+% % 	slide (in essence, that's what the 3rd example does).
+
+% % \bigskip
+
+% % \item Assume the cache is initially empty.
+% % \item In this example, the first LDUR is a cache miss.  But it loads
+% % 	four words of memory into the cache, so the next three memory
+% % 	accesses are cache hits.  Total cost: 20cc for the memory
+% % 	access vs 4x17=68cc for direct mapped cache.
+% % \end{itemize}
+% % \fi\ENotes
+% % \end{frame}
+
+% % \begin{frame}[fragile]
+% % \vspace*{-.5in}\Title{Block Size Write Example}
+% % \begin{center}
+% % \begin{tabular}{r||c||c|c|c|c|}
+% %  & ~~Tag~~ & ~~~~~~00~~~~~~ & ~~~~~~01~~~~~~ & ~~~~~~10~~~~~~ & ~~~~~~11~~~~~~\\
+% % \hline
+% % \hline
+% % 000 &&&&&\\
+% % \hline
+% % 001 &&&&&\\
+% % \hline
+% % 010 &&&&&\\
+% % \hline
+% % 011 &\vspace*{.1in}&&&&\\
+% % \hline
+% % \hline
+% % 100 &&&&&\\
+% % \hline
+% % 101 &&&&&\\
+% % \hline
+% % 110 &&&&&\\
+% % \hline
+% % 111 &&&&&\\
+% % \hline
+% % \end{tabular}
+% % \end{center}
+% % \vspace*{-.2in}
+% % \begin{center}
+% % 	\begin{tabular}{lr|cccc|c}
+% % 	   & Dec & Tag & Indx & Block & Byte&Hit/Miss\\
+% % 	\hline
+% % 	\texttt{STUR} & 368 & 001 & 011 & 10 & 000&\\
+% % 	\texttt{LDUR} & 376 & 001 & 011 & 11 & 000&\\
+% % 	\end{tabular}
+% % \end{center}
+
+% % \BNotes\ifnum\Notes=1
+% % \begin{itemize}
+% % \item Assume the cache starts empty.
+% % \item When the write occurs, the tag bit of the block gets set.
+% % 	If we just write M[368] to the cache without a read, then
+% % 	the LDUR of 376 is invalid.  Thus, on a cache write we must
+% % 	read the case block if it isn't in memory.
+% % \end{itemize}
+% % \fi\ENotes
+% % \end{frame}
+
+
+% \begin{frame}\frametitle{Block Size Read/Write Example}
+%  \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+%   Assume, memory is addressable with 11 bits. 
+  
+%   Now, suppose a program requests the 
+  
+%   following addresses using \texttt{LDUR} and \texttt{STUR}. 
+  
+%   Mark whether each memory access results in a Hit or a Miss.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/block-size-read-write-ex}}
+% \end{figure}
+% \end{tcolorbox}
+
+% Note: That is, size of memory is $2^{11} = 2 \times 2^{10} = 2$KB.
+% Cache size is 8 lines and each line has four double-word blocks. 
+
+% \end{frame}
+
+% % \begin{frame}\frametitle{Mapping Address to a Multiword Cache Block}
+
+% % Consider a cache with 64 lines, the block size is 16 bytes $\Rightarrow$ 4 words in each block.
+% % \begin{table}
+% % \begin{center}
+% % \resizebox{!}{0.15\textheight}{
+% %     \begin{tabular}{ c|c|c|c|c|c|c|c|c|c}
+% %          & \multicolumn{4}{c|}{word 0}            & \dots & \multicolumn{4}{c}{word 3} \\ \hline
+% %          & byte 0 & byte 1 &byte 2 &byte 3 &\dots & byte 12 &byte 13 &byte 14 &byte 15 \\ \hline
+% % line 0  &        &        &       &       &\dots &         &        &        &        \\ \hline
+% % %block 1  &        &        &       &       &\dots &         &        &        &        \\ \hline
+% % \vdots   &        &         &       &       &\dots &         &        &        &        \\ \hline
+% % \textbf{line 11} & M[1200] &M[1201] &  M[1202]     & M[1203]       &\dots &  M[1212] & M[1213] & M[1214] & M[1215]     \\ \hline
+% % \vdots   &        &        &       &       &\dots &         &        &        &        \\ \hline
+% % line 63 &        &        &       &       &\dots &         &        &        &        \\ \hline
+% % \end{tabular}
+
+% % }
+% % %\caption{hi}\label{}
+% % \end{center}
+% % \end{table}
+
+% % We want to map memory address 1200 to a line in cache. Since each line has 16 bytes, memory address 1200 will be on line:
+% % \begin{align*}
+% % c \equiv  \left \lfloor \frac{1200}{16} \right \rfloor \equiv 75 \equiv 11.
+% % \end{align*}
+% % Block 11 maps all addresses between 1200 and 1215, e.g. memory address 1212
+% % \begin{align*}
+% % c \equiv  \left \lfloor \frac{1212}{16} \right \rfloor \equiv \left \lfloor 75.75 \right \rfloor \equiv 75 \equiv 11.
+% % \end{align*}
+% % \end{frame}
+
+% %-----------------------------------------------------
+
+
+% \begin{frame}[fragile]
+% \Title{Solution - Block Size Read/Write Example}
+% \vspace*{-.2in}
+% \begin{center}
+% \begin{tabular}{r||c||c|c|c|c|}
+%  & ~~Tag~~ & ~~~~~~00~~~~~~ & ~~~~~~01~~~~~~ & ~~~~~~10~~~~~~ & ~~~~~~11~~~~~~\\
+% \hline
+% \hline
+% 000 &&&&&\\
+% \hline
+% 001 &&&&&\\
+% \hline
+% 010 &&&&&\\
+% \hline
+% 011 &\vspace*{.1in}&&&&\\
+% \hline
+% \hline
+% 100 &&&&&\\
+% \hline
+% 101 &&&&&\\
+% \hline
+% 110 &&&&&\\
+% \hline
+% 111 &&&&&\\
+% \hline
+% \end{tabular}
+% \end{center}
+% \begin{center}
+% 	\begin{tabular}{lr|cccc|c}
+% 	   & Dec & Tag & Indx & Block & Byte&Hit/Miss\\
+% 	\hline
+% 	\texttt{LDUR} & 96 & 000 & 011 & 00 & 000&\\
+% 	\texttt{LDUR} & 104 & 000 & 011 & 01 & 000&\\
+% 	\texttt{LDUR} & 96 & 000 & 011 & 00 & 000&\\
+% 	\texttt{STUR} & 368 & 001 & 011 & 10 & 000&\\
+% 	\texttt{LDUR} & 376 & 001 & 011 & 11 & 000&\\
+% 	\texttt{LDUR} & 96 & 000 & 011 & 00 & 000&\\
+% 	\end{tabular}
+% \end{center}
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% 	\item In this example, assume cache starts empty.  There would
+% 		be other commands than \texttt{LD/ST UR}, but we are only concerned
+% 		about the \texttt{LD/ST UR} for cache effects.
+% 	\item Show the effect of each memory reference,
+% 		indicating in the boxes for row 011 what is stored in 
+% 		the cache (eg, M[96], M[104], M[112], M[120] after the
+% 		first memory reference), and when there is a cache hit
+% 		and miss.
+
+% 		The first \texttt{LDUR} is a cache miss; the second and third
+% 		are cache hits; the fourth causes a cache read, loading
+% 		M[352], M[360], M[368], M[376], and then overwriting
+% 		M[368]; the fifth (a cache hit) shows why we need to read 
+% 		when doing a write; the 6th line
+% 		causes a cache write to memory and
+% 		a cache read of the first block of memory addresses.
+% 	\item Note that first three commands read cache entries that
+% 		are NOT overwritten by the \texttt{STUR} or subsequent
+% 		\texttt{LDUR}; from this
+% 		point of view, the reading the second block of memory,
+% 		writing it back after the \texttt{STUR} and a following
+% 		\texttt{LDUR 96} and then reading back the first block of
+% 		memory is wasteful: all those elements would have fit
+% 		in the cache without conflict.  However, this is an
+% 		extreme bad case example, which isn't (perhaps) as bad
+% 		as it first looks.
+% 	\item Do a timing analysis from the numbers on the previous
+% 		slide.  Using the interleaved memory organization, using
+% 		the block version takes 3 block reads and one block write,
+% 		for 4x20cc=80cc.  If we used a direct cache (no block reads)
+% 		and assumed there were no conflicts, we'd need 3
+% 		reads and 1 write for 4x17cc=68cc (although perhaps the
+% 		write would be deferred and never occur if it were overwritten).
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Block Size Read/Write Example: Part 1}
+% The first request is a miss. A new block is written into the cache.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/block-size-read-write-ex-table0}}
+% \end{figure}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Block Size Read/Write Example: Part 2}
+% The next two requests will be hits.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/block-size-read-write-ex-table1}}
+% \end{figure}
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Block Size Read/Write Example: Part 3}
+% STUR requests to store into address 368. The index at 011 has tag 000, this does not match the tag 001 for address 368. Therefore, this is a cache miss. Fetch the block that address 368 belongs to.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/block-size-read-write-ex-table2}}
+% \end{figure}
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Block Size Read/Write Example: Part 3}
+% STUR will overwrite \texttt{Mem[368]} in the cache with new data. The cache and memory are not inconsistent. The cache sets the \textbf{dirty bit} to the row indexed by 011.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/block-size-read-write-ex-table2-d}}
+% \end{figure}
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Block Size Read/Write Example: Part 4}
+% The next request to address 376 will be a hit.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/block-size-read-write-ex-table3}}
+% \end{figure}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Block Size Read/Write Example: Part 5}
+% The next request to address 96 will be a miss. The block containing the modified data is \textbf{written-back} to memory. A new block is brought into the cache.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/block-size-read-write-ex-table4}}
+% \end{figure}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Block Size Read/Write Example: Timing Analysis}
+
+% \begin{itemize}
+% \item Let us assume the following time requirements: 
+% \begin{itemize}
+%     \item to access memory is 16 cc 
+%     \item to read/write a double word is 1 cc.
+% \end{itemize}
+% \end{itemize}
+% \begin{itemize}
+%     \item For a direct mapped cache with four double word block:
+%     \begin{itemize}
+%     \item This code segment takes, 3 block reads and 1 block write. 
+%     \item Then, to read/write a four double word block = 20 cc. 
+%     \item Then, 3 block reads and 1 block write = $4 \times 20 = 80$cc.
+% \end{itemize}
+% \item For a cache with one double word block:
+% \begin{itemize}
+%     \item This code segment has 3 misses and 1 write-back 
+%     \item Then, to read/write a double word = 17 cc. 
+%     \item Then, 4 misses\footnote{possible to write directly to memory, reducing misses to 3 but still need to account for writing to memory} = $4 \times 17 = 68$cc.
+% \end{itemize}
+% \end{itemize}
+
+
+% % \begin{figure}[H]
+% % \centering
+% % {\includegraphics[width=0.6\textwidth]{figures/block-size-read-write-ex-table4}}
+% % \end{figure}
+% \end{frame}
+
+% %-----------------------------------------------------
+
+
+% \begin{frame}[fragile]
+% \STitle{Block Size Code Example Execution Time: Arrays}
+% \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+% {\footnotesize
+% \begin{multicols}{2}
+
+%     \begin{verbatim}
+% sum=0
+% for (i=0; i < 1000; i ++){
+% //read from array and add to sum
+%     sum = sum + A[i] 
+% }
+% \end{verbatim}
+
+
+% \columnbreak
+
+% Pseudo-ARM: Sum the elements in an array A
+% \begin{verbatim}
+%       100 ADD X1, X31, X31
+%       104 ADD X2, X31, X31
+% loop: 108 LDUR X3, A(X1)
+%       112 ADD X2, X2, X3
+%       116 ADDI X1, X1, #1
+%       120 SUBI X4, X1, #1000
+%       124 CBNZ X4, loop
+%       128 NOP
+% \end{verbatim}
+% \end{multicols}
+  
+
+% Assume 1 cc per instruction (data forwarding, etc)
+
+% LDUR takes 1cc if in cache.
+
+% Block size 1: fetch from memory takes 17cc extra
+
+% Block size 4: fetch from memory takes 20cc (4 words) extra
+
+% \textbf{What is the total execution time for the code above?}
+% }
+% \end{tcolorbox}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item The memory access times are taken from the example of
+% 	designing memory to efficiently do block size reads.
+% \item The code basically does
+% \begin{verbatim}
+% sum = 0
+% for (i=0;i<1000;i++)
+%   sum = sum + A[i]
+% end
+% \end{verbatim}
+% The Pseudo-ARM is because we really should increment by 4 and compare to 4000
+% and details like that.
+% \item See if they can spot the load-use hazard, which can be removed by
+% 	swapping two lines of code. 
+
+% 	There's also a hazard between 120 and
+% 		124 (assuming branch in ID).  If they move 112 to 120 
+% 		(and 116,120 forward), they get rid of both hazards.
+%   \item The point of the example is to show how long it takes to
+%     execute.  
+
+%     The instructions take $2+6\times1000=6002$
+
+%     Memory access with block size 1 takes $1000\times17=17,000$
+
+%     Total: 23,002cc
+
+%     Memory access with block size 4 takes $250\times20=5000$
+
+%     Total: 11,002cc
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% %-----------------------------------------------------
+% % \begin{frame}[fragile]\frametitle{Block Size and Performance}
+
+% % Consider the following high-level code for summing elements of an array:
+% % \begin{verbatim}
+% % sum=0
+% % for (i=0; i < 1000; i ++)
+% % {
+% %     sum = sum + A[i] // read from array and add to sum
+% % }
+% % \end{verbatim}
+% % It is translated into the following pseudo-ARM code.
+% % \begin{verbatim}
+% %       100 ADD  X1, X31, X31  // set loop counter to 0
+% %       104 ADD  X2, X31, X31  // set sum to 0 
+% % loop: 108 LDUR X3, A(X1)     // read array entry
+% %       112 ADD  X2, X2, X3    // add array entry
+% %       116 ADDI X1, X1, #1    // go to next array element
+% %       120 SUBI X4, X1, #1000 // check if counter < 1000
+% %       124 CBNZ X4, loop      // continue looping 
+% %       128 NOP
+% % \end{verbatim}
+% % \end{frame}
+
+
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{Solution: Code Analysis - Block Size Code - Arrays}
+% Identify stalls in the code.
+% \begin{verbatim}
+%       100 ADD  X1, X31, X31   
+%       104 ADD  X2, X31, X31   
+% loop: 108 LDUR X3, A(X1)     
+%       112 ADD  X2, X2, X3    // load-use stall, wait for X3
+%       116 ADDI X1, X1, #1     
+%       120 SUBI X4, X1, #1000 
+%       124 CBNZ X4, loop      // stall, wait for X4
+%       128 NOP
+% \end{verbatim}
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{Solution: Code Rearrangement - Block Size Code - Arrays}
+% Move line 112 to after line 120.
+% \begin{verbatim}
+%       100 ADD  X1, X31, X31   
+%       104 ADD  X2, X31, X31   
+% loop: 108 LDUR X3, A(X1)     
+%       112 ADDI X1, X1, #1     
+%       116 SUBI X4, X1, #1000
+%       120 ADD  X2, X2, X3   // ** moved, X3 is ready
+%       124 CBNZ X4, loop     // forward X4
+%       128 NOP
+% \end{verbatim}
+% Execution time assumes perfect branch prediction:
+
+% 2 instructions outside the loop
+
+% 5 instructions inside the loop, iterating 1000 times:
+
+% $$2 + 1000 \cdot 5 =5002cc$$
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{Block Size Code and Performance: Array}
+% Recall, fetching data from memory takes 16cc plus 1cc for each doubleword.
+% \begin{itemize}
+% \item Block size 1 takes 16cc+1cc=17cc to fetch from memory. For 1000 iterations, $17\times 1000=17000$cc is needed to fetch data from memory. The total time to execute the code and fetch data from memory is:
+% $$5002+17 \cdot 1000 = 5002 + 17000 = 22002cc.$$
+% \item Block size 4 takes 16cc+4cc=20cc to fetch from memory, these are array elements A[i],..., A[i+3]. For 1000 iterations, we fetch 250 times from memory, $20\cdot 250=5000$cc is needed to fetch data from memory. The total time to execute code and fetch data from memory is:
+% $$5002+ 20\cdot 250 = 5002 + 5000 = 10002cc.$$
+% \end{itemize}
+% \textbf{This example justifies larger block sizes.}
+% \end{frame}
+
+% %-----------------------------------------------------
+
+
+
+
+% \begin{frame}[fragile]
+% \Title{Block Size Code Example: Linked List}
+
+% \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+% {\footnotesize
+% \begin{multicols}{2}
+% \begin{verbatim}
+% struct node {int data;
+%             struct node* next;}
+% sum=0
+% // while A is not NULL
+% while (A!=0) { 
+%     sum = sum + A->data   
+%       A = A->next        
+% }
+% \end{verbatim}
+
+%  \columnbreak
+
+%  Pseudo-ARM code: sum elements in a linked list A
+% \begin{verbatim}
+%       100 LDUR X1, A
+%       104 ADD X2, X31,X31
+%       108 CBZ X1, done
+% loop: 112 LDUR X3, [X1,#0]
+%       116 ADD X2, X2,X3
+%       120 LDUR X1, [X1,#8]
+%       124 CBNZ X1, loop
+% done: 128 nop
+% \end{verbatim}
+% \end{multicols}
+
+% Assume 1 cc per instruction (data forwarding, etc)
+
+% LDUR takes 1cc if in cache
+
+% Block size 1: fetch from memory takes 17cc extra
+
+% Block size 4: fetch from memory takes 20cc (4 words) extra
+
+% \textbf{What is the total execution time for the code above?}
+% }
+
+%   \end{tcolorbox}
+
+
+% \BNotes\ifnum\Notes=1
+
+% \begin{itemize}
+% 	\item The point here is to compare the time using an array to that
+% 		of using a linked list.  
+
+% The code here is basically
+% \begin{verbatim}
+% struct node {int data; struct node* next;}
+% sum=0
+% while (A!=0) {
+%   sum = sum + A->data
+%   A = A->next
+% }
+% \end{verbatim}
+% 	\item There are two load-use hazards that you can get rid of by
+% 		swapping two lines of code
+% 	\item Do a timing analysis with a cache with a block size of 1
+% 		assuming there are 1000 links in the list.
+
+% 	Code: $3+5\times1000=5003$cc
+
+% 	Block size 1 memory: $17\times2000=34,000$cc, total of $39,003$cc
+
+% 	Block size 4 memory: $20\times1000=20,000$cc, total of $25,003$cc
+
+% 	\item The example is unfair in the sense that it is pretty much the
+% 		worst case for a linked list: you only have one piece of
+% 		data at each node.  Still, the linked list requires an
+% 		extra memory access, and even though blocking helps, you
+% 		still do 4 times as many memory accesses than the array
+% 		(which is why the array cost is less, despite executing
+% 		more lines of code).
+
+% 		On the other hand, it's a smart compiler that recognizes
+% 		that we can store A in a register (ie, there really should be a 
+% 		\texttt{STUR A,X1} in the ARM loop)
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{Solution - Code Analysis - Block Size and Performance: Linked List}
+% Spot the stalls.
+% \begin{verbatim}
+%       100 LDUR X1, A       
+%       104 ADD  X2, X31,X31  
+%       108 CBZ  X1, done
+% loop: 112 LDUR X3, [X1,#0] 
+%       116 ADD  X2, X2,X3   // load-use hazard, 
+%                            // stall 1cc, wait for X3
+%       120 LDUR X1, [X1,#8] 
+%       124 CBNZ X1, loop    // load-use and branch data hazard
+%                            // stall 2cc, wait for X1
+% done: 128 nop
+% \end{verbatim}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{Solution - Code Rearrangement - Block Size and Performance: Linked List}
+% Swap lines 116 and 120 to get rid of 2cc of stall time.
+% \begin{verbatim}
+%       100 LDUR X1, A       
+%       104 ADD  X2, X31,X31  
+%       108 CBZ  X1, done
+% loop: 112 LDUR X3, [X1,#0] 
+%       120 LDUR X1, [X1,#8] // ** swapped
+%       116 ADD  X2, X2,X3   // ** swapped
+%       124 CBNZ X1, loop    // stall 1 cc then forward X1
+% done: 128 nop
+% \end{verbatim}
+% Execution time assuming perfect branch prediction:
+
+% 3 instructions outside the loop
+
+% 4 instructions inside the loop with 1 stall
+
+% $$3 + 1000 \cdot 5 = 5003cc$$.
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{Block Size and Performance: Linked List}
+% Recall, fetching data from memory takes 16cc plus 1cc for each doubleword.
+% \begin{itemize}
+% \item Block size 1 takes 16cc+1cc=17cc to fetch from memory. For 1000 iterations, each iteration reads twice from memory, for a total of $17\cdot 2 \cdot 1000 = 34000$cc. The total time to execute the code and fetch data from memory is:
+% $$5003 + 34000 =  39003cc.$$
+% \item Block size 4 takes 16cc+4cc=20cc to fetch from memory. The linked list is scattered throughout memory, so each block read contains the data and next pointer for one node, but the next two doublewords are wasted. Repeat this for 1000 times, gives a total of $20\cdot 1 \cdot 1000=20000$cc to fetch data from memory. The total time to execute the code and fetch data from memory is:
+% $$5003 + 20000 = 25003cc.$$
+% \end{itemize}
+% The improvement from using a larger block size for a linked list is less than the improvement for the array.
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{Block Size and Performance: Key Note}
+
+% Large block size is better if we expect data to be consecutive in memory.
+% \hfill\break
+
+% Arrays are a more effective data structure than linked lists because they require less memory accesses.
+
+% \end{frame}
+
+
+
+%%%%%%%%lecture break
+
+\begin{frame}[fragile]
+\STitle{Alternate Placement Schemes}
+\begin{itemize}
+\item Fully-associative: a block can go anywhere in the cache
+\item Requires a comparator for each cache entry
+\item Set-associative: combines direct mapped and fully-associative schemes
+
+  %\PHFigure{!}{3in}{3in}{PHALL/F0715}{Figure 5.14}
+  \Figure{!}{0.3in}{1.8in}{Figs/altcache}
+
+  Green triangles show locations to search for Tag=13
+  
+  Cyan triangles indicate position with Tag=13
+\end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item In a fully-associative scheme, when the cache is full and there
+is a miss, some sort of scheme to choose the entry to be overwritten is
+needed. Typically the ``least recently used'' entry is used, though
+this computation has to be quick and is often approximated.
+\item
+In the example on the slide, block 12 is mapped into slot 4 in the
+direct-mapped cache, because $4 = 12 \bmod 8$; in the
+fully-associative, it can be in any slot (arrows indicate the
+comparisons that have to be made); in the 2-way set-associative, there
+are four sets and so block 12 is located somewhere in set 0 (because
+$0 = 12 \bmod 4$, but either entry in set 0 is possible (it is
+fully-associative within the set), so both must be checked.
+\item
+The tradeoff here is that increasing the degree of associativity
+decreases miss rate (because there is less likelihood that an entry
+will be ejected from the cache prematurely) but increases hit time
+(since a larger number of entries must be checked -- even if this is
+done in parallel, there is overhead for the increased circuitry). The
+book goes into much more detail.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+
+
+% \begin{frame}\frametitle{4-Way Set Associative Cache Circuit}
+% Main ideas from the circuit:
+% \begin{itemize}
+% \item  In a 4-way set associative cache, each memory block can be placed in any 4 locations. 
+% \item Each memory block has its own tag which is compared to the tag of the address requested to determine if there is a hit.
+% \item Each location has a valid bit for its memory block, which is ANDed with the comparator's output to create the hit signal for one block.
+% \item All 4 of these hit signals are ORed to give the hit signal for the set. All 4 of these hit signals also control a 4-to-1 ``pseudo-mux" to select the data from the set.
+% \end{itemize}
+
+% \end{frame}
+
+\begin{frame}[fragile]
+\Title{Example: 2-Way Set Associative Cache}
+\begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+  title=Try this,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+Consider the 2-way set associative cache below with the memory accesses shown:
+{\footnotesize
+\begin{center}
+    \begin{tabular}{ccc}
+Memory Access & & Cache \\
+\begin{tabular}[t]{|c|c|c|}
+\hline
+Dec  & Binary  & Hit/miss \\
+\hline
+20 & 10100&\\
+18 & 10010&\\
+\hline
+20 & 10100&\\
+18 & 10010&\\
+\hline
+22 & 10110&\\
+7 & 00111&\\
+\hline
+22 & 10110&\\
+28 & 11100&\\
+\hline
+\end{tabular}
+&~~~&
+\begin{tabular}[t]{|c|c|c|}
+\hline
+Index & ~~Tag0~~ & ~~Tag1~~\\
+\hline
+00 & &\\
+01 & &\\
+\hline
+10 & &\\
+11 & &\\
+\hline
+\end{tabular}
+\end{tabular}
+\end{center}
+}
+Fill in the Cache with entries and record whether each memory access resulted in a hit or a miss.  
+  \end{tcolorbox}
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item This is the same memory access example used for direct cache.
+\item The V field has been omitted.  Assume not-valid unless spot filled
+	on slide, but real cache has valid bits.
+\item On the slide in the ``Binary'' column, 
+	underline the index in blue and the tag in red.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+%-----------------------------------------------------
+\ifnum\Ans=1{
+\begin{frame}\frametitle{Solution: 2-Way Set Associative Cache Example}
+Memory access is shown on the left side. The state of the cache is shown on the right side. Note the cache index is 2 bits, and tag is therefore 3 bits. The valid bit is not shown. The data is also omitted.
+\begin{figure}[H]
+\centering
+	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/2-way-set-assoc-ex}}
+\end{figure}
+\end{frame}
+%-----------------------------------------------------
+% for comprehensive
+\newpage
+\begin{frame}\frametitle{2-Way Set Associative Cache Example: Tag 0 vs Tag 1}
+There are now two locations for the tag, Tag 0 and Tag 1\footnote{If there is more than one location for a block, in an assignment or the exam, \textbf{use} the \textbf{lower index} location first, so use Tag 0 before Tag 1.}.
+\begin{figure}[H]
+\centering
+	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/2-way-set-assoc-ex}}
+\end{figure}
+\end{frame}
+%-----------------------------------------------------
+% for comprehensive
+\newpage
+\begin{frame}\frametitle{2-Way Set Associative Cache Example: Part 1}
+First memory access is for address $(20)_{10}=(10100)_2$. At index 00, both data locations are empty and thus invalid, so this is a miss. We fetch the data and place in Tag0.
+\begin{figure}[H]
+\centering
+	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/2-way-set-assoc-ex0}}
+\end{figure}
+\end{frame}
+
+%-----------------------------------------------------
+% for comprehensive
+\newpage
+\begin{frame}\frametitle{2-Way Set Associative Cache Example: Part 2}
+Access memory address $(18)_{10}=(10010)_2$. The index is 10, and the data is also invalid. So this is a miss. Fetch the data from memory and update the cache.
+\begin{figure}[H]
+\centering
+	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/2-way-set-assoc-ex1}}
+\end{figure}
+\end{frame}
+
+%-----------------------------------------------------
+\begin{frame}\frametitle{2-Way Set Associative Cache Example: Part 3}
+Access memory address $(20)_{10}=(10100)_2$. Look at index 00. Tag 0 is valid and the tags match, therefore this is a hit.
+\begin{figure}[H]
+\centering
+	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/2-way-set-assoc-ex2}}
+\end{figure}
+\end{frame}
+
+%-----------------------------------------------------
+\begin{frame}\frametitle{2-Way Set Associative Cache Example: Part 4}
+Access memory address $(18)_{10}=(10010)_2$. Look at index 10. The tag bits match so this is a hit.
+\begin{figure}[H]
+\centering
+	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/2-way-set-assoc-ex3}}
+\end{figure}
+\end{frame}
+%-----------------------------------------------------
+\begin{frame}\frametitle{2-Way Set Associative Cache Example: Part 5}
+Access memory address $(22)_{10}= (10110)_2$. Look at index 10. The valid location has a mismatched tag, so this is a miss. Fetch the data place it in the next empty location, Tag1.
+\begin{figure}[H]
+\centering
+	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/2-way-set-assoc-ex4}}
+\end{figure}
+
+\end{frame}
+
+%-----------------------------------------------------
+\begin{frame}\frametitle{2-Way Set Associative Cache Example: Part 6}
+Access memory address $(7)_{10}=(00111)_2$. Look at index 11, all locations are empty so they are invalid. This is a miss. Fetch the data and place it in the cache.
+\begin{figure}[H]
+\centering
+	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/2-way-set-assoc-ex5}}
+\end{figure}
+\end{frame}
+
+%-----------------------------------------------------
+\begin{frame}\frametitle{2-Way Set Associative Cache Example: Part 7}
+Access memory address $(22)_{10}=(10110)_2$. Look at index 10. One of the tags match so this is a hit.
+\begin{figure}[H]
+\centering
+	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/2-way-set-assoc-ex6}}
+\end{figure}
+\end{frame}
+
+%-----------------------------------------------------
+\begin{frame}\frametitle{2-Way Set Associative Cache Example: Part 8}
+Access memory address $(28)_{10}=(11100)_2$. Look at index 00. The first location is valid but the tags does not match. Therefore this is a miss. Fetch the data and place it in the cache.
+\begin{figure}[H]
+\centering
+	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/2-way-set-assoc-ex7}}
+\end{figure}
+
+
+\end{frame}
+}\fi
+
+
+%-----------------------------------------------------
+% for comprehensive
+\newpage
+\begin{frame}\frametitle{Comparison: Direct-Map and 2-Way Set Associative Cache }
+Recall the direct-mapped cache kept getting cache misses for alternating memory accesses $20, 28, 20, 28 \dots$. But now these will all be hits because the tags for both 20 and 28 are in the cache. 
+% This cache is also using 1 more location (block) than before so less resources are sitting idle.
+\begin{figure}[H]
+\centering
+	\subfloat[Direct-Mapped Cache Example]{\includegraphics[height=0.4\textheight]{06-memory-hierarchies/figures/direct-map-ex-final-cache}}
+	\subfloat[2-Way Set Associative Cache Example]{\includegraphics[height=0.4\textheight]{06-memory-hierarchies/figures/2-way-set-assoc-ex-final-cache}}
+\end{figure}
+
+
+\end{frame}
+
+% for comprehensive
+\newpage
+\begin{frame}[fragile]
+\Title{A 4-way Set-Associative Cache}
+\PHFigure{!}{4in}{3in}{PHALL/F0719}{Figure 5.18}
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item
+  This is figure 5.18 from the text.  They don't say why they didn't update
+  this one to 64-bit.
+\item Note the error in the MUX select lines.  This is the one place in
+	the course where we could use an encoder.  However, potentially you could
+	merge the shown select lines in this diagram with the MUX and AND each
+	of the four select lines with one of the inputs, essentially avoiding
+	using a decoder inside the MUX.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{4-way Set Associative Cache Example}
+ \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+  title=Try this,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+Consider the 4-way set associative cache below with the memory
+accesses shown:
+{\footnotesize
+\begin{multicols}{2}
+    
+\begin{center}
+\hfill Memory Access\hfill~\medskip
+
+\begin{tabular}{|c|c|c|}
+\hline
+Dec  & Binary  & Hit/miss \\
+\hline
+20 & 10100&\\
+18 & 10010&\\
+\hline
+20 & 10100&\\
+18 & 10010&\\
+\hline
+22 & 10110&\\
+7 & 00111&\\
+\hline
+22 & 10110&\\
+28 & 11100&\\
+\hline
+\end{tabular}
+\end{center}
+
+\columnbreak
+\begin{center}
+    
+\hfill Cache\hfill~\medskip
+
+\begin{tabular}{|c|c|c|c|c|}
+\hline
+Index & Tag0 & Tag1 & Tag2 & Tag3\\
+\hline
+0 & & & &\\
+1 & & & &\\
+\hline
+\end{tabular}
+\end{center}
+
+\end{multicols}
+}
+
+Fill in the Cache with entries and record whether each memory access
+resulted in a hit or a miss.
+\end{tcolorbox}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item This is the same memory access example used for direct cache.
+\item The V field has been omitted.  Assume not-valid unless spot filled
+	on slide, but real cache has valid bits.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\ifnum\Ans=1{
+%-----------------------------------------------------
+\begin{frame}\frametitle{4-Way Set Associative Cache Example}
+The following example for the 4-way set associative cache will use the same memory accesses as the 2-way example. 1 bit,\textbf{ the LSB bit}, of the address is the cache index. The data and valid bit are again omitted from the cache.
+\begin{figure}[H]
+\centering
+{\includegraphics[width=0.3\textwidth]{06-memory-hierarchies/figures/mem-access-cache-ex}}\\	
+{\includegraphics[width=0.4\textwidth]{06-memory-hierarchies/figures/4-way-set-assoc-cache-ex}}
+\end{figure}
+
+\end{frame}
+
+
+
+
+%-----------------------------------------------------
+\begin{frame}\frametitle{4-Way Set Associative Cache Example: Part 1}
+Access memory address $(20)_{10}=(10100)_2$. Look at index 0. It has no data so this is a miss. Fetch the data from memory and put it in the cache.
+\begin{figure}[H]
+\centering
+{\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/4-way-set-assoc-cache-ex0}}
+\end{figure}
+
+\end{frame}
+
+%-----------------------------------------------------
+\begin{frame}\frametitle{4-Way Set Associative Cache Example: Part 2}
+Access memory address $(18)_{10}=(10010)_2$. Look at index 0. It has a valid location, but the tag does not match. So this is a miss. Fetch the data and load it into the cache.
+\begin{figure}[H]
+\centering
+{\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/4-way-set-assoc-cache-ex1}}
+\end{figure}
+
+\end{frame}
+
+%-----------------------------------------------------
+\begin{frame}\frametitle{4-Way Set Associative Cache Example: Part 3}
+Access memory address $(20)_{10}=(10100)_2$. Look at index 0. It has two valid locations, exactly one tag matches. So this is a hit. \textbf{Remember there cannot be more than one match.}
+\begin{figure}[H]
+\centering
+{\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/4-way-set-assoc-cache-ex1}}
+\end{figure}
+
+\end{frame}
+
+%-----------------------------------------------------
+\begin{frame}\frametitle{4-Way Set Associative Cache Example: Part 4}
+Access memory address $(18)_{10}=(10010)_2$. Look at index 0. It has two valid locations, exactly one tag matches. So this is a hit. 
+\begin{figure}[H]
+\centering
+{\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/4-way-set-assoc-cache-ex1}}
+\end{figure}
+
+\end{frame}
+
+%-----------------------------------------------------
+\begin{frame}\frametitle{4-Way Set Associative Cache Example: Part 5}
+Access memory address $(22)_{10}=(10110)_2$. Look at index 0. It has two valid locations, but none of the tags match. So this is a miss. Fetch the data from memory and update the cache.
+\begin{figure}[H]
+\centering
+{\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/4-way-set-assoc-cache-ex2}}
+\end{figure}
+
+\end{frame}
+
+%-----------------------------------------------------
+% for comprehensive
+\newpage
+\begin{frame}\frametitle{4-Way Set Associative Cache Example: Part 6}
+Access memory address $(7)_{10}=(00111)_2$. Look at index 1. It has no valid locations. So this is a miss. Fetch the data from memory and update the cache.
+\begin{figure}[H]
+\centering
+{\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/4-way-set-assoc-cache-ex3}}
+\end{figure}
+
+\end{frame}
+%-----------------------------------------------------
+\begin{frame}\frametitle{4-Way Set Associative Cache Example: Part 7}
+Access memory address $(22)_{10}=(10110)_2$. Look at index 0. It has three valid locations, one of the tags match. So this is a hit. 
+\begin{figure}[H]
+\centering
+{\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/4-way-set-assoc-cache-ex3}}
+\end{figure}
+
+\end{frame}
+
+%-----------------------------------------------------
+\begin{frame}\frametitle{4-Way Set Associative Cache Example: Part 8}
+Access memory address $(28)_{10}=(11100)_2$. Look at index 0. It has three valid locations, but none of the tags match. So this is a miss. Fetch the data and update the cache. 
+\begin{figure}[H]
+\centering
+{\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/4-way-set-assoc-cache-ex4}}
+\end{figure}
+
+\end{frame}
+
+%-----------------------------------------------------
+% for comprehensive
+\newpage
+\begin{frame}\frametitle{4-Way Set Associative Cache Example: Part 9}
+Subsequently, a sequence of alternating requests like $20, 28, 20, 28, \dots$ are all hits.
+\begin{figure}[H]
+\centering
+{\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/4-way-set-assoc-cache-ex4}}
+\end{figure}
+
+\end{frame}
+}\fi
+
+
+\begin{frame}[fragile]
+\Title{Fully Associative Cache Example}
+\begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+  title=Try this,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+  {\footnotesize
+  Fill in the fully associative cache with entries and record whether each memory access resulted in a hit or a miss.
+\begin{center}
+Memory Access
+
+\begin{tabular}{|c|c|c|}
+\hline
+Dec  & Binary  & Hit/miss \\
+\hline
+20 & 10100&\\
+18 & 10010&\\
+\hline
+20 & 10100&\\
+18 & 10010&\\
+\hline
+22 & 10110&\\
+7 & 00111&\\
+\hline
+22 & 10110&\\
+28 & 11100&\\
+\hline
+\end{tabular}
+
+\bigskip\bigskip
+Cache
+
+\footnotesize
+\begin{tabular}{|c|c|c|c|c|c|c|c|c|}
+\hline
+ ~~Tag0 & Tag1~~ & Tag2~~ & Tag3~~ & Tag4~~ & Tag5~~ & Tag6~~ & Tag7~~\\
+\hline
+& & & & & & & \\
+\hline
+\end{tabular}
+\end{center}
+}
+\end{tcolorbox}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item This is the same memory access example used for direct cache.
+\item The V field has been omitted.  Assume not-valid unless spot filled
+	on slide, but real cache has valid bits.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\ifnum\Ans=1{
+%-----------------------------------------------------
+\begin{frame}\frametitle{Fully Associative Cache Example: Part 1}
+Access address $(20)_{10}=(10100)_2$. There are no valid locations. So this is a miss. Fetch the data and put it in the cache.
+\begin{figure}[H]
+\centering
+{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/fully-assoc-ex0}}
+\end{figure}
+
+\end{frame}
+
+%-----------------------------------------------------
+\begin{frame}\frametitle{Fully Associative Cache Example: Part 2}
+Access address $(18)_{10}=(10010)_2$. There is one valid location, but the tags do not match. So this is a miss. Fetch the data and put it in the cache.
+\begin{figure}[H]
+\centering
+{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/fully-assoc-ex1}}
+\end{figure}
+
+\end{frame}
+
+%-----------------------------------------------------
+\begin{frame}\frametitle{Fully Associative Cache Example: Part 3}
+Access address $(20)_{10}=(10100)_2$. There are two valid locations, and one of the tags match. So this is a hit.
+\begin{figure}[H]
+\centering
+{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/fully-assoc-ex1}}
+\end{figure}
+
+\end{frame}
+
+%-----------------------------------------------------
+\begin{frame}\frametitle{Fully Associative Cache Example: Part 4}
+Access address $(18)_{10}=(10010)_2$. There are two valid locations, and one of the tags match. So this is a hit.
+\begin{figure}[H]
+\centering
+{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/fully-assoc-ex1}}
+\end{figure}
+
+\end{frame}
+
+%-----------------------------------------------------
+\begin{frame}\frametitle{Fully Associative Cache Example: Part 5}
+Access address $(22)_{10}=(10110)_2$. There are two valid locations, but none of the tags match. So this is a miss. Fetch the data and put it in the cache.
+\begin{figure}[H]
+\centering
+{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/fully-assoc-ex2}}
+\end{figure}
+
+\end{frame}
+
+%-----------------------------------------------------
+\begin{frame}\frametitle{Fully Associative Cache Example: Part 6}
+Access address $(7)_{10}=(00111)_2$. There are three valid locations, but none of the tags match. So this is a miss. Fetch the data and put it in the cache.
+\begin{figure}[H]
+\centering
+{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/fully-assoc-ex3}}
+\end{figure}
+
+\end{frame}
+
+%-----------------------------------------------------
+\begin{frame}\frametitle{Fully Associative Cache Example: Part 7}
+Access address $(22)_{10}=(10110)_2$. There are four valid locations, one of the tags, Tag2, matches. So this is a hit.
+\begin{figure}[H]
+\centering
+{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/fully-assoc-ex3}}
+\end{figure}
+
+\end{frame}
+
+%-----------------------------------------------------
+\begin{frame}\frametitle{Fully Associative Cache Example: Part 7}
+Access address $(28)_{10}=(11100)_2$. There are four valid locations, but none of the tags match. So this is a miss. Fetch the data and put it in the cache.
+\begin{figure}[H]
+\centering
+{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/fully-assoc-ex4}}
+\end{figure}
+
+\end{frame}
+%-----------------------------------------------------
+\begin{frame}\frametitle{Fully Associative Cache Example: Part 8}
+Thereafter, if we have alternating requests like $20, 28, 20, 28, \dots$, the cache will keep on getting a hit.
+\begin{figure}[H]
+\centering
+{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/fully-assoc-ex4}}
+\end{figure}
+
+\end{frame}
+}\fi
+%-----------------------------------------------------
+
+\begin{frame}[fragile]
+\Title{Which one to kick out?}
+\begin{itemize}
+	\item What if all tags are full for an index? evict cache entries
+	\item Which entry to evict? LRU (Least Recently Used): Replace the cache entry whose most recent use was furthest in the past
+  \end{itemize}
+
+ \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+  title=Try this,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+Fill in the 2-way set associative cache entries below with the following memory word accesses and use LRU replacement scheme when cache is full:
+
+	20 (10100), 28 (11100), 20 (10100), 24 (11000)
+
+\begin{center}
+\begin{tabular}[t]{|c|c|c|}
+\hline
+Index & ~~Tag0~~ & ~~Tag1~~\\
+\hline
+00 & &\\
+01 & &\\
+\hline
+10 & &\\
+11 & &\\
+\hline
+\end{tabular}
+\end{center}
+  \end{tcolorbox}
+  
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item In the example, when we access 24, we would replace 28, since 20
+	was more recently used.
+\item How much hardware to implement LRU?
+
+	For 2-way set associative, you would only need 1-bit per index.
+
+	It's a lot harder for more than 2-ways.  Eg, consider 4-way set
+	asociative.  There are $4!=24$ different ways to order a set of
+	tag accesses, so you would need 5-bits, and significant hardware
+	(a 9-bit truth table) to determine how to update the 5-bit on a
+	memory access.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\ifnum\Ans=1{
+\begin{frame}{Solution: LRU cache replacement}
+
+Suppose memory addresses are accessed in the following order:
+{\footnotesize
+\begin{multicols}{4}
+\begin{enumerate}
+\item 20
+\columnbreak
+\item 28
+\columnbreak
+\item 20
+\columnbreak
+\item 24    
+ \end{enumerate}   
+\end{multicols}
+}
+{\Large
+\begin{center}
+\begin{tabular}[t]{|c|c||c|c||c|c|}
+\hline
+Index & Use & ~~Tag0~~ & V& ~~Tag1~~&V\\
+\hline
+00 & & & & &\\
+01 & & & & &\\
+\hline
+10 & & & & &\\
+11 & & & & &\\
+\hline
+\end{tabular}
+\end{center}
+}
+\medskip
+    \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+  title=Think About It,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+How many additional hardware components are needed to implement LRU replacement scheme?
+  \end{tcolorbox}
+\end{frame}
+
+%-----------------------------------------------------
+
+\begin{frame}\frametitle{Solution: Least Recently Used (LRU): Part 1}
+Access memory address $(20)_{10}=(10100)_2$. Look at index 00. There is no data in the cache so this is a miss. Fetch the data and put it in the cache.
+
+Suppose memory addresses are accessed in the following order:
+\begin{enumerate}
+\item {\color{gray}20}
+\item 28
+\item 20
+\item 24
+\end{enumerate}
+\begin{figure}[H]
+\centering
+{\includegraphics[width=0.4\textwidth]{06-memory-hierarchies/figures/2-way-assoc-cache-kickout-ex0}}
+\end{figure}
+
+\end{frame}
+
+%-----------------------------------------------------
+\begin{frame}\frametitle{Solution: Least Recently Used (LRU): Part 2}
+Access memory address $(28)_{10}=(11100)_2$. Look at index 00. There is one valid location but the tags do not match. So this is a miss. Fetch the data and put it in the cache.
+\begin{enumerate}
+\item {\color{gray}20}
+\item {\color{gray}28}
+\item 20
+\item 24
+\end{enumerate}
+\begin{figure}[H]
+\centering
+{\includegraphics[width=0.4\textwidth]{06-memory-hierarchies/figures/2-way-assoc-cache-kickout-ex1}}
+\end{figure}
+
+\end{frame}
+
+%-----------------------------------------------------
+\begin{frame}\frametitle{Solution: Least Recently Used (LRU): Part 3}
+Access memory address $(20)_{10}=(10100)_2$. Look at index 00. There are two valid locations and one of the tags match. So this is a hit.
+\begin{enumerate}
+\item {\color{gray}20}
+\item {\color{gray}28}
+\item {\color{gray}20}
+\item 24
+\end{enumerate}
+\begin{figure}[H]
+\centering
+{\includegraphics[width=0.4\textwidth]{06-memory-hierarchies/figures/2-way-assoc-cache-kickout-ex1}}
+\end{figure}
+
+\end{frame}
+
+%-----------------------------------------------------
+% for comprehensive
+\newpage
+\begin{frame}\frametitle{Least Recently Used (LRU): Part 3}
+\begin{enumerate}
+\item {\color{gray}20}
+\item {\color{gray}28}
+\item {\color{gray}20}
+\item 24
+\end{enumerate}
+Access memory address $(24)_{10}=(11000)_2$.
+{\footnotesize Look at index 00. There are two valid locations and none of the tags match. So this is a miss. Now we have to kick out one of these locations.
+\begin{itemize}
+\item Tag 101 was the most recently used.
+\item Tag 111 was the least recently used. So kick this one out.
+\end{itemize}
+}
+\begin{figure}[H]
+\centering
+{\includegraphics[width=0.4\textwidth]{06-memory-hierarchies/figures/2-way-assoc-cache-kickout-ex1}}
+\end{figure}
+
+\end{frame}
+
+%-----------------------------------------------------
+\begin{frame}\frametitle{Solution: Least Recently Used (LRU): Part 3}
+\begin{enumerate}
+\item {\color{gray}20}
+\item {\color{gray}28}
+\item {\color{gray}20}
+\item {\color{gray}24}
+\end{enumerate}
+Fetch memory address $(24)_{10}=(11000)_2$ and put it in the cache. Kick out tag 111.
+\begin{itemize}
+\item Tag 101 was the most recently used.
+\item Tag 111 was the least recently used. So kick this one out.
+\end{itemize}
+\begin{figure}[H]
+\centering
+{\includegraphics[width=0.4\textwidth]{06-memory-hierarchies/figures/2-way-assoc-cache-kickout-ex2}}
+\end{figure}
+
+\end{frame}
+}\fi
+
+% \begin{frame}\frametitle{Additional Hardware for Least Recently Used (LRU) Replacement Scheme}
+% A 2-way set associative cache can use one bit to track which tag was recently used.
+% \hfill\break
+
+% But for 4-way, the cache needs more than two bits. It needs to track the order of access to the tags and there are $4!=24$ possible combinations to track!
+% % , so perhaps a 5 state finite state machine can be used. Additional hardware is needed to update the state machine.
+% \hfill\break
+
+% Practically, we can implement:
+% % As caches get bigger, we cannot use the LRU scheme. We can choose from:
+% \begin{itemize}
+% \item LRU approximation techniques, or
+% \item Randomly select a block to replace: reasonably good for sets with higher degrees of associativity, since the probability that a block from $n$ blocks, is used again is $1/n$, which is small for large $n$.
+% \end{itemize}
+
+% \end{frame}
+
+%-----------------------------------------------------
+
+
+\def\online{0}
+\newcommand\cw{\color{white}}
+
+% \begin{frame}[fragile]
+% \Title{Mixing ``Ways'' and ``Blocks''}
+
+%   \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+%   title=Think About It,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+% Fill in the 2-way set associative, 4 word linesize cache{\footnote{assume 16 entries in cache}} below:
+% \Figure{!}{1.2in}{0.7in}{Figs/2wayLineSize4}
+
+% with entries based on the following memory references:
+
+% \begin{tabular}{rlc}\\
+%             Decimal & Binary & Hit/Miss\\\hline
+%           4 = &000 0000 01 00&\\
+%           256 = &001 0000 00 00&\\
+%           8 = & 000 0000 10 00&\\
+%           \hline
+%           \end{tabular}
+
+%   \end{tcolorbox}
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item Give an example: word address $00\,0000\,01=4_{10}$ could go in Tag 0 and
+% 	word address $01\,0000\,00=256_{10}$ could go in Tag 1, and 
+% 	$00\,0000\,10=8_{10}$ could go in Tag 0 (the same as 
+% 	address 4, but in a different block).
+
+% 	(all base 10 numbers were computed after appending the byte offset bits)
+% \item With block size $2^b$, then $b$ block bits
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+
+% \begin{frame}[fragile]
+% \STitle{Conclusion}
+%  \underline{\textbf{Lecture Summary}}
+%  \begin{itemize}
+% \item Set associative cache
+% \item Fully associative cache
+% % \item Introduction to Virtual Memory
+% \end{itemize}
+
+%  \underline{\textbf{Assigned Readings}}
+% \begin{itemize}
+%      % \item \textbf{Read} Section 5.5, 5.6 and 5.8
+%    \item \textbf{Read} Section 5.3, 5.4
+%      \end{itemize}
+%     \underline{\textbf{Next Steps}}
+%     \begin{itemize}
+%      \item \textbf{Review} Cache access strategies 
+% \begin{itemize}
+%     \item Start the exercises in A6
+% \end{itemize}
+% \item Next class, we will introduce discuss mixing blocks and ways.
+% \item \textbf{Attempt} questions in this week's tutorial. 
+%     \item \textbf{Ask} questions in office hours or the next tutorial.
+%  \end{itemize}
+
+% \end{frame}
+%%%%% end of lecture content for first class

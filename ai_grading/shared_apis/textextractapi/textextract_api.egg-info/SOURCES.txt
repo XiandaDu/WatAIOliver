@@ -1,0 +1,7 @@
+setup.py
+textextract_api.py
+textextract_api.egg-info/PKG-INFO
+textextract_api.egg-info/SOURCES.txt
+textextract_api.egg-info/dependency_links.txt
+textextract_api.egg-info/requires.txt
+textextract_api.egg-info/top_level.txt

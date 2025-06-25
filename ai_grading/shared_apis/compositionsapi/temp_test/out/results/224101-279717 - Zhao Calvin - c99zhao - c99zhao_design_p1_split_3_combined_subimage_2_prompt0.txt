@@ -1,0 +1,12 @@
+# Test1 example:
+
+```python
+m 2
+push_back "google" "www.google.com"
+print
+push_back "bored" "www.boredpanda.com"
+print
+push_back "uw" "www.uwaterloo.ca"
+print
+exit
+```

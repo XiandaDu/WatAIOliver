@@ -1,0 +1,11 @@
+```markdown
+# UML Class Diagrams
+
+- the student already filling the spot is the same student number. If it is, failure. Otherwise, loop through the vector and check for when x is greater than the next index. Insert at this position and return success.
+
+- String search(unsigned int x) - Loop through the vector in the position of the array from the first hash function. If x is equal to the student number, return found last name in position. If you reach the end of the vector and the number is not found, return not found.
+
+- String deleteHash(unsigned int x) - Loop through the vector in the position of the array from the first hash function. If x is equal to the student number, erase the student and return success. If you reach the end of the vector and the number is not found, return failure.
+
+- Void print(int x) - If the vector's size at position x in the array is 0, print chain is empty. Otherwise, loop through the vector at position x in the array, printing each student number at each index.
+```

@@ -1,0 +1,5 @@
+Metadata-Version: 2.1
+Name: clusterizer
+Version: 0.0.1
+Summary: A small package to cluster documents
+Author-email: Mike Cooper-Stachowsky <mstachow@uwaterloo.ca>

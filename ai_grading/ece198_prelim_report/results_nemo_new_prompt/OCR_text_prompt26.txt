@@ -1,0 +1,10 @@
+<answer>No</answer>
+
+The report mentions three principles, but only one of them is clearly and explicitly stated with an equation. The other two are mentioned but not explicitly stated with the required equation or relevant section of the standard. Here's the breakdown:
+
+1. **Standard Deviation**: This principle is clearly stated with the formula for calculating standard deviation:
+   \[ \sigma = \sqrt{\frac{\sum (x_i - \mu)^2}{N}} \]
+
+2. **Systems of Linear Equations**: While this principle is mentioned, the report does not provide an explicit equation or relevant section of the standard as required.
+
+3. **Inequality**: This principle is mentioned but not explicitly stated with an inequality function or relevant section of the standard. The report only mentions that "warnings are given" when the detected quantity is above the set range, without providing the specific inequality functions or expected ranges.

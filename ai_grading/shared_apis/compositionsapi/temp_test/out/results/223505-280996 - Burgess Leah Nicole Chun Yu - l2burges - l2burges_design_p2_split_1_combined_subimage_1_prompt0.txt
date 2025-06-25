@@ -1,0 +1,11 @@
+# Overview of Classes
+
+## Class: Student
+
+**Description:** Represents each individual student as an object in the dynamically allocated array. Each student is defined by their student number and last name.
+
+**Member Variables (all private):** string name (their last name), unsigned int x (their student number)
+
+**Member Functions (public):**
+- Setters for the string name, and unsigned int x
+- Getters for the string name, and unsigned int x

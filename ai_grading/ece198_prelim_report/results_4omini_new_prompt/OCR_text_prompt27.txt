@@ -1,0 +1,11 @@
+<answer>yes</answer>
+
+The report clearly states three mathematical principles:
+
+1. Standard deviation: "The project will make use of mathematical principles through the calculation of standard deviation, which indicates how data is dispersed around the mean." This principle contributes to solving the problem by monitoring heart rate deviations and issuing warnings when they reach a certain threshold.
+
+2. Systems of linear equations: "Additionally, the project will use mathematical principles involved in solving systems of linear equations." This principle is applied to model body temperature trends, which helps in predicting when the user's body temperature may reach an unsafe level.
+
+3. Inequality: "The final mathematical principle this project would make use of is inequality." The report indicates that inequalities will be used to set expected ranges for quantities like temperature, heart rate deviation, and UV index, triggering warnings if detected values exceed these ranges.
+
+Each principle is explicitly stated and a reasonable explanation is provided for how they contribute to solving the problem of heat stress for farm workers.

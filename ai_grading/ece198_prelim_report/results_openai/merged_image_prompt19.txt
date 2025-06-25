@@ -1,0 +1,9 @@
+No.
+
+Direct evidence from the report shows that while some technical requirements are stated, not all of them have clearly associated quantifiable measurements with units or acceptable ranges. 
+
+For example:
+
+- Under the "Technical Requirements" section 1.1, one of the requirements listed is "The system should be able to extract and monitor the following parameters: Temperature, Humidity, Heart rate, Dew-point temperature." 
+
+This statement specifies the parameters to be monitored but does not include quantifiable measurements or acceptable ranges with units for each parameter. There must be numerical ranges and standard units mentioned for each parameter to fully meet the standard in question. This is a critical point to address in ensuring first-semester engineering students can feasibly perform the required measurements for every technical requirement.

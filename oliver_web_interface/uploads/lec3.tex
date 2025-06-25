@@ -1,0 +1,1835 @@
+% \documentclass{beamer}
+
+% \usepackage{tipa}
+
+% \usetheme{Boadilla}
+% %\usetheme{lucid}
+
+% % defined commands from Stephen Mann
+% \usepackage{current-term}
+
+
+% \begin{document}
+
+% \title{CS251 Data Representation}
+
+
+% \begin{frame}
+% \titlepage
+% \end{frame}
+
+\setlength{\columnseprule}{1pt}
+\def\columnseprulecolor{\color{blue}}
+
+\begin{frame}[fragile]
+\Title{Data Representation and Manipulation}
+\begin{itemize}
+% \item Readings from text: 
+% \begin{itemize}
+% \item 2.9 (pages 110 and 111), 2.4, 3.1, 3.2
+% \item 2.6 (pages 90 and 91)
+% \item C.2 (but...)
+% \item 3.3 
+% \item 3.5 
+% \item ignore ARM instructions for now
+% \end{itemize}
+\item How characters and numbers are represented in a typical computer
+\item Hardware designs which implement arithmetic operations
+\end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item The readings in Chapter 3 assume that the student has read all of
+Chapter 2, which goes into great detail about the ARM instruction
+set. However, knowledge of the instruction set is not necessary to
+understand this section; students can simply skip the parts of the
+reading that talk about ARM instructions (though it will not hurt
+them to look at those parts if they wish). 
+
+\item
+Sections 2.4 and 3.1--3.2
+introduce representations for unsigned and signed binary integers, and
+algorithms for performing arithmetic operations on them. Section 2.6
+talks about bitwise logical operations on words. Section C.2 is on ALU
+design, but it may be for the MIPS control unit!  Section C.2 used to
+be required reading; we won't cover this in
+lecture, but we assume they've read and understand it.  However, it's not
+clear if there's anything in here that's worth their reading anymore.
+
+\item
+Section 3.3 goes into depth on the design of integer multiplication
+hardware. Section 3.4, omitted, deals with integer
+division. Section 3.5 deals with floating-point representation.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+
+\begin{frame}[fragile]
+\STitle{Data representation}
+\begin{itemize}
+\item ARMv8 is a 64-bit architecture, \\
+{\small 1 byte = 8 bits; 4 bytes = 1 word; 8 bytes = 1 double-word}
+\item Bits numbered 63, 62, $\ldots$, 0
+\item Most significant bit (MSB) is bit 63
+\item Least significant bit (LSB) is bit 0
+{\footnotesize
+\item In many examples, we will use only 4 bits for illustration purposes}
+\item Sometimes, numbers are written in {\em hexadecimal}:\\
+\small \texttt{  0, 1, 2, 3, 4, 5, 6, 7, 8, 9, A, B, C, D, E, F}
+
+\item  64-bit binary becomes 16 character hexadecimal\\
+{\footnotesize 1 hexadecimal digit is 4 binary digits}
+\item Hexadecimal numbers are useful when addressing memory
+\item Can also be used in other applications, such as representing pixel color (RGB) specifications. For instance, \texttt{0x4c00ff = (76, 0, 255)} resulting in the colour	\\	
+\includegraphics[width=0.5in]{Figs/rgb} 
+\end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+	\item The ARM book relies more heavily on hex than the MIPS version;
+	  you should briefly
+          teach hexadecimal because it makes doing page tables and
+	  TLB much easier if you can write the numbers in hex.
+
+  \item  Some students will have seen hexidecimal in colour (RGB)
+          specifications; there is an example at the bottom
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+
+\begin{frame}[fragile]
+\STitle{Characters}
+\begin{itemize}
+\item ASCII (American Standard Code for Information Interchange)
+\item Uses 7 bits to represent 128 different characters
+\item 8th bit (topmost) used as parity check (error detection)
+\item 4 characters fit into 32-bit word, 128 possibilities include upper and lower case Roman letters, punctuation marks, some computer control characters
+
+    \includegraphics[scale=0.25]{03-data-representation-and-manipulation/figures/ascii-partial.png}
+\item Unicode: 16 bits per character 
+\begin{itemize}
+    \item Many more languages, other than just English
+\end{itemize}
+	
+\end{itemize}
+\BNotes\ifnum\Notes=1
+~% notes text
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Numbers - Unsigned Binary Numbers}
+\begin{itemize}
+\item With 4 bits, can represent 0 through $2^4-1=15$
+\begin{eqnarray*}
+1101_2 & = & (1\times 2^3 + 1 \times 2^2 + 0 \times 2^1 
+               + 1 \times 2^0) \\
+& = & 13_{10} 
+\end{eqnarray*}
+\item With 32 bits, can represent 0 through $2^{32}-1 = 4,294,967,295$
+
+  \item With 64 bits, 0 through $2^{64}-1=18,446,774,073,709,551,615$
+\item Useful powers of 2 for CS 251:
+\begin{center}
+\begin{tabular}{cc}
+	$2^{5}$ & 32\\
+	$2^{10}$ & 1K\\
+	$2^{20}$ & 1M\\
+	$2^{30}$ & 1G\\
+\end{tabular}
+\end{center}
+\end{itemize}
+\begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+  title=Think About It,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+   How can we represent negative numbers?
+\end{tcolorbox}
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+	\item The useful powers of 2: 5 bit register fields give 32 registers;\\
+			the other powers of 2 appear when looking at caches and memory
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Numbers - Signed Binary Numbers}
+\begin{itemize}
+\item First idea: use MSB to represent sign of the number, \texttt{0} for  positive numbers and \texttt{1} for negative numebrs. 
+\item This approach is called \textit{sign and magnitude}, {\small may also be referred to as signed magnitude or sign-magnitude}
+\item 4-bit example: 1110 is $-6$
+\item With 4 bits, can represent $-7$ (1111) to $+7$ (0111)
+\item Problems: 
+\begin{multicols}{2}
+\begin{itemize}
+    \item two different versions of zero, +0 and -0
+    \item addition operation requires extra steps
+\end{itemize}
+\columnbreak
+\begin{center}
+\includegraphics[scale=0.10]{Figs/modsm}    
+\end{center}
+    
+\end{multicols}
+
+\item Second (and better) idea: two's complement representation
+\end{itemize}
+\BNotes\ifnum\Notes=1
+To add two signed magnitude numbers, compare their sign bits. If they
+are the same, just do regular addition. If they are different, compare
+their magnitudes. Subtract the smaller magnitude from the larger, and
+give the result the sign of the larger magnitude.
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Signed Binary Numbers - Two's Complement Representation}
+\begin{itemize}
+\item Let MSB represent the negative of a power of 2 
+\item Smallest number that can be represented with the given bits
+\item With 4 bits, bit 3 (MSB) represents $-2^3$
+\item $1110 = -2^3 \times 1 + 2^2 \times 1 + 2^1 \times 1 + 2^0 \times 0 = -2$
+\item With 4 bits, we can represent $-8$ (1000) to $+7$ (0111)
+\item With 32 bits, can represent $-2,147,483,648$ to 2,147,483,647
+\item With 64 bits,
+
+  -9,223,372,036,854,775,808 to 9,223,372,036,854,775,807
+\item Usefulness becomes apparent when we have arithmetic operations on signed numbers
+\begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+  title=Think About It,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+  Using 2's complement representation of a signed binary number, what is the range of number you can represent in base 10 with an N-bit binary number?
+  \end{tcolorbox}
+\end{itemize}
+\BNotes\ifnum\Notes=1
+~% notes text
+\fi\ENotes
+\end{frame}
+
+\ifnum\Ans=1
+\begin{frame}{Solution: Range of numbers using 2's complement}
+
+\begin{itemize}
+    \item Using 2's complement, an N-bit binary number can represent:
+$-2^{(N-1)}$ to $ +2^{(N-1)} - 1$
+\item For example, a 4-bit binary number can represent:
+
+$-2^{(4-1)}$ to $+2^{(4-1)} - 1 = -2^3 $ to $+2^3 - 1 = -8$ to $+ 7$
+\end{itemize}
+    
+\end{frame}
+\fi
+
+\begin{frame}\frametitle{4 Bit Numbers Comparison}
+\begin{figure}[H]
+\centering
+	{\includegraphics[width=\textwidth]{03-data-representation-and-manipulation/figures/representations-comparison}}
+%\caption{}\label{}
+\end{figure}
+Note:
+\begin{itemize}
+\item 0, ..., 7 all look the same, all positive numbers look the same. 
+\item Signed magnitude has 2 zeros. This increases hardware needed for test for zero.
+\item Bit pattern with all 1's represents $-1$,
+\item For two's complement, $-8+1 =-7$ works out nicely.
+\end{itemize}
+\BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item Signed magnitude has 2 zeros.  This increases hardware needed for
+% 	test for zero.
+% \item Note here that increment (adding 1) works nicely in two's
+% 	complement. 
+% \item Also note that the bit pattern with all 1's represents $-1$,
+% 	and that for positive numbers representable in two's complement, all 
+% 	three representations give the same bit pattern
+% 	(useful for human comprehension).
+% \end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{Representing a Negative Number using 2's Complement}
+Negating a Two's Complement Number:
+\begin{itemize}
+\item Step 1: Begin with the representation of its absolute value, treat it
+	as an unsigned binary number.
+ \item Step 2: Invert $x$.
+ \begin{itemize}
+     \item Suppose, the bit pattern from Step 1 is $x$
+     \item $\Bar x$ is the result of inverting each bit
+    \item Example: $x = 0110$, $\Bar x = 1001$
+ \end{itemize}
+\item Step 3: Add $1$.
+\begin{itemize}
+    \item Observe $x + \Bar{x} = -1, $ then $-x = \Bar{x}+1$
+\end{itemize}
+\end{itemize}
+\hfill
+In short, to {\color{blue} negate a number in two's complement representation, invert
+every bit and add 1 to the result.}
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item This leads to the following human shortcut for figuring out the two's
+	complement representation of a negative number: figure out the
+	representation of its absolute value (which is easy, one can treat it
+	as an unsigned binary number) and then apply the algorithm given here
+to negate that value.
+\item Another method: find right-most 1 and complement all bits to the
+	left of this 1; remaining bits are uncomplemented.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Sign Extension}
+% \begin{itemize}
+% \item With 4 bits, 0110 is +6.
+\begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+  title=Try this,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+  Sign extend the decimal number +6, which is 0110 in 4-bits to 8-bits: \ifnum\Ans=1{\color{red}0000\,0110}\fi
+  \end{tcolorbox}
+% \item With 4 bits, 1010 is $-6$. 
+\begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+  title=Try this,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+  Sign extend the decimal number -6, which is 1010 in 4-bits to 8-bits: \ifnum\Ans=1{\color{red}1111\,1010}\fi
+  \end{tcolorbox}
+  \begin{itemize}
+\item  \textbf{To expand number of bits used, copy old MSB into new bit positions.} 
+\item Suppose, $j$ is MSB in 4-bit digit and $i$ is MSB in 8-bit digit, then  
+\[
+-2^i + 2^{i-1} + 2^{i-2} + \cdots + 2^{j+1} +
+2 \cdot 2^j = 0
+\]
+\end{itemize}
+{\footnotesize
+\begin{tabular}{lcccccccc}
+4 bit &   &   &   &   &  1 & 0 & 1 & 0\\
+Value &   &   &   &   &  $-8$ & +4 & +2 & +1\\
+\hline
+8 bit & 1 & 1 & 1 & 1 &  1 & 0 & 1 & 0\\
+Value &$-128$& 64& 32& 16&  $8$ & 4 & 2 & 1\\
+\end{tabular}}
+\BNotes\ifnum\Notes=1
+In expanding a negative number from 4 bits to 8, say, we change the
+interpretation of bit 3 from $-2^3$ to $2^3$, an addition of $2 \cdot
+2^3$. The 1's copied into bits 4, 5, 6 add $2^4$, $2^5$,
+$2^6$ respectively, and the 1 copied into bit 7 (the new MSB)
+subtracts $2^7$. This is best illustrated on the board.
+
+Try the following:
+
+\begin{tabular}{lcccccccc}
+4 bit &   &   &   &   &  1 & 0 & 1 & 0\\
+Value &   &   &   &   &  $-8$ & +4 & +2 & +1\\
+\hline
+8 bit & 1 & 1 & 1 & 1 &  1 & 0 & 1 & 0\\
+Value &$-128$& 64& 32& 16&  $8$ & 4 & 2 & 1\\
+\end{tabular}
+
+The main observation is that the high order bit of the 4-bit representation
+represents $-8$, while in the 8-bit representation it represents $+8$.  Thus,
+the difference between the two numbers is 0 (ie, they represent the same
+signed decimal number).
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Addition}
+\begin{itemize}
+\item To add two two's complement numbers, simply use the ``elementary
+school algorithm'', throwing away any carry out of the MSB position
+\item To subtract, simply negate and add
+\begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+  title=Think About It,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+  
+What if the answer cannot be represented in the number of bits used in the hardware?
+\end{tcolorbox}
+\item This is an \textbf{overflow}
+\item \hl{Overflow in addition \textbf{cannot} occur if one number is positive and
+the other negative}
+\item \hl{If both addends have same sign but answer has different sign,
+\textbf{overflow has occurred}}
+\end{itemize}
+\BNotes\ifnum\Notes=1
+Do 4-bit examples of addition and subtraction on the board.
+\fi\ENotes
+\end{frame}
+
+
+%-----------------------------------------------------
+\begin{frame}\frametitle{Two's Complement Arithmetic Examples}
+\begin{multicols}{3}
+ $3+3 = 6$
+ \vspace{0.5cm}
+\begin{center}
+    \begin{tabular}{ ccccc}
+& 0 & 0 & 1 & 1 \\
++ &0 & 0 & 1 & 1 \\ \hline
+&0 & 1 & 1 & 0 \\ 
+\end{tabular}
+\end{center}
+
+
+The result is correct, $(0110)_2=(6)_{10}$.
+
+\columnbreak
+$6-3 = 3$
+\vspace{0.5cm}
+\begin{center}
+    \begin{tabular}{ ccccc}
+ & 0 & 1 & 1 & 0 \\
++ & 1 & 1 & 0 & 1 \\ \hline
+1& 0 & 0 & 1 & 1 \\ 
+\end{tabular}
+\end{center}
+{\footnotesize There is a carry out of 1, which we ignore.}
+
+
+The result is correct, $(0011)_2=(3)_{10}$.
+
+\columnbreak
+$6+3 = 9$
+\vspace{0.5cm}
+\begin{center}
+    \begin{tabular}{ ccccc}
+ & 0 & 1 & 1 & 0 \\
++ &0 & 0 & 1 & 1 \\ \hline
+ & 1 & 0 & 0 & 1 \\ 
+\end{tabular}
+\end{center}
+
+% \vspace{1cm}
+
+ The result is wrong, $(1001)_2 = (-7)_{10} \neq 9$. 
+
+{\footnotesize Since sum of two positive numbers is negative we have an \textbf{overflow}.}
+% {\footnotesize
+% Note: 
+% \begin{itemize}
+%     \item A 4-bit binary number in 2's complement cannot represent $9$, since the range is $-8$ to $+7$. 
+%     \item Addition of two positive numbers resulted in a negative number.   
+% \end{itemize}
+% }
+% \hfill\break
+    
+\end{multicols}
+
+
+\end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Remember: Overflow Conditions}
+% For three numbers in 2's complement and arithmetic addition: $a_1 + a_2 = a_3$,
+% \begin{itemize}
+% \item If the sign of $a_1$, $a_2$ and $a_3$ are all the same, there is no overflow.
+% \item The sign of $a_1$ and $a_2$ are the same, but $a_3$ has a different sign, {\color{red}\textbf{there is overflow}}.
+% \item {\color{blue}The sign of $a_1$ and $a_2$ are different, we can never have overflow.}
+% \end{itemize}
+% \end{frame}
+
+
+\begin{frame}[fragile]
+\Title{Building An Addition Circuit}
+Recall adding one bit has three inputs:
+\begin{itemize}
+\item the two numbers we add, and 
+\item a carry in.
+\end{itemize}
+
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[scale=0.25]{figures/adding-carry}}
+% %\caption{}\label{}
+% \end{figure}
+%		\PHFigure{!}{1.25in}{1in}{Figs/addition}{Figure 3.1}
+		\Figure{!}{1.25in}{1in}{Figs/addition}
+
+  \begin{multicols}{2}
+Basic building block is a Full Adder:
+\begin{itemize}
+    \item 3 bits as inputs: \texttt{A}, \texttt{B} and \texttt{CarryIn}
+    \item 2 bits as outputs: \texttt{CarryOut} and \texttt{Sum}
+\end{itemize}
+\columnbreak
+%		\PHFigure{!}{1.5in}{1in}{PHALL/F0410}{Figure A.5.2}
+		\Figure{!}{1in}{1in}{Figs/fulladder}   
+  \end{multicols}
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item Work out the Boolean formulas for the adder on the board. Carry-out is
+	1 if two of the three inputs are 1; sum is 1 iff an odd number of
+	inputs are 1.
+
+\item The formulas can be simplified to the $S=a\oplus b\oplus C_{in}$
+	and $C_{out}=ab+aC_{in}+bC_{in}$.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+
+%-----------------------------------------------------
+\begin{frame}\frametitle{Implementing a Full Adder}
+Truth table to describe the Full Adder
+
+\begin{multicols}{2}
+  {\footnotesize  
+\begin{center}
+\begin{tabular}{ ccc | cc}
+\texttt{CarryIn} & \texttt{A} & \texttt{B} & \texttt{CarryOut} & \texttt{Sum}  \\ \hline
+0 & 0 & 0 & 0 & 0  \\ \hline
+0 & 0 & 1 & 0 & 1  \\ \hline
+0 & 1 & 0 & 0 & 1  \\ \hline
+0 & 1 & 1 & 1 & 0  \\ \hline
+1 & 0 & 0 & 0 & 1  \\ \hline
+1 & 0 & 1 & 1 & 0  \\ \hline
+1 & 1 & 0 & 1 & 0  \\ \hline
+1 & 1 & 1 & 1 & 1  \\ \hline
+\end{tabular}
+\end{center}
+}
+\columnbreak
+
+% Boolean expressions for outputs:
+{\small
+\begin{eqnarray*}
+\texttt{CarryOut} &=& A \cdot B \\
+&+& A \cdot  CarryIn\\
+&+& B \cdot  CarryIn    
+\end{eqnarray*}
+% \texttt{CarryOut} = $A \cdot B + A \cdot $ CarryIn $ + B \cdot $ CarryIn
+% {\tiny
+\begin{eqnarray*}
+Sum  &=& \overline{CarryIn} \cdot \bar{A} \cdot B\\ 
+&+& \overline{CarryIn} \cdot A \cdot \bar{B}\\
+& + &CarryIn \cdot \bar{A} \cdot \bar{B}\\ 
+& + & CarryIn \cdot A \cdot B
+\end{eqnarray*}
+% }
+Upon closer inspection:
+
+\texttt{Sum} = $A \oplus B \oplus $ CarryIn
+}
+\end{multicols}
+
+\end{frame}
+
+\begin{frame}{Combinational Circuit of Full Adder}
+    \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+  title=Try this,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+Can you implement the combinational circuit of a full adder using only AND and OR gates?
+  \end{tcolorbox}
+
+    \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+  title=Try this,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+Can you implement the combinational circuit of a full adder using as few logic gates as possible?
+  \end{tcolorbox}
+\end{frame}
+
+\begin{frame}{Could this circuit be a solution for the full adder?}
+    \resizebox{8cm}{8cm}{
+    \input{03-data-representation-and-manipulation/full_adder_zhk}}
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{Ripple-Carry Adder}
+\begin{itemize}
+\item 4-bit example
+
+	\Figure{!}{1.7in}{1.3in}{Figs/binadder}
+
+ \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+  title=Think About It,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+What should $C_0$ be?
+  \end{tcolorbox}
+  {\footnotesize
+\item A carry out from the least significant bit $C_1=1$ can ``ripple'' all the way to make $C_4=1$.
+\item Easy to extend to 64 bits.
+\item Can be slow; ``carry-lookahead'' idea improves speed {\footnotesize (not in the scope of our course)}
+}
+\end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item What should $C_{0}$ be?  The obvious answer is `0', but as we'll see,
+	we can play games with $C_0$ to get our adder to subtract.
+\item
+	Consider showing a partial 2-bit adder truth table.
+	Ie, inputs $A_1A_0$, $B_1B_0$, $C_{in}$ and outputs
+	$C_{out}$, $S_1S_0$.  The table would have 32 rows, so just
+	show the first four or eight.  But you could build it as a
+	sum-of-products with only 2 gate propogation delay time for
+	adding two bits, and if you used it in a ripple carry adder,
+	you would speed things up by a factor of 2.
+\item The downside is that the 2-bit adder will use more
+	transistors.  Do a quick estimate: each 1-bit adder uses 16 for
+	$C_{out}$ and either 64 or 16 (or 20) for $S$ depending on how
+	you build your XOR gates, but use 32 total for the 1-bit adder.
+	Then there are 32 1-bit adders for a total of about 1000 transistors.
+
+	% small so that it all fits on a slide
+	{\small
+	For the 2-bit adder, there are 32 minterms, only one of which isn't
+	used ($\bar{A}_1\bar{A}_0\bar{B}_1\bar{B}_0\bar{C}_in$).  The ORs
+	can share the ANDs used for the minterms, and each AND/minterm requires
+	20 transistors for a total of 320.  The 3 ORs should each have roughly 
+	16 inputs, for around 100 transitors total (for all three outputs),
+	giving a total of around 400 transistors per 2-bit 
+	adder.  There will only be 16 of them for a 32-bit word, giving a
+	total of around 6500 transitors.
+
+	Thus, the factor of 2 speed up requires over 6x the number of
+	transistors.  However, in real life, you can use software to
+	greatly simplify the 2-bit adder circuit to significantly
+	reduce the size of the circuit.  It'll still be larger than using
+	the 1-bit adder, but it won't be a factor of 6 larger.
+	}
+\item A carry-lookahead adder does something else: rather than link the
+	carry-in to the previous carry-out, we just compute the carry-in
+	directly.  Eg, the carry-in on position 1 is $A_0B_0+A_0C_{0}+B_0C_0$
+	(which is the same as the formula for the carry out); the carry-in
+	on position 2 is 
+	\[
+		A_1B_1+
+		A_1A_0B_0 + B_1A_0B_0 + 
+		A_1A_0C_0 + B_1A_0C_0 + 
+		A_1B_0C_0 + B_1B_0C_0
+	\]
+	
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}\frametitle{Ripple-Carry Adder for Subtraction?}
+
+Recall, $ A - B = A + \bar{B} + 1 $. 
+
+Therefore, if we can invert every bit in B and set $C_0=1$, we can use full adder to accomplish subtraction, such that,  $A - B = A + \bar{B} + 1$.
+
+\begin{figure}[H]
+\centering
+	{\includegraphics[scale=0.2]{03-data-representation-and-manipulation/figures/subtractor-adder.png}}
+%\caption{}\label{}
+\end{figure}
+Therefore, for subtraction $C_0 = 1$, otherwise $C_0 = 0$ for addition operation
+
+\end{frame}
+
+
+
+
+\begin{frame}[fragile]
+\STitle{ Shift Operations}
+ARMv8 has useful shift operations, such as:
+\begin{multicols}{2}
+Logical Shift 
+{\small
+\begin{itemize}
+\item \texttt{LSL} (Logic Shift Left)
+\item \texttt{LSR} (Logic Shift Right)
+
+with the \texttt{shamt} field to specify how many bits to shift.
+
+    \item shift bits in word left or right, \hl{fill in with 0's}
+    
+\item Left shift $i$ bits is $\equiv$ to multiplication by $2^i$. 
+
+Left shift $({\color{red}0001})_2$ by 1 digit = $ 1 \times 2^1 = 2_{10} =  ({\color{red}001}{\color{blue}0})_2$
+\end{itemize}
+}
+\columnbreak
+
+Arithmetic Shift Right
+{\small
+\begin{itemize}
+\item \texttt{ASR}
+\item shift right, copy sign bit in the empty bits to the left 
+    \end{itemize}
+    }
+Other shifts include: rotate left or right (moving bit rotated out to other side)
+\end{multicols}
+% Useful Logicial operations: Bitwise \texttt{AND, OR} and \texttt{EOR}. {\footnotesize EOR is exclusive OR. ORR is inclusive OR.}
+
+% {\footnotesize
+%  \begin{center}
+%     \begin{tabular}{c|cc|c}
+%       Logical Operation & A & B & Result\\
+%       \hline
+%       Bitwise AND & 0000 1111 & 1011 0111 & 0000 0111 \\
+%       Bitwise OR & 1011 1111 & 0000 0111 & 1011 1111 \\
+%       Bitwise EOR & 1011 0110 & 1111 1111 & 0100 1001 \\
+%       \end{tabular}
+%     \end{center}
+% }
+%  Bitwise NOT is just EOR with all-ones
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item Give examples of all forms of shifting, discussing why they might be
+	used, how arithmetic shift left is multiply by 2 and arithmetic
+	shift right is sort of divide by 2.
+	
+\item Do some examples of logical operations on the board.  
+
+	In particular, show how to use
+	bitwise AND to mask off half a word 
+	(eg, 0000 1111 AND abcd wxyz = 0000 wxyz, using actual 0's and 1's
+	for abcd and wxyz),
+
+	and how to use bitwise OR to combine things back together.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{ Logical Operations}
+% ARMv8 has useful shift operations, such as:
+% \begin{multicols}{2}
+% Logical Shift 
+% {\small
+% \begin{itemize}
+% \item \texttt{LSL} (Logic Shift Left)
+% \item \texttt{LSR} (Logic Shift Right)
+
+% with the \texttt{shamt} field to specify how many bits to shift.
+
+%     \item shift bits in word left or right, \hl{fill in with 0's}
+    
+% \item Left shift $i$ bits is $\equiv$ to multiplication by $2^i$. 
+
+% Left shift $({\color{red}0001})_2$ by 1 digit = $ 1 \times 2^1 = 2_{10} =  ({\color{red}001}{\color{blue}0})_2$
+% \end{itemize}
+% }
+% \columnbreak
+
+% Arithmetic Shift Right
+% {\small
+% \begin{itemize}
+% \item \texttt{ASR}
+% \item shift right, copy sign bit in the empty bits to the left 
+%     \end{itemize}
+%     }
+% Other shifts include: rotate left or right (moving bit rotated out to other side)
+% \end{multicols}
+Useful Logicial operations: 
+\begin{itemize}
+    \item Bitwise \texttt{AND}
+    \item Bitwise \texttt{OR}
+    \item Bitwise \texttt{EOR}.
+    \item \texttt{EOR} is exclusive \texttt{OR}. \texttt{ORR} is inclusive \texttt{OR}.
+\end{itemize} 
+
+ \begin{center}
+    \begin{tabular}{c|cc|c}
+      Logical Operation & A & B & Result\\
+      \hline
+      Bitwise AND & 0000 1111 & 1011 0111 & 0000 0111 \\
+      Bitwise OR & 1011 1111 & 0000 0111 & 1011 1111 \\
+      Bitwise EOR & 1011 0110 & 1111 1111 & 0100 1001 \\
+      \end{tabular}
+    \end{center}
+Notice: Bitwise NOT is just EOR with all-ones
+
+\begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+  title=Think About It,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+What does \texttt{0000 1111 AND 1011 0110}?\\ \ifnum\Ans=1{\color{red}= 0000 0110. This idea is known as masking.}\fi
+  \end{tcolorbox}
+
+
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item Give examples of all forms of shifting, discussing why they might be
+	used, how arithmetic shift left is multiply by 2 and arithmetic
+	shift right is sort of divide by 2.
+	
+\item Do some examples of logical operations on the board.  
+
+	In particular, show how to use
+	bitwise AND to mask off half a word 
+	(eg, 0000 1111 AND abcd wxyz = 0000 wxyz, using actual 0's and 1's
+	for abcd and wxyz),
+
+	and how to use bitwise OR to combine things back together.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+
+
+\begin{frame}[fragile]
+\STitle{A 1-Bit ALU}
+		%\PHFigure{!}{3in}{3in}{PHALL/F0414}{Figure A.5.6}
+		\Figure{!}{2.5in}{2in}{Figs/1-bitALU}
+\begin{itemize}
+\item Extends functionality of full adder
+\item Performs AND, OR, addition
+% \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+%   title=Think About It,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+% How would we build a 64-bit ALU?
+% \end{tcolorbox}
+% Connect 64 of these as with ripple-carry adder to perform 64-bit operations
+\end{itemize}
+\BNotes\ifnum\Notes=1
+~% notes text
+\fi\ENotes
+\end{frame}
+
+%move to after 1-bit ALUs
+% \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+%   title=Think About It,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+% How would we build a 64-bit ALU?
+% \end{tcolorbox}
+% Connect 64 of these as with ripple-carry adder to perform 64-bit operations
+% \begin{frame}{A 64-bit ALU from 64 1-Bit ALUs}
+%     \includegraphics[height=7cm]{03-data-representation-and-manipulation/figures/64-1-bit-alu.png}\footnote{image modified for correctness}
+    
+%     {\footnotesize
+   
+%      Connect 64 1-Bit ALU as with ripple-carry adder to perform 64-bit operations}
+% \end{frame}
+
+\begin{frame}[fragile]
+\Title{Extending the 1-Bit ALU}
+\begin{itemize}
+\item How can we implement subtraction, $ a - b$?
+\item $a + \bar{b} + 1$. 
+\item How to achieve this using the 1-Bit ALU:
+\begin{itemize}
+    \item for $\bar{b}$: \hl{add input \texttt{Binvert} to 1-Bit ALU} and \textbf{set \texttt{Binvert} $ = 1$}
+    \item to add 1 to $\bar{b}$, \textbf{set \texttt{CarryIn = 1}} {\footnotesize at the top of the chain when ALU operation is subtraction}
+    \item add $\bar{b} + 1$ to $a$, set \texttt{Operation = }$(10)_2$ {\footnotesize to use result of adder by selecting input $2$ in MUX to be \texttt{Result} of 1-Bit ALU}
+\end{itemize}
+\item Result = $a + \bar{b} + 1$. This is equal to $a - b$ 
+\end{itemize}
+		\PHFigure{!}{1.25in}{1.25in}{PHALL/F0416}{Figure A.5.8}
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item Emphasize that the 1 does not go into the box on this slide; each box
+	on the previous slide is replaced by this box, and the 1 is put into
+	the top CarryIn by logic interpreting the Operation signals.
+\item Wire up (at least) two 1-bit ALUs showing that the Cout of one is the
+	Cin of the next, that the operator is shared, that op=sub is C0 (and
+	binvert).
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+  \Title{Extending the 1-Bit ALU for NOR}
+   \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+  title=Try this,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+We have extended the 1-bit ALU to include input \texttt{Ainvert}. Use the 1-bit ALU below to implement \texttt{a NOR b} = $\overline{a+b}$\\
+Hint: $\overline{a+b} = \bar{a} \cdot \bar{b}$
+\end{tcolorbox}
+\begin{multicols}{2}
+\PHFigure{!}{2in}{1.5in}{ARMFigures/FigA-5-9}{Figure A.5.9}
+
+    \columnbreak
+
+    \ifnum\Ans=1{\color{red}
+    Solution:
+      \begin{itemize}
+  \item Compute $\bar{a}$ with Ainvert=1
+  \item Compute $\bar{b}$ with Binvert=1
+\item Operation = $(00)_2$
+\item Result = $\bar{a} \cdot \bar{b}$
+  \end{itemize}
+}\fi
+\end{multicols}  
+
+  \BNotes\ifnum\Notes=1
+  \begin{itemize}
+  \item The control bits map as follows:
+
+    Left most: Ainvert
+
+    2nd Left: Binvert, CarryIn
+    
+    Right Two: Operation
+    
+  \item We can also get NAND, but the book doesn't discuss this
+  \item Pass-b isn't shown here or in the book; for Fall 2019, this was
+    done in the assignment.  Starting Winter 2019, this appears on the
+    next slide.
+  \end{itemize}
+  \fi\ENotes
+\end{frame}
+
+% for comprehensive
+\newpage
+
+\begin{frame}[fragile]
+  \Title{Pass-B}
+
+  \begin{itemize}
+  \item Pass-B, no ALU operation is needed in B. 
+  \item Set \texttt{Operation} = $(11)_2$
+  \item Set \texttt{BInvert} = $(0)_2$
+  % \item  The pass-B operation is needed for CBZ, which tests a
+    % single register to see if all 64-bits are zero.
+  \end{itemize}
+  \begin{multicols}{2}
+  \PHFigure{!}{2in}{1.5in}{ARMFigures/passBALU.png}{Modified Figure A.5.9}
+  \columnbreak
+\begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+  title=Think About It,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+  Why do we need \texttt{Pass-B}? \\
+  \ifnum\Ans=1{\color{red} to test for \texttt{b}=0}\fi
+  \end{tcolorbox}
+
+\begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+  title=Think About It,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+How would we build a 64-bit ALU?\\
+\ifnum\Ans=1{\color{red}Connect 64 1-bit ALUs with ripple-carry adder to perform 64-bit operations}
+\end{tcolorbox}
+  
+  \end{multicols}
+
+  \BNotes\ifnum\Notes=1
+  \begin{itemize}
+  \item We're adding a ``pass B'' operation.  This is the ``3'' input to
+    the MUX.
+
+    It won't be clear why we need this until we get to the single cycle
+    datapath.  The pass-B operation is needed for CBZ, which tests a
+    single register to see if it is the 64-bit zero.
+  \end{itemize}
+  \fi\ENotes
+\end{frame}
+
+
+
+\begin{frame}{A 64-bit ALU from 64 1-Bit ALUs}
+    % \includegraphics[height=7cm]{03-data-representation-and-manipulation/figures/64-1-bit-alu.png}\footnote{image modified for correctness}
+    \begin{center}
+     \includegraphics[height=3in]{03-data-representation-and-manipulation/figures/alu64-zhk.png}   
+    \end{center}
+     
+    
+    {\footnotesize
+   
+     Connect 64 1-Bit ALU as with ripple-carry adder to perform 64-bit operations}
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Example Modifiying 64-bit ALU for Additional Functions}
+    \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+  title=Try this,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+ Modify the 64-bit ALU to produce an additional output\\
+ \textbf{Zero}: This should be HIGH (1) when the 64-bit \texttt{Result} is the decimal number 0.
+  \end{tcolorbox}
+  \begin{center}
+   % \includegraphics[height=2in]{03-data-representation-and-manipulation/figures/64-1-bit-alu.png}   
+
+   \includegraphics[height=2in]{03-data-representation-and-manipulation/figures/alu64-zhk.png}
+  \end{center}
+   
+
+\end{frame}
+
+\ifnum\Ans=1{
+\begin{frame}[fragile]
+\STitle{Solution: Modifiying 64-bit ALU for Additional Functions}
+    \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+  title=Try this,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+ Modify the 64-bit ALU to produce an additional output\\
+ \textbf{Zero}: This should be HIGH (1) when the 64-bit \texttt{Result} is the decimal number 0.
+  \end{tcolorbox}
+  \begin{center}
+   \includegraphics[height=2in]{03-data-representation-and-manipulation/figures/64-bitALU.pdf}   
+  \end{center}
+   
+
+\end{frame}
+
+
+}\fi
+
+
+
+% \ifnum\Ans=1
+% \begin{frame}{Solution: Zero Detection Unit}
+   
+
+% \begin{multicols}{2}
+%    \includegraphics[height=6cm]{03-data-representation-and-manipulation/figures/zero-detect.png}\footnote{image modifed for correctness}
+   
+%   \columnbreak
+%   \begin{itemize}
+%       \item Select Pass-B with \texttt{Operation=11} 
+%       \item Then pass all 64 \texttt{Result} bits into \texttt{NOR} gate. 
+%       \item \textbf{\texttt{Zero=0}}, when any or all of \texttt{Result} bits are 1,
+%       \item \textbf{\texttt{Zero=1}}, when all \texttt{Result} bits are 0.
+
+%   \end{itemize}
+%   \end{multicols}
+
+    
+% \end{frame}
+% \fi
+
+% for comprehensive
+\newpage
+\begin{frame}[fragile]
+  \Title{Summary: Operation Table for 1-bit ALU}
+% \begin{multicols}{2}
+  \PHFigure{!}{1.4in}{1.4in}{ARMFigures/passBALU.png}{Modified Figure A.5.9}
+% \columnbreak
+{\footnotesize
+  \begin{center}
+    \begin{tabular}{ccc||c}
+      \texttt{Ainvert}& \texttt{Binvert}& Operation&Result\\
+      & \texttt{CarryIn} & &\\
+      \hline
+      0 & 0 & 00 & a \texttt{AND} b\\
+      0& 0& 01 & a \texttt{OR} b\\
+      0& 0& 10 & $a + b$\\
+      0 & 1& 10 & $a - b = a + \bar{b} + 1$\\
+      1& 1& 00 & a \texttt{NOR} b \\% $\overline{a+b}$ = a \texttt{NOR} b\\
+      0& 0& 11 & b (Pass-B)\\
+      \end{tabular}
+    \end{center}
+    }
+    % \end{multicols}
+
+  \BNotes\ifnum\Notes=1
+  \begin{itemize}
+  \item The control bits map as follows:
+
+    Left most: Ainvert
+
+    2nd Left: Binvert, CarryIn
+    
+    Right Two: Operation
+    
+  \item We can also get NAND, but the book doesn't discuss this
+  \item Pass isn't shown here or in the book; for Fall 2019, this is
+    done in the assignment
+  \end{itemize}
+  \fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{Abstracting Away ALU Details}
+\begin{itemize}
+% \item Book gives additional details in Appendix A.5
+
+%   Zero, Overflow, 64-bit
+
+%   Figure A.5.12 in particular, but the figure wrongly labels pass-B as less.
+\item From now on, we use symbol below
+\item Same shape used for ripple-carry adder, \textbf{so remember to label them}
+\end{itemize}
+%		\PHFigure{!}{3in}{1.75in}{PHALL/F0421}{Figure A.5.14}
+		\Figure{!}{3in}{1.75in}{Figs/ALU}
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item Be sure to discuss carry-out and overflow (and the difference)
+\item MIPS has set on less than, which ARM doesn't seem to have.  Appendix A
+  still has set-on-less-than (Figure A.5.12), which is WRONG.  Mention this in
+  class: this should have been changed from set-on-less-than to 'pass b'.
+\item Note the 4-bits on the ALU control.  The NOR is the only command that
+  uses the 4th operation bit, which is tied to the Ainvert input.  We can
+  also get NAND, but the book doesn't talk about this.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+% \begin{frame}[fragile]
+% \STitle{Example Modifiying 64-bit ALU for Additional Functions}
+%     \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+%  Modify the 64-bit ALU to produce an additional output\\
+%  \textbf{Zero}: This should be HIGH (1) when the 64-bit \texttt{Result} is the decimal number 0.
+%   \end{tcolorbox}
+%   \begin{center}
+%    % \includegraphics[height=2in]{03-data-representation-and-manipulation/figures/64-1-bit-alu.png}   
+
+%    \includegraphics[height=2in]{03-data-representation-and-manipulation/figures/alu64-zhk.png}
+%   \end{center}
+   
+
+% \end{frame}
+
+% \ifnum\Ans=1{
+% \begin{frame}[fragile]
+% \STitle{Solution: Modifiying 64-bit ALU for Additional Functions}
+%     \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+%  Modify the 64-bit ALU to produce an additional output\\
+%  \textbf{Zero}: This should be HIGH (1) when the 64-bit \texttt{Result} is the decimal number 0.
+%   \end{tcolorbox}
+%   \begin{center}
+%    \includegraphics[height=2in]{03-data-representation-and-manipulation/figures/64-bitALU.pdf}   
+%   \end{center}
+   
+
+% \end{frame}
+
+
+% }\fi
+
+
+
+% \begin{frame}[fragile]
+% \STitle{Multiplication}
+% \begin{itemize}
+% 	\item Example:
+% 	\begin{center}
+% 	\begin{tabular}{rcccccccccc}
+% 	13 & & &  &&& 1 & 1 & 0 & 1 & Multiplicand\\
+% 	11 & & &  &&& 1 & 0 & 1 & 1 & Multiplier\\\cline{1-1}\cline{7-10}
+% 	  & & &  &&& 1 & 1 & 0& 1\\
+% 	  & & &  &&1& 1 & 0 & 1& \\
+% 	  & & &  &0& 0 & 0 & 0& &\\
+% 	  & & &  1&1& 0 & 1&  & &\\
+% 	\cline{1-1}\cline{3-10}
+% 	143 & & 1& 0 &0 & 0 & 1 & 1 & 1& 1 & Product\\
+% 	\end{tabular}
+% 	\end{center}
+% 	\item Algorithm for Product = Multiplicand * Multiplier:
+
+% 		Look at LSB of Multiplier
+
+% 		If 1, add Multiplicand to Product
+
+% 		Shift Multiplicand left, Shift Multiplier right
+
+% 		Repeat until Multiplier becomes zero
+% 	\item Note: for $n$ bit numbers, result may be $2n$ bits
+% \end{itemize}
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item This binary multiplication algorithm is on a 3600 year old papyrus
+% 	that claims to have copied it off a 200 year old papyrus.  See
+
+% 	http://www-groups.dcs.st-and.ac.uk/~history/HistTopics/Egyptian\_mathematics.html
+
+% http://www-groups.dcs.st-and.ac.uk/~history/HistTopics/Egyptian\_papyri.html
+
+% for details.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% % Be careful with the following - there are three figures that
+% %  we would like to have appear on the same 2-up page.  I had to
+% %  shrink the size of the hardware figure to get this to work.
+% %  A better way would be to make sure it all appeared on facing
+% %  2-up page, but that's harder to do.
+
+% \ifnum\slides=0
+% \newpage
+% %\Startoddpage
+% \fi
+% \begin{frame}[fragile]
+% \Title{Multiplication Hardware, First Version}
+% 		\PHFigure{!}{4in}{2in}{ARMFigures/Fig0303-crop}{Figure 3.3}
+% \begin{itemize}
+% \item Initialization and termination not shown
+% \item At start, Product is zero, 64-bit Multiplicand in right half of
+% its register
+% \item Note control inputs and outputs
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% ~% notes text
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+
+% \RFigureCR{!}{3.5in}{3.5in}{Figure 3.4, Flowchart for generating control signals,
+%           first version}
+%           {ARMFigures/Fig0304-crop}{90}
+
+% \BNotes\ifnum\Notes=1
+% ~% notes text
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+
+% \Title{4-Bit Multiplication Example, First HW Version}
+
+% Multiplier = 1011, Multiplicand = 1101
+
+% \begin{tabular}{|c|l|c|c|c|} \hline
+% Iteration & Step & Multiplier & Multiplicand & Product \\ \hline
+% 0 & Initial Values   & 1011 & 0000\,1101  & 0000\,0000 \\ \hline
+% 1 & Add mpcd to prod &      &             & 0000\,1101 \\
+%   & Shift left mpcd  &      & 0001\,1010  &          \\
+%   & Shift right mplr & 0101 &             &          \\ \hline
+% 2 & Add mpcd to prod &      &             & 0010\,0111 \\
+%   & Shift left mpcd  &      & 0011\,0100  &          \\
+%   & Shift right mplr & 0010 &             &          \\ \hline
+% 3 & No operation     &      &             &          \\
+%   & Shift left mpcd  &      & 0110\,1000  &          \\
+%   & Shift right mplr & 0001 &             &          \\ \hline
+% 4 & Add mpcd to prod &      &             & 1000\,1111 \\
+%   & Shift left mpcd  &      & 1101\,0000  &          \\
+%   & Shift right mplr & 0000 &             &          \\ \hline
+% \end{tabular}
+
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item Register contents are only shown when they change.
+% \item Note that the ``no operation'' does not show up on the
+% flowchart. Whether this takes a clock cycle or not depends on the
+% implementation of control and whether the designer wants every
+% multiplication operation to take exactly the same time or not. It is
+% shown here for simplicity.
+% \item For 32-bit words, this takes nearly 100 clock cycles as shown;
+% of course, shifts can be done in parallel. Still, multiplication is
+% more expensive than addition or subtraction.
+% \item Lots of empty space in registers, leading to next optimization:
+% to save space in multiplicand, keep it fixed and shift product right.
+% \item Note that the design of control is not shown here; it can be
+% implemented using a finite-state machine (good homework question?)
+% with the help of some additional counters.
+% \end{itemize}
+
+
+% \fi\ENotes
+% \end{frame}
+
+% % Be careful with the following - there are three figures that
+% %  we would like to have appear on the same 2-up page.  I had to
+% %  shrink the size of the hardware figure and the flow chart figure
+% %  to get this to work.
+% %  A better way would be to make sure it all appeared on facing
+% %  2-up page, but that's harder to do.
+% % 2014-02-10: This material took up 9 pages.  We no longer print these 2-up,
+% %  so I adjusted things so that they now take up only 5 pages instead.
+
+% \ifnum\slides=0
+% \newpage
+% %\Startoddpage
+% \fi
+
+
+% \ifnum\slides=0
+% \newpage
+% %\Startoddpage
+% \fi
+% \begin{frame}[fragile]
+% \Title{Multiplication Hardware, Second Version}
+% 		\PHFigure{!}{4in}{2in}{ARMFigures/Fig0305-crop}{Improved multiplication flow chart}
+% \begin{itemize}
+% \item Multiplier starts in right half of product register
+% \item As multiplier bits are shifted out, unchanging bits of product
+% are shifted into the space created
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item This is an example from the 2nd edition of the textbook; 
+% 	the third edition removed this example.
+% \item Consider skipping this example unless you are way ahead of where
+% 	you should be.  Skipping means skipping all three slides for
+% 	this multiplier.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+
+% \RFigureCR{!}{4in}{3.5in}{Flowchart for generating control signals,
+%           second version}
+%           {PHALL/F0432}{90}
+
+% \BNotes\ifnum\Notes=1
+% ~% notes text
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{4-Bit Multiplication Example, Second HW Version}
+
+% Multiplier = 1011, Multiplicand = 1101
+
+% \begin{tabular}{|c|l|c|r|} \hline
+% Iteration & Step & Multiplicand & Product \\ \hline
+% 0 & Initial Values    & 1101 &  0000\,\fbox{1011} \\ \hline
+% 1 & Add mpcd to prod  &      &  1101\,\fbox{1011} \\
+%   & Shift right prod  & 1101 &  0110\,1\fbox{101} \\
+%   &                   &      &                    \\
+%  \hline
+% 2 & Add mpcd to prod  &      & \fbox{1}0011\,1\fbox{101} \\
+%   & Shift right prod  & 1101 &  1001\,11\fbox{10} \\ 
+%  \hline
+% 3 & No operation      &      &           \\
+%   & Shift right prod  & 1101 &  0100\,111\fbox{1} \\
+%   &                   &      &                    \\
+%  \hline
+% 4 & Add mpcd to prod  &      & \fbox{1}0001\,111\fbox{1} \\
+%   & Shift right prod  & 1101 &  1000\,1111\, \\ \hline
+% \end{tabular}
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item Boxes to right of product register indicate bits of multiplier
+% remaining; test is done on LSB of product register.
+% \item Book deals with signed multiplication, division in similar
+% fashion. 
+
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+
+% \begin{frame}[fragile]
+% \Title{Representing Numbers That Aren't Integers}
+% \begin{itemize}
+% \item Uses idea of scientific notation: $-3.45 \times 10^3$
+% \item Sign, significand (fraction, mantissa, exponent)
+% \item Normalized: single digit to left of decimal point
+% \item For computers, natural to use 2 as base
+% \item Example: $1.01_2 \times 2^4$
+% \item In normalized binary, leading digit of significand is always 1
+%       (can omit it from internal representation)
+% \item How to represent 0?
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item
+% What is $1.01_2 \times 2^4$? Binary fractions work just like decimal
+% ones (in fact, we use the term ``decimal point''), so $1.01_2 = 1 + 0
+% \times 2^{-1} + 1 \times 2^{-2}$ or $5/4$. Thus this number is 20.
+% \item The answer to the last question comes on the next slide.
+% 	Basically, the all 0 exponent comment is for the biased
+% 	exponent.
+% \item Terminology: Significand = 1+0.Fraction
+% \item Computer representation is an approximation.  As an example, ask them
+% 	if they know Fermat's Last Theorem (There exist integers $A,B,C$
+% 	such that $A^n+B^n=C^n$ is true for natural numbers only for $n=2$).
+% 	Then ask if anyone has a calculator, and have them show that
+% 	\[
+% 		1782^{12} + 1841^{12} = 1922^{12}
+% 	\]
+% 	by computing
+% 	\[
+% 		1782^{12} + 1841^{12} - 1922^{12} = 0
+% 	\]
+% 	While the equality is incorrect, it holds up to 9 digits of precision,
+% 	which is all that most calculators have.
+
+% 	Thus, floating point numbers on a computer are approximations to 
+% 	real numbers.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \STitle{Floating-Point Representation}
+% \begin{itemize}
+% \item ARM uses the IEEE 754 floating-point standard format
+% \begin{center}
+% 	\Figure{!}{.25in}{.5in}{Figs/FPsingle}
+% \end{center}
+% \vspace*{-0.2in}
+% \item allows numbers from $2.0 \times 10^{-38}$ to $2.0 \times 10^{38}$,
+% roughly
+% \item Double precision: uses two 32-bit words, 11 bits for exponent,
+% 52 bits for significand
+% \item Exponent is stored in ``biased'' notation: most negative
+% exponent is all 0's, most positive is all 1's
+
+%  This allows for quick comparisons, speeds up sorting
+% \item Thus value represented is $(-1)^{\mbox{S}} \times (1 +
+% \mbox{Fraction}) \times 2^{(\mbox{Exponent} - \mbox{Bias})}$, 
+
+% where $\mbox{Bias} = 127$ for single precision
+% \item Special case: $0000\,0000$ exponent reserved for 0
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item In computation of values represented, the Exponent field is interpreted 
+% 	as an unsigned binary integer, and the Significand as a binary fraction.
+% \item Quad precision: 16 bytes, 1 sign, 15 exponent, 112 fraction (113 total)
+% \item The exponent $0000\,0000$ (which should represent $2^{-127}$)
+% 	is used instead to represent 0.  That's as far as the text goes.
+% 	  In IEEE, the
+% 	exponent $0000\,0000$ give us a "denormalized" floating point
+% 	number with exponent $2^{-126}$; if the significand is all zeros,
+% 	then obviously the number is 0.  But whereas for other values
+% 	of the exponent,
+% 	S-exp-man is the form about, for exponent $0000\,0000$ the
+% 	number is $(-1)^{\mbox{S}} \times (0 + \mbox{Significand}) \times 2^{(-Bias+1)}$
+% \item Thus, to represent 0 the exponent and the signficand should both be
+% 	zero.  We will also have positive 0 and negative 0.
+% \item In real IEEE, the exponent $1111\,1111$ is used for infinities, NaN,
+% 	etc.  The book fails to mention this.
+% \item "speeds up sorting": floating point numbers sort the same way as 2's complement.
+% \item Quad: 1 bit sign, 15 bit exponent, 112 (113) bit significand
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Fractional Numbers}
+% \begin{itemize}
+% 	\item How to represent numbers less than 1?
+% 	\item Digits to right of decimal point represent negative powers of two
+
+% 	\begin{center}
+% 	\begin{tabular}{ccccc}
+% 	0. & 1 & 0 & 1 & 1\\
+% 	1  & 1/2 & 1/4 & 1/8 & 1/16\\
+% 	\end{tabular}
+% 	\end{center}
+% 	0*1 + 1*1/2 + 0*1/4 + 1*1/8 + 1*1/16 = 11/16
+
+% 	\item Simple examples
+
+% 	1/2 = 0.1
+
+% 	3/4 = 0.11
+% 	\item May have to approximate
+
+% 		Example: 1/3 as decimal is...
+
+% 		0.1 in binary is...
+
+% 		sqrt(2) in binary is...
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% 	\item 1/3 in binary is 0.0101... with the 01 repeating
+% 	\item 0.1 in binary is 0.000110011... with the 0011 repeating
+% 	\item The two main points:
+% 	\begin{itemize}
+% 		\item We have to approximate sqrt(2), etc., regardless of base
+% 		\item Numbers that are nice in decimal, like 0.1, are not
+% 			so nice in binary
+% 	\end{itemize}
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \STitle{Floating-Point Addition}
+% \begin{itemize}
+% \item Decimal example: $9.54 \times 10^2 + 6.83 \times 10^1$
+
+% (assume we can only store two digits to right of decimal point)
+% \begin{enumerate}
+% \item Match exponents: $9.54 \times 10^2 + .683 \times 10^2$
+% \item Add significands, with sign: $10.223 \times 10^2$
+% \item Normalize: $1.0223 \times 10^3$
+% \item Check for exponent overflow/underflow
+% \item Round: $1.02 \times 10^3$
+% \item May have to normalize again
+% \end{enumerate}
+% \item Same idea works for binary
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% Note the possible need for renormalizing at the end;
+% rounding can result in an unnormalized number (for instance, using a
+% decimal example, if a sum like $9.9995 \times 10^3$ is rounded to four
+% digits in the significand). Renormalization should only be needed
+% once.
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+
+% 	\RFigureCR{!}{3in}{3.5in}{Figure 3.14, Flowchart for Floating-Point
+%          	Addition}{PHALL/F0444}{90}
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item Go over this flowchart carefully, using an example worked on the
+% board in binary (you can use the one from the book, but it is better
+% to develop a second one). 
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+
+% 	\RFigureCR{!}{4in}{3.5in}{Figure 3.15, Hardware for Floating-Point
+%          Addition}{PHALL/F0445}{90}
+
+% \BNotes\ifnum\Notes=1
+% Using the flowchart as reference, trace which components perform what
+% function, and give a glimpse inside some of the black boxes -- notably
+% the small and large ALUs (different number of input bits, different
+% functionality), and the rounding hardware. We will not go further into
+% floating-point hardware than this slide.
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \STitle{Floating-Point Multiplication}
+% \begin{itemize}
+% \item Decimal example: $(9.54 \times 10^2) \times (6.83 \times 10^1)$
+
+% (assume we can only store two digits to right of decimal point)
+% \begin{enumerate}
+% \item Add exponents: $2+1=3$
+
+% 	(Note: exponents stored in biased notation)
+% \item Multiply significands: $9.54 \times 6.83 = 65.1582$
+% \item Unnormalized result: $65.1582 \times 10^3$
+% \item Normalize: $6.51582 \times 10^4$
+% \item Check for overflow/underflow
+% \item Round: $6.52 \times 10^4$
+
+%       (May need to renormalize)
+% \item Set sign
+% \end{enumerate}
+% \item Same idea works for binary
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% ~% notes text
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+
+% 	\RFigureCR{!}{5in}{3.5in}{Figure 3.16, Flowchart for Floating-Point
+%          	Multiplication}{PHALL/F0446}{90}
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item Do a binary example.  But -- see next slide and possibly use first
+% 	multiplication example (but with exponents)
+% \item Your example will use regular exponents, but show what happens
+% 	if you use biased exponents
+% \item Show that result is $2n$ bits when multiplying two $n$-bit numbers
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \STitle{Accuracy}
+% \begin{itemize}
+%         \item Only certain numbers can be represented accurately
+% 	\item Typically the result of an operation cannot be represented precisely
+% 	\item The result must be rounded.  Multiple ways to round
+
+% 		\framebox{For this class, we will round 1/2 up in magnitude}
+% 	\item Do we need to compute precisely and then round?
+%         \item Goal: save hardware by not keeping full precision internally during computation
+
+% 	\item	How few bits can be used to get correct $n$-bit result after
+% 		rounding?
+
+% 	Result should be the same as if we had kept full precision and 
+% 		rounded afterwards
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% 	\item To clarify the last bullet: we start with two $n$-bit numbers.
+% 		Assume we compute with an unbounded number of bits and
+% 		then round to $n$-bits.  The question is: rather than use
+% 		an unbounded number of bits, how few can we use?
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Accuracy in Floating-Point Addition}
+% \begin{itemize}
+%   \item In adding two significands with $n$ bits of precision, 
+
+% 	can use an $n$-bit adder (giving $n+1$-bit result)
+%   \item Is least significant bit of result enough to round correctly?
+%   \item Our addition examples will use $n=4$
+
+% \begin{center}
+% \begin{tabular}{ccccccccc }
+%   &   & 1 & . & 0 & 1 & 0 & $\times$ & $2^0$ \\
+% + &   & 1 & . & 1 & 1 & 1 & $\times$ & $2^0$ \\ \hline
+%   & 1 & 1 & . & 0 & 0 & 1 & $\times$ & $2^0$ \\
+% \end{tabular}
+% \end{center}
+
+% Hardware adder gives two bits to left of decimal point
+% \item This is normalized to $1.1001 \times 2^1$ and then
+%   rounded to $1.101 \times 2^1$
+% \item Problem may arise when one significand has to be shifted to match
+%   exponents 
+% \end{itemize}
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% 	\item The question we're trying to answer is: how many bits do we need
+% 		to keep to produce the correct, rounded result?
+% 		(Remember, we will be rounding 1/2 up).
+% 	\item For example, ask them to recall what an $n$-bit adder gives as
+% 		an answer.  Consider going back to Ripple-Carry Adder slide
+% 		to show $n$-bits plus carry-out.
+% 	\item In the example, we have 4 bits.  A $4$-bit adder
+% 		gives an $4$-bit result with a carry out.  So in this
+% 		example, if we round the result of the adder output, we're fine.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \begin{itemize}
+
+% \item 	Example: $1.010\times2^2+1.001\times2^1$
+
+% After normalization, our input bits span range of $n+1$ bits.  
+
+% How do we add this with an $n$-bit adder?  
+
+% Can we ignore low order bit?
+
+% \begin{center}
+% \begin{tabular}{cccccccccc}
+%  &  & 1 & . & 0 & 1 & 0 & & $\times$ & $2^2$ \\
+% +&  & 0 & . & 1 & 0 & 0 & \framebox{1} &$\times$ & $2^2$ \\ \hline
+%  &0 & 1 & . & 1 & 1 & 0 & & $\times$ & $2^2$ \\
+% \end{tabular}
+% \end{center}
+
+% Note leftmost 0 is carry out of adder
+
+% \item Here, boxed bit of second significand was not fed into adder
+
+% But is boxed bit needed to round correctly?
+% \item With it, normalized result is $1.1101 \times 2^2$, rounds to $1.111 \times 2^2$
+% \item Without it, normalized result is $1.110 \times 2^2$
+% \item Thus for $n$-bit accuracy, we need to keep $n+2$ bits during the computation
+% \end{itemize}
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item This example is trickier: our problem really requires two $n+1$ numbers.
+% 	But we only have an $n$-bit adder.  The approach on the slide is just
+% 	to drop the extra bit (the smallest one).  But when rounding 1/2 up,
+% 	this gives a different answer than if we had unbounded precision.
+
+% \item It is not clear from these examples why $n+2$ bits are always
+% 	sufficient, but they are (well...).  
+
+% 	In particular, 1 bit is for carry out and one bit is to capture the
+% 	"one half" used for rounding.
+% \item Actually, there are some additional bits hanging around "under the hood".
+% 	Basically, there is a bit that starts as 0 and is set to one if any
+% 	of the bits that are thrown away are 1.  With this information, you
+% 	can check if the "one half" you want to round is actually greater
+% 	than one half.  If so, round up.  If not, it gets a bit complicated.
+% 	IEEE "rounds to even" to avoid a creeping bias by always rounding
+% 	one half up.  Still, it's an arbitrary choice.  The extra bit avoids 
+% 	having to make this arbitrary choice much of the time.
+% \item See also a later slide that refers to the round and guard bits.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Accuracy in Floating-Point Multiplication}
+% \begin{itemize}
+% \item When multiplying two floating-point numbers, the significands
+%   are multiplied together
+% \item If the significands have $n$ bits of precision each, the result
+%   can have $2n$ bits of precision
+% \item How many bits do we need to keep during the computation?
+% \item Our multiplication examples will have $n=3$
+% \end{itemize}
+
+% \BNotes\ifnum\Notes=1
+% ~% notes text{}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \begin{itemize}
+% \item Example:
+% \begin{center}
+% \begin{tabular}{cccccccccc}
+%          &  & 1 & . & 1 & 1 &   &   & $\times$ & $2^2$ \\
+% $\times$ &  & 1 & . & 1 & 1 &   &   & $\times$ & $2^1$ \\ \hline
+%          &1 & 1 & . & 0 & 0 & 0 & 1 & $\times$ & $2^3$ \\
+% \end{tabular}
+% \end{center}
+
+
+% \item In above example, only top 3 bits are needed for final result 
+% of $1.10 \times 2^4$
+
+% \item Example: Do we need circled (fourth) bit?
+% \begin{center}
+% \begin{tabular}{cccccccccc}
+%          &  & 1 & . & 1 & 0 &   &   & $\times$ & $2^2$ \\
+% $\times$ &  & 1 & . & 1 & 0 &   &   & $\times$ & $2^1$ \\ \hline
+%          &1 & 0 & . & 0 & \framebox{1} & 0 & 0 & $\times$ & $2^3$ \\
+% \end{tabular}
+% \end{center}
+
+
+% \item With three bits, $10.0 \times 2^3$ is normalized to $1.00 \times 2^4$,
+% which is incorrectly rounded
+
+% \item With four bits, $10.01 \times 2^3$ is normalized to $1.001 \times
+% 2^4$, and correctly rounded up to $1.01 \times 2^4$
+% \end{itemize}
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% 	\item The circled bit is the "extra" we need to keep beyond three bits
+% 		for this example to work.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+
+% \begin{itemize}
+% \item Example: Do we need circled (fourth,fifth) bits?
+% \begin{center}
+% \begin{tabular}{cccccccccc}
+%          &  & 1 & . & 0 & 1 &   &   & $\times$ & $2^2$ \\
+% $\times$ &  & 1 & . & 1 & 0 &   &   & $\times$ & $2^1$ \\ \hline
+%          &0 & 1 & . & 1 & \framebox{1} & \framebox{1} & 0 & $\times$ & $2^3$ \\
+% \end{tabular}
+% \end{center}
+
+% \item With three bits, $01.1 \times 2^3$ is normalized to $1.10 \times 2^3$,
+% which is incorrectly rounded
+
+% \item With four bits, $01.11 \times 2^3$ is normalized to $1.110 \times
+% 2^3$, and rounded to $1.11 \times 2^3$, which is incorrectly rounded
+
+% \item With five bits, $01.111 \times 2^3$ is normalized to $1.111 \times
+% 2^3$, rounded to $10.0 \times 2^3$, and normalized again to $1.00
+% \times 2^4$, which is correctly rounded
+% \end{itemize}
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item The need for two extra bits also can occur during subtraction, if
+% there is cancellation in the top bit requiring a shift left, as in our
+% last example for multiplication.
+% \item Again, it is not clear why two bits are sufficient, but they are.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \STitle{Floating-Point Architectural Issues}
+% \begin{itemize}
+% \item To maintain $n$ bits of accuracy after an operation, preserve $n+2$
+%   bits during the computation (the two extra bits are sometimes 
+%   called {\em guard} and {\em round})
+% \item Separate floating-point registers? 
+% \item Separate floating-point coprocessors?
+% \item Rounding or truncating?
+% \item What to do about overflow (same issue as for integer arithmetic)?
+% \item Less precision:
+	
+% 	\begin{center}
+% 		\begin{tabular}{cccc}
+% 			 16-bit format & $u$ & min & max \\\hline
+% 			 fp16 & $4.88\times 10^{-4}$ & 6.10$\times 10^{-5}$ & 6.55$\times 10^{4}$\\
+% 			 bfloat16 & 3.91$\times 10^{-3}$ & 1.18$\times 10^{-38}$ & 3.39$\times10^{38}$
+% 		\end{tabular}
+% 	\end{center}
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item Rounding 1 up can lead to upward drift in a long sum; IEEE 754
+%   specifies ``round to even'', and keeps a ``sticky bit'' (OR of
+%   discarded bits) to facilitate this
+% \item Rounding is actually under the control of the programmer in the
+%   standard, though this is often not implemented
+% \item Having separate floating-point registers saves room in the
+% instruction format.
+% \item Historically, many architectures had optional
+% floating-point coprocessors (machines without them simulated FP
+% instructions in software). This is not an issue in mainframe and PC
+% architectures of today, but may still be an issue in embedded systems.
+% \item Overflow is handled by an exception: control jumps to a routine
+% predefined by the programmer to handle the problem. 
+% \item The book's historical development section (3.11 online)
+%       is quite entertaining. 
+% \item "Less precision": It was noticed that communication was more
+% 	expensive than computation for singular valued decomposition.  
+
+% 	For deep learning applications, 16-bit floats were sufficient.
+% 	This motivated the development of 16-bit floating point numbers,
+% 	with plans for 8-bit numbers.
+
+% 	Note precision vs range in the two 16-bit formats.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \usebeamertemplate{DisclaimerFrame}
+
+% \end{document}
+
+\begin{frame}[fragile]
+\STitle{Conclusion}
+ \underline{\textbf{Lecture Summary}}
+ \begin{itemize}
+ \item Data Representation for decimal numbers in 2s complement for signed binary numbers
+ \item Full Adder
+ \item Construction of a 1-Bit ALU
+ \end{itemize}
+ \underline{\textbf{Assigned Textbook Readings}}
+\begin{itemize}
+     \item \textbf{Read} 
+     \begin{itemize}
+     \item Section 2.9 (pages 110 and 111), 2.4, 3.1, 3.2
+         \item Section 2.6 (pages 90 and 91)
+         \item Additional details in Appendix A.5, Zero, Overflow, 64-bit
+
+\hl{\textbf{Note: Figure A.5.12 wrongly labels pass-B as less}}
+     \end{itemize}
+     \end{itemize}
+    \underline{\textbf{Next Steps}}
+    \begin{itemize}
+     \item \textbf{Review} conversion steps from decimal to binary and back for integers. 
+% \begin{itemize}
+%     % \item Start thinking about the exercises in A3
+%     % \item A3 will be released in two parts, first set of exercises focus on Sequential Circuits and FSM, second set of exercises on Data Representation
+% \end{itemize}
+\item \textbf{Attempt} questions in next week's tutorial. 
+    \item \textbf{Ask} questions in office hours or the next tutorial.
+ \end{itemize}
+
+\end{frame}

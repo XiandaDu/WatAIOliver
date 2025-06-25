@@ -1,0 +1,20 @@
+# Class OrderedHashTable
+
+## Constructor
+- Dynamically allocates memory for vector<Student> array
+
+## Destructor
+- Clears all keys in each vector and swaps with an empty vector
+- Deallocates the memory assigned to the array
+
+## Function Examination
+
+| Function | Parameter Examination |
+|----------|-----------------------|
+| insert   | student_id (dtype: unsigned int) : key to be inserted |
+|          | student_name (dtype: const string) : associated last name |
+| search   | student_id (dtype: unsigned int) : key to be searched |
+| remove   | student_id (dtype: unsigned int) : key to be deleted |
+| print    | position (dtype: int) : position of the chain to be printed |
+
+\* Parameters that are passed using "const" keyword have no change in data during the function operation

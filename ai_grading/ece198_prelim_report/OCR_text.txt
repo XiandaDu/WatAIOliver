@@ -1,0 +1,125 @@
+# Heat Stress Detector
+
+## Project Proposal
+
+Nathan Jiang and Oluwatise Okusanaya
+# Customer problem
+
+## Introduction
+
+As global temperatures continue to reach new highs in 2023, farm workers across Canada are at increasing risk of suffering from heat stress [1], [2]. Heat stroke, a common aspect of heat stress, is often caused by a combination of exposure to hot environments and over-exertion through physical activity [3]. Farm workers work under conditions such as these, performing physical activities like tilling soil, harvesting crops, and rearing livestock in elevated temperatures, under the radiant sun [4].
+Symptoms of heat stroke can include:
+1. A change in mental state and behavior
+2. Rise in body Temperature
+3. Abnormal sweat patterns
+4. Nausea and vomiting
+5. Flushed skin
+6. Rapid breathing
+7. Rapid heartbeat
+8. Headache
+Other aspects of heat stress include heat exhaustion (the body's response to an excessive loss of water and salt, usually through excessive sweating), and heat cramps (cramps caused by a depletion in salt and moisture levels due to excessive sweating during strenuous activity) [5]. Sunburn is also a common ailment for those who are exposed to excess UV radiation, causing inflammation of the skin [6]. As conditions related to heat stress, farm workers face these problems as well [7].
+
+This project seeks to focus on mitigating the danger of heat stress for farm workers in Ontario, who number over 21000 as of July 2023 [8]. Using mathematical, scientific and engineering principles, a device will be created that warns the user of over-exertion, over-exposure to UV light and dangerous outdoor temperatures.
+
+| Stakeholder | Needs and concerns |
+| --- | --- |
+| Danish Germschi | • Project warns user before the onset of heat stroke, protecting their health |
+| | • Project accurately measures heartbeat, body temperature and UV exposure without giving false warnings, which would impact productivity |
+| Employers of customer | • Improves productivity by keeping workers from suffering from heat stroke |
+| | • Responsibility of the worker’s health is reduced |
+| Governmental or regulatory bodies | • Project is well insulated to prevent customer from getting shocked [9] |
+| | • Project’s characteristics and performance does not deteriorate under normal use to a degree where the customer is adversely affected [9] |
+| Ontario Federation of Agriculture [7] | • Project records accurate readings of heartbeat, body temperature and UV exposure to provide leverage against employer |
+
+# Initial Requirements
+
+## Functional requirements
+
+- Measures body temperature in the range of 35.6 to 40.6 degrees Celsius and warns user of high body temperature [10]
+- Measures heart rate in the range of 60 to 200 beats per minute and warns user of over-exertion [11]
+- Measures ultraviolet index ranging from 1 to 11, the full range of the scale, providing warnings for potential sunburn [12]
+- Displays light warnings between 150 and 200 millicandelas (luminous intensity of hobby LEDs) and sound warnings of at least 70 decibels (like an alarm clock) are produced [13][14]
+This device will improve the lives of farm workers by helping them avoid the causes of heat-related illnesses. They will be able to work knowing that they are in safe conditions.
+
+Additionally, such a device will provide leverage or evidence for farm workers looking to confront their employers regarding unsafe working conditions.
+# Safety requirements
+
+- No more than 30W of power (in any form) may be consumed, transferred, discharged or expended at any point in time
+- The project must not store more than 500mJ of energy (in any form) at any point in time
+- Electrical insulation will be applied
+# Principles
+
+The project will make use of mathematical principles through the calculation of standard deviation, which indicates how data is dispersed around the mean [18]. Deviations in the user's heart rate will be measured by the microcontroller, which will issue a warning to the user if the deviation reaches a certain threshold. Standard deviation is computed with the following formula:
+
+\[ \sigma = \sqrt{\frac{\sum (x_i - \mu)^2}{N}} \]
+Additionally, the project will use mathematical principles involved in solving systems of linear equations. Systems of linear equations consist of multiple equations in the form:
+
+\[ y = mx + b \text{ [19]} \]
+
+By modeling body temperature trends with linear equations, we can predict when the user's body temperature will reach an unsafe level and offer an early warning if there is a sudden increase.
+# Technical requirements
+
+- When the temperature sensor reads a body temperature greater than 37.2°C, the microcontroller turns on the sound and a red light warning [15]
+  - Red warning light goes off on its own if there is a sudden rise in temperature
+- When the electrocardiogram reads heart rates that deviate from the mean of the previous 15 minutes by more than 23 beats per minute, the microcontroller turns on a blue warning light [3][16]
+- When ultraviolet index of 8 and above is detected by the UV sensor, microcontroller turns on sound (different from the temperature warning) and a yellow light warning [11]
+- Updates and provides warnings within 150 milliseconds of a change in stimulus, faster than human reaction speed [17]
+The final mathematical principle this project would make use of is inequality. Inequality functions can be given such as:
+
+\[
+x < 5, x > 5 [20]
+\]
+
+We would assign a variable to the standard/expected ranges of our quantities (temperature, heart rate deviation, and ultraviolet index) which could come in the forms of x, y, z. When the detected quantity is above the set range, warnings are given.
+
+This proposal was written with the aid of templates on uwaterloo.ca [21].
+
+
+## References
+
+1. CTVNewsWindsor. "Organization calls on Ontario government to enact emergency measures addressing heat stress in farm worker community." windsor.ctvnews.ca. https://windsor.ctvnews.ca/organization-calls-on-ontario-government-to-enact-emergency-measures-addressing-heat-stress-in-farm-worker-community-1.6469556 (accessed Sept. 10, 2023).
+
+2. G. Luyties, "Farm workers at increasing risk of heat-related illnesses as B.C. summers get hotter." vancouver.sun.com. https://vancouver.sun.com/news/farm-workers-increasing-risk-heat-related-illnesses-as-bc-summers-get-hotter (accessed Sept. 10, 2023).
+
+3. Mayo Clinic, "Heat Stroke." mayoclinic.org. https://www.mayoclinic.org/diseases-conditions/heat-stroke/symptoms-causes/syc-20353581 (accessed Sept. 10, 2023).
+
+
+[5] The National Institute for Occupational Safety and Health, "Heat stress – heat related illness." cdc.gov. https://www.cdc.gov/niosh/topics/heatstress/heatrelillness.html#
+
+Mayo Clinic, “Heat Stroke,” [mayoclinic.org](https://www.mayoclinic.org/diseases-conditions/heat-stroke/symptoms-causes/syc-20353581) (accessed Sept. 10, 2023).
+
+The University of IOWA, "Heat Stress." [ehs.research.inova.edu](https://ehs.research.inova.edu/occupational/heat-stress) (accessed Sept. 12,2023).
+
+[11] D. DiGiante, J. Seladi-Schulman, "What is a Dangerous Heart Rate?" healthline.com, https://www.healthline.com/health/dangerous-heart-rate (accessed Sept. 19, 2022).
+
+[12] World Health Organization, "Radiation: The ultraviolet (UV) index." who.int. https://www.who.int/news-room/questions-a-nd-answers/item/radiation-the-ultraviolet- (uv)-index (accessed Sept. 17, 2023).
+
+[13] N. Poole, Bboyho, "Light-Emitting Diodes (LEDs)." learn.sparkfun.com. https://learn.sparkfun.com/tutorials/light-emitting-diodes-leds/all/ (accessed Sept. 17, 2023).
+
+
+[14] American Speech-Language-Hearing Association, "Loud Noise Dangers." asha.org. https://www.asha.org/public/hearing/loud-noise-dangers/ (accessed Sept. 17, 2023).
+
+[15] National Library of Medicine, "Electrocardiographic findings in heat stroke and exhaustion: A study on Makkah pilgrims" ncbi.nlm.nih.gov. https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3727382/ (accessed Sept. 17, 2023).
+
+[16] AT Melanoma Foundation, "Ultraviolet (uv) Radiation" aimatmelanoma.org. https://www.aimatmelanoma.org/melanoma-101/prevention/what-is-ultraviolet-uv-radiation/#text=UV
+
+[9] Government of Canada, "Medical Devices Regulations." laws-lois.justice.gc.ca. https://laws-lois.justice.gc.ca/eng/regulations/SOR-98-282/page-2.html#h-1021420 (accessed Sept. 19, 2023).
+
+[10] Mayo Clinic, "Fever: First Aid" mayoclinic.org https://www.mayoclinic.org/first-aid/fever/basics/art-20056685#:~:text=The%20%20average%20%20body%20%20temperature%20%20is,%20%20temperature%20%20is,%20%20have.
+
+
+[19] Math is Fun, “Systems of Linear Equations.” mathisfun.com.
+https://www.mathsisfun.com/algebra/systems-linear-equations.html (accessed Sept. 18, 2023).
+
+
+[20] Math is Fun, “Definition of Inequality.” mathisfun.com.
+https://www.mathsisfun.com/definitions/inequality.html (accessed Sept. 19, 2023).
+
+[21] University of Waterloo, “Proposal templates.” uwatloo.ca.
+https://uwaterloo.ca/brand/downloads-and-resources/proposal-templates. (accessed Sept. 12, 2023).
+
+
+[17] D. Yuhas, “Speedy Science: How Fast Can You React?” scientificamerican.com. https://www.scientificamerican.com/article/bring-science-home-reaction-time/ (accessed Sept. 17, 2023).
+
+[18] National Library of Medicine, “Standard Deviation.” nlm.nih.gov. https://www.nlm.nih.gov/oet/ed/stats/02-900.html (accessed Sept. 18, 2023).
+
