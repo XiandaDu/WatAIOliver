@@ -1,6 +1,0 @@
-fastapi
-pydantic
-pydantic-settings
-supabase
-google-generativeai
-uvicorn
