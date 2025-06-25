@@ -35,7 +35,7 @@ class GeminiEmbeddingClient:
             genai.configure(api_key=api_key, transport=transport)
         logger.info(f"Initialized GeminiEmbeddingClient with model: {model}")
 
-    async def embed_documents(self, texts: List[str]) -> List[List[float]]:
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
         """
         Generate embeddings for document chunks.
         
@@ -53,7 +53,7 @@ class GeminiEmbeddingClient:
         
         for i, text in enumerate(texts):
             try:
-                resp = await genai.embed_content_async(
+                resp = genai.embed_content(
                     model=self.model, 
                     content=text, 
                     task_type="RETRIEVAL_DOCUMENT"
@@ -71,7 +71,7 @@ class GeminiEmbeddingClient:
         logger.info(f"Successfully generated {len(results)} embeddings")
         return results
 
-    async def embed_query(self, text: str) -> List[float]:
+    def embed_query(self, text: str) -> List[float]:
         """
         Generate embedding for a query.
         
@@ -85,7 +85,7 @@ class GeminiEmbeddingClient:
             raise RuntimeError("google-generativeai not installed")
         
         try:
-            resp = await genai.embed_content_async(
+            resp = genai.embed_content(
                 model=self.model, 
                 content=text, 
                 task_type="RETRIEVAL_QUERY"

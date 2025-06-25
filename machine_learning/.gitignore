@@ -1,0 +1,55 @@
+# Machine Learning Project .gitignore
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+*.pyd
+*$py.class
+
+# Python cache directories
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage_cache/
+.tox/
+.nox/
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Data and models
+*.pkl
+*.model
+data/
+models/
+
+# # Test outputs
+# *_output.txt
+# *_results.txt
+# *.json
+
+# Temporary files
+tmp/
+temp/ 
