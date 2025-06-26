@@ -13,66 +13,86 @@ from dotenv import load_dotenv
 env_path = Path(__file__).parent.parent / "rag_system" / ".env"
 load_dotenv(env_path)
 
-def test_embedding():
-    """Test embedding generation"""
+
+def test_embedding_client():
+    """Test the modular embedding client."""
     api_key = os.getenv("GOOGLE_API_KEY")
     
     if not api_key:
         print("❌ GOOGLE_API_KEY not found in .env file")
-        return
+        return False
     
     print(f"🔑 Using GOOGLE_API_KEY (length: {len(api_key)} characters)")
     
     try:
-        from langchain_google_genai import GoogleGenerativeAIEmbeddings
-        from langchain_text_splitters import RecursiveCharacterTextSplitter
+        from embedding.google_embedding_client import GoogleEmbeddingClient
         from langchain.schema import Document
         
-        print("🧠 Testing Embeddings")
+        print("🧠 Testing Embedding Client")
         
-        # Create embeddings
-        embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/text-embedding-004",
-            google_api_key=api_key
-        )
+        # Create embedding client
+        embedding_client = GoogleEmbeddingClient(api_key=api_key)
         
-        # Create text splitter
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=200,
-            chunk_overlap=50
-        )
-        
-        # Test text
-        text = """
+        # Test document
+        doc = Document(page_content="""
         Machine learning is a method of data analysis that automates analytical model building.
         It uses algorithms that iteratively learn from data, allowing computers to find hidden 
         insights without being explicitly programmed where to look.
-        """
+        """)
         
-        # Split text
-        docs = splitter.split_documents([Document(page_content=text)])
-        print(f"📄 Split into {len(docs)} chunks")
+        # Test splitting
+        chunks = embedding_client.split_documents([doc])
+        print(f"📄 Split into {len(chunks)} chunks")
         
-        # Generate embeddings
-        for i, doc in enumerate(docs):
-            embedding = embeddings.embed_query(doc.page_content)
-            print(f"✅ Chunk {i+1}: {len(embedding)}D embedding")
-            print(f"   Text: {doc.page_content[:50]}...")
-            print(f"   Vector: [{embedding[0]:.4f}, {embedding[1]:.4f}, ..., {embedding[-1]:.4f}]")
+        # Test embedding
+        embedding = embedding_client.embed_query("What is machine learning?")
+        print(f"✅ Query embedding: {len(embedding)}D vector")
+        print(f"   Vector: [{embedding[0]:.4f}, {embedding[1]:.4f}, ..., {embedding[-1]:.4f}]")
         
-        print("🎉 Embeddings working!")
+        return True
         
     except Exception as e:
-        print(f"❌ Embedding test failed: {e}")
+        print(f"❌ Embedding client test failed: {e}")
+        return False
+
+
+def test_llm_client():
+    """Test the modular LLM client."""
+    api_key = os.getenv("GOOGLE_API_KEY")
+    
+    if not api_key:
+        print("❌ GOOGLE_API_KEY not found")
+        return False
+    
+    try:
+        from llm_clients.gemini_client import GeminiClient
+        
+        print("🤖 Testing LLM Client")
+        
+        # Create LLM client
+        llm_client = GeminiClient(api_key=api_key)
+        
+        # Test generation
+        response = llm_client.generate("What is 2+2?")
+        print(f"✅ LLM Response: {response[:100]}...")
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌ LLM client test failed: {e}")
+        return False
+
 
 def test_imports():
-    """Test basic imports work"""
+    """Test all modular imports work."""
     try:
-        print("🚀 Testing Imports")
+        print("🚀 Testing Modular Imports")
         
-        from langchain_google_genai import GoogleGenerativeAIEmbeddings
-        from langchain_text_splitters import RecursiveCharacterTextSplitter
-        print("✅ LangChain imports work")
+        from embedding.google_embedding_client import GoogleEmbeddingClient
+        from llm_clients.gemini_client import GeminiClient
+        from vector_db.supabase_client import SupabaseVectorClient
+        from services.rag_service import RAGService
+        print("✅ All modular imports work")
         
         return True
         
@@ -81,14 +101,30 @@ def test_imports():
         print("Run: pip install -r rag_system/requirements.txt")
         return False
 
+
 def main():
-    print("🧪 Simple Embedding Test")
-    print("=" * 30)
+    print("🧪 Modular RAG System Test")
+    print("=" * 35)
     
-    if test_imports():
-        test_embedding()
+    if not test_imports():
+        return
+    
+    # Test individual components
+    embedding_ok = test_embedding_client()
+    llm_ok = test_llm_client()
+    
+    print("\n📊 Test Results:")
+    print(f"  Embedding Client: {'✅ PASS' if embedding_ok else '❌ FAIL'}")
+    print(f"  LLM Client: {'✅ PASS' if llm_ok else '❌ FAIL'}")
+    print(f"  Vector Client: ⏭️ SKIP (requires Supabase)")
+    
+    if embedding_ok and llm_ok:
+        print("\n🎉 Modular system working!")
+    else:
+        print("\n⚠️ Some components failed")
     
     print("\n✨ Test complete!")
+
 
 if __name__ == "__main__":
     main() 
