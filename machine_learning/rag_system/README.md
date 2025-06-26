@@ -1,6 +1,47 @@
-# Enhanced RAG System for Teaching Chatbot
+# RAG System
 
-A modernized Retrieval-Augmented Generation (RAG) system using Google's text-embedding-004 model and Supabase vector database.
+Modern RAG pipeline using LangChain + Supabase + Google text-embedding-004.
+
+## Architecture
+
+```
+AI Pipeline:
+1. Text Split (loader→splitter runnable)
+2. Embedding (VectorStore.add_documents) 
+3. Retrieval (similarity_search_with_score)
+4. Chain of Thought (RetrievalQA)
+```
+
+## Components
+
+- **LangChain**: Text splitting, embeddings, chains
+- **Google text-embedding-004**: 768D embeddings
+- **Supabase**: Vector storage
+- **Gemini Pro**: LLM with Chain of Thought
+
+## Usage
+
+```python
+from services.rag_service import RAGService
+from app.config import get_settings
+
+rag = RAGService(get_settings())
+
+# Process document
+result = rag.process_document("course_id", "content")
+
+# Ask question  
+result = rag.answer_question("course_id", "question")
+```
+
+## Setup
+
+```bash
+pip install -r requirements.txt
+export GEMINI_API_KEY="your_key"
+export SUPABASE_URL="your_url"  
+export SUPABASE_SERVICE_KEY="your_key"
+```
 
 ## 🚀 **Key Improvements Over Legacy System**
 

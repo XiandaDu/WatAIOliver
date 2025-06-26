@@ -1,37 +1,18 @@
-# Core FastAPI and web framework
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
-
-# Pydantic for data validation and settings
 pydantic>=2.0.0
 pydantic-settings>=2.0.0
 
-# Google AI and embedding models
+langchain>=0.1.0
+langchain-community>=0.0.20
+langchain-google-genai>=1.0.0
+langchain-text-splitters>=0.0.1
+
 google-generativeai>=0.3.0
-
-# Supabase for vector database
 supabase>=2.0.0
+vecs>=0.4.0
 
-# Text processing and utilities
-unicodedata2>=15.0.0  # Enhanced Unicode support
-
-# Optional document processing (install as needed)
-PyPDF2>=3.0.1          # PDF processing
-python-docx>=0.8.11    # DOCX processing
-
-# Logging and monitoring
-structlog>=23.1.0      # Structured logging
-
-# HTTP client for API calls
-httpx>=0.25.0
-
-# Development and testing (optional)
-pytest>=7.0.0
-pytest-asyncio>=0.21.0
-
-# Type checking (optional)
-mypy>=1.5.0
-
-# Formatting (optional)
-black>=23.0.0
-isort>=5.12.0
+PyPDF2>=3.0.1
+python-docx>=0.8.11
+python-dotenv>=1.0.0
+unstructured>=0.10.0

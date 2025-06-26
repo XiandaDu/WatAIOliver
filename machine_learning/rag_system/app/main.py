@@ -4,48 +4,37 @@ from pydantic import BaseModel
 from .config import get_settings
 from ..services.rag_service import RAGService
 
-app = FastAPI(title="OliverAI Gemini Backend")
+app = FastAPI(title="RAG Backend")
 _rag_service: RAGService | None = None
 
-
 def get_rag_service() -> RAGService:
-    """Lazily initialize the RAG service using environment settings."""
     global _rag_service
     if _rag_service is None:
-        settings = get_settings()
-        _rag_service = RAGService(settings)
+        _rag_service = RAGService(get_settings())
     return _rag_service
 
-
 @app.get("/health")
-async def health() -> dict:
-    """Basic health check endpoint."""
+def health():
     return {"status": "ok"}
-
 
 class DocumentIn(BaseModel):
     course_id: str
     content: str
 
-
 class QuestionIn(BaseModel):
     course_id: str
     question: str
 
-
 @app.post("/process_document")
-async def process_document(doc: DocumentIn):
-    try:
-        await get_rag_service().process_document(doc.course_id, doc.content)
-        return {"status": "processed"}
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
-
+def process_document(doc: DocumentIn):
+    result = get_rag_service().process_document(doc.course_id, doc.content)
+    if not result["success"]:
+        raise HTTPException(status_code=500, detail=result.get("error"))
+    return result
 
 @app.post("/ask")
-async def ask_question(data: QuestionIn):
-    try:
-        answer = await get_rag_service().answer_question(data.course_id, data.question)
-        return {"answer": answer}
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+def ask_question(data: QuestionIn):
+    result = get_rag_service().answer_question(data.course_id, data.question)
+    if not result["success"]:
+        raise HTTPException(status_code=500, detail=result.get("error"))
+    return result
