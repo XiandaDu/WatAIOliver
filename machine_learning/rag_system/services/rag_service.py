@@ -20,9 +20,9 @@ class RAGService:
         
         # Initialize modular components
         self.embedding_client = GoogleEmbeddingClient(
-            api_key=settings.google_api_key,
-            model=None,  # Auto-detect latest model
-            output_dimensionality=512  # Use 512 dimensions as requested
+            google_cloud_project=settings.google_cloud_project,
+            model="gemini-embedding-001",  # Following Google's documentation
+            output_dimensionality=512  # Use 512 dimensions for optimal performance
         )
         
         self.llm_client = GeminiClient(
@@ -33,8 +33,8 @@ class RAGService:
         
         self.vector_client = SupabaseVectorClient(
             supabase_url=settings.supabase_url,
-            supabase_key=settings.supabase_key,
-            embeddings_client=self.embedding_client.get_embeddings_client(),
+            supabase_key=settings.supabase_api_key,
+            embeddings_client=self.embedding_client,
             table_name="documents"
         )
         

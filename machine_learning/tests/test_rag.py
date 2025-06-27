@@ -37,28 +37,35 @@ def print_section(title: str):
 
 
 def test_embedding_client():
-    """Test the embedding client with auto-detected latest model."""
-    print_section("Testing Embedding Client with Latest Model")
+    """Test the embedding client with gemini-embedding-001."""
+    print_section("Testing Embedding Client (gemini-embedding-001)")
     
-    api_key = os.getenv("GOOGLE_API_KEY")
+    # Check for required Vertex AI credentials
+    google_cloud_project = os.getenv("GOOGLE_CLOUD_PROJECT", "")
+    service_account_file = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
     
-    if not api_key:
-        print("❌ GOOGLE_API_KEY not found in .env file")
-        print("   Please add your Google API key to the .env file")
+    if not google_cloud_project:
+        print("❌ GOOGLE_CLOUD_PROJECT not found - required for Vertex AI")
         return False
     
-    print(f"🔑 Using GOOGLE_API_KEY (length: {len(api_key)} characters)")
+    if not service_account_file:
+        print("❌ GOOGLE_APPLICATION_CREDENTIALS not found - required for Vertex AI")
+        return False
+    
+    print(f"🔐 Using Vertex AI with service account")
+    print(f"🏗️ Project: {google_cloud_project}")
+    print(f"📄 Service Account: {service_account_file}")
     
     try:
         from embedding.google_embedding_client import GoogleEmbeddingClient
         from langchain.schema import Document
         
-        print(f"\n🔍 Auto-detecting latest embedding model...")
+        print(f"\n🔍 Using gemini-embedding-001 model (latest from Google)...")
         
-        # Create embedding client with latest model and 512 dimensions
+        # Create embedding client with gemini model and 512 dimensions
         embedding_client = GoogleEmbeddingClient(
-            api_key=api_key,
-            model=None,  # Auto-detect latest model
+            google_cloud_project=google_cloud_project,
+            model="gemini-embedding-001",
             output_dimensionality=512
         )
         
@@ -127,7 +134,7 @@ def test_embedding_client():
         print(f"\n📊 Vector Analysis:")
         print(f"   Actual Dimensions: {actual_dims}")
         print(f"   Model Used: {model_info['model']}")
-        print(f"   ✅ Embeddings working correctly!")
+        print(f"   ✅ gemini-embedding-001 working correctly!")
         
         return True
         
@@ -141,17 +148,18 @@ def test_llm_client():
     """Test the LLM client."""
     print_section("Testing LLM Client")
     
-    api_key = os.getenv("GOOGLE_API_KEY")
+    # Check for required Vertex AI credentials
+    google_cloud_project = os.getenv("GOOGLE_CLOUD_PROJECT", "")
     
-    if not api_key:
-        print("❌ GOOGLE_API_KEY not found")
+    if not google_cloud_project:
+        print("❌ GOOGLE_CLOUD_PROJECT not found - required for LLM")
         return False
     
     try:
         from llm_clients.gemini_client import GeminiClient
         
-        # Create LLM client
-        llm_client = GeminiClient(api_key=api_key)
+        # Create LLM client (will use service account credentials)
+        llm_client = GeminiClient(api_key="")  # Not needed for Vertex AI
         
         # Test generation
         response = llm_client.generate("What is 2+2? Give a brief answer.")
@@ -209,14 +217,14 @@ def run_all_tests():
     
     print("📊 Component Test Results:")
     print(f"  ✅ Module Imports: {'PASS' if test_results['imports'] else 'FAIL'}")
-    print(f"  {'✅' if test_results['embedding'] else '❌'} Embedding Client (Latest Model): {'PASS' if test_results['embedding'] else 'FAIL'}")
+    print(f"  {'✅' if test_results['embedding'] else '❌'} Embedding Client (gemini-embedding-001): {'PASS' if test_results['embedding'] else 'FAIL'}")
     print(f"  {'✅' if test_results['llm'] else '❌'} LLM Client: {'PASS' if test_results['llm'] else 'FAIL'}")
     
     all_passed = all(test_results.values())
     
     if all_passed:
         print(f"\n🎉 ALL TESTS PASSED!")
-        print(f"   🧠 Using latest available embedding model")
+        print(f"   🧠 Using gemini-embedding-001 model")
         print(f"   🔢 Vector embeddings working correctly")
         print(f"   📊 Similarity calculations functional")
     else:
