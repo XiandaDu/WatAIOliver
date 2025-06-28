@@ -1,4 +1,4 @@
-from supabase_client import supabase
+from src.supabaseClient import supabase
 
 # CREATE
 def create_course(user_id, name, notes=None, doc=None, model=None, prompt=None):

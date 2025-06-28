@@ -1,4 +1,4 @@
-from supabase_client import supabase
+from src.supabaseClient import supabase
 from .models import ConversationBase, ConversationUpdate, ConversationDelete, MessageCreate, MessageUpdate, MessageDelete
 from datetime import datetime
 import uuid

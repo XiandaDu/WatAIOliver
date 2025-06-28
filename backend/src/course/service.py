@@ -1,6 +1,6 @@
 from fastapi import HTTPException, Request, status
 from .CRUD import (
-    create_course, get_course, get_courses_by_user, get_all_courses,
+    create_course, get_courses, get_courses_by_user, get_all_courses,
     update_course, delete_course, search_courses, get_course_count
 )
 from .models import CourseCreate, CourseUpdate, CourseResponse

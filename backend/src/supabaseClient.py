@@ -5,4 +5,4 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-print(supabase.table('conversation_table').select('*').execute())
+print(supabase.table('conversations').select('*').execute())
