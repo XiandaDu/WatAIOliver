@@ -1,0 +1,821 @@
+\setlength{\columnseprule}{1pt}
+\def\columnseprulecolor{\color{blue}}
+
+\begin{frame}[fragile]
+\STitle{Pipelined Datapath and Control}
+	\PHFigure{!}{4in}{3in}{ARMFigures/Fig0450-crop}{Figure 4.50}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item This is Figure 4.50, the full version of the datapath with the 
+	control signals pipelined as well. 
+\item Trace through where the WB, M, and 
+	EX parts of the registers originate and terminate; each of these may 
+	have more than one line in it. Emphasize that this version still does 
+	not take into account hazards. It will work fine for a sequence of 
+	completely independent instructions. 
+\item If you wish you can trace 
+	through an instruction or even a sequence 
+	of two or three.
+\item Also, in Figures 4.37, 4.39, there are two
+	images of the pipeline.  In the top image of each of these figures,
+	the MUX coming out of data memory has the 0,1 inputs swapped; they
+	are correctly labeled in the bottom image.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+
+\begin{frame}[fragile]
+\STitle{Pipelined Datapath: Simplified View}
+\begin{itemize}
+\item Use symbols to represent stages of pipeline
+\includegraphics[scale=0.4]{05-pipelining/figures/datapath-symbol-alufix.png}
+	% \PHFigure{!}{2.5in}{1in}{ARMFigures/Fig0427-crop}{Figure 4.27}
+
+\item Shading indicates that an instruction in that stage is using the hardware components that exist in that stage
+ \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+  title=Think About It,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+Name the instruction format of the instruction that is executing in the pipelined datapath above.\ifnum\Ans=1{\color{red} R-Format. No data memory (DM) access but write back to register file (RF or Reg)}\fi
+  \end{tcolorbox}
+\item Shading on \textbf{right half} means \textbf{read} operation of RF or MEM, 
+\item Shading on \textbf{left half} means \textbf{write} operation of RF or MEM 
+\end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item This is the first time we have seen the ``simplified datapath''
+diagrams, and it's worth going over what it means.  
+\item An important point
+  here: neither of the illustrated instructions have a need to use
+  memory, and so they would, in the multicycle control, execute in four
+  clock cycles. But to have them bypass the memory stage in the
+  pipelined version, while other instructions (loads and stores) didn't,
+  would complicate the design and lead to more hazard cases to
+  examine. It doesn't matter if a single instruction takes five cycles
+  to complete instead of four, if the throughput remains steady at one
+  new instruction launched per cycle.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+  \STitle{Example: Trace Instructions with simplified pipelined datapath}\bigskip
+  % \PHFigure{!}{4in}{1.45in}{ARMFigures/Fig0450-crop}{Figure 4.50}
+  % \vfill
+\SizeC
+ \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+  title=Try this,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+  {\footnotesize
+Trace the following instructions with the simplified pipelined datapath
+
+\begin{verbatim}
+100: LDUR X10, [X1, #40]       
+104: LDUR X11, [X2, #64]          
+108: ADD X12, X3, X4 
+112: LDUR X13, [X10, #48]
+116: ADD X14, X5, X6
+\end{verbatim}
+}
+\end{tcolorbox}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item Trace the instructions traveling through the pipeline, starting with ADD in IF; then in the next clock cycle, ADD in ID and SUB in IF; then in the third clock cycle, ADD in EX, SUB in ID, and LDUR in IF; etc.
+  \item Either print and use DocCam, using different coloured pens for each instruction (or possibly, for each clock cycle) or with small pieces of paper with the name of each instruction, moving them each clock cycle, or do this digitally (eg, Okular would let you make text boxes that you could move for the instructions).
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\ifnum\Ans=1{\color{red}
+\begin{frame}{Solution: Trace instructions with simplified pipelined datapath}
+\begin{center}
+    \includegraphics[height=0.5\textheight]{05-pipelining/figures/multi-cycle-pipeline-diagram-cc5-s24.png}
+
+\end{center}
+    
+    \begin{itemize}
+        \item After 5cc, pipeline is full $\rightarrow$ 4cc is pipeline startup time
+        \item After startup time, 1 instruction will \textbf{complete execution} \textbf{every} clock cycle
+        \item Need for separate instruction and data memory
+        \item Benefits of design principle: write to Reg in 1$^{st}$ half and read Reg in 2$^{nd}$ half of clock cycle  
+    \end{itemize}
+\end{frame}
+}\fi
+
+\begin{frame}[fragile]
+\Title{Design principle of read and writes to Register File and Pipeline registers}
+	\begin{itemize}
+		\item Design register file to {\em write} in first half of clock cycle \\
+			and {\em read} in the second half.
+
+			\Figure{!}{2in}{1in}{Figs/regFileWrite}
+
+   \item \hl {This allows reads of updated values in the same clock cycle.}
+
+	\end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item The code is from the previous slide; you likely will want to go back
+	there to better illustrate what's happening
+\end{itemize}
+\fi\ENotes
+
+\end{frame}
+
+
+\begin{frame}[fragile]
+\STitle{Overview of Hazards in Pipelined Datapath}
+\begin{itemize}
+\item \textbf{Hazard}: an event that blocks normal flow of execution of instructions through the pipeline.
+\item Hazards: structural, data and, or control.
+
+\item \textbf{Structural} hazard: The hardware cannot support the combination of instructions we want to execute. Structural hazards usually require a major design change.
+
+\begin{figure}[H]
+\centering
+	
+   \includegraphics[height=0.25\textheight]{05-pipelining/figures/structrual-hazard.png}
+\end{figure}
+
+{\footnotesize
+ \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+  title=Think About It,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+  % Pipelined datapath could not be feasible if there was only one memory for instructions and data.
+  If we had single memory then in clock cycle 5, we cannot read an instruction and read data from memory. We only designed a single read port in memory.\\
+ \ifnum\Ans=1 {\color{red} Structural solution: Two separate memories, Instruction and Data Memory.}\fi
+  \end{tcolorbox}
+}
+
+\end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item To illustrate a data hazard, you can put up the previous slide and 
+	postulate a load instruction followed by an add which uses the loaded 
+	register as an operand. The register is written by the first 
+	instruction well after it is fetched by the second one.
+\item Structural hazards usually require a major design change; we
+	won't see any and the above is just an example of what one might look
+	like.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Data Hazards}
+Result of one instruction is needed by the next instruction.
+% There maybe  Write of {\tt X1} in {\tt ADD} instruction occurs in CC5 {\em after} read of {\tt X1} in {\tt SUB} instruction in CC3
+%           \item Lines from right to left are \textbf{data hazards}: 
+
+Data dependencies across instructions. 
+
+Lines from right to left are \textbf{data hazards}
+	\PHFigure{!}{4in}{2.2in}{ARMFigures/Fig0451-crop-red-dottedblue}{Figure 4.51}
+
+ \end{frame}
+
+
+  \begin{frame}[fragile]
+  \STitle{Control Hazards}
+  Conditional branch instructions may change sequence of instructions executed. 
+  
+  Control hazards exists because of changes in order of execution of instructions. 
+  \begin{center}
+\includegraphics[scale=0.4]{05-pipelining/figures/cbz-control-hazard-ex-zhk-red.png}
+      
+  \end{center}
+	% \PHFigure{!}{4in}{3in}{controll}{Figure 4.60}
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item The point being that if we take the branch at line 40, then we load instructions 44,48,52 before we actually take the branch.  The goal is for the pipelined code to execute as if it were run on the single cycle datapath.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Resolving Hazards}
+Hazards can be avoided or resolved using
+\begin{itemize}
+   \item structural constructs: e.g. two separate memories for instructions and data 
+    \item design constructs: e.g. write RF in 1st half and read RF in second half of clock cycle
+    \item code rearrangement
+    \begin{itemize}
+        \item use NOPs
+    \end{itemize}
+    \item hardware solutions and modifications to pipelined datapath
+    \begin{itemize}
+        \item forwarding
+        \item stalling 
+    \end{itemize}
+\end{itemize} 
+    
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Resolving Hazards --  Code Rearrangement with NOPs}
+\begin{itemize}
+    \item Get rid of hazards without additional hardware -- have the compiler add {\tt NOPs}.
+    \item ARM has an explicit {\tt NOP} assembly instruction.
+\end{itemize}
+{\tiny
+\begin{multicols}{2}
+Original code/pipeline
+\PHFigure{!}{4in}{1in}{ARMFigures/Fig0451-crop}{Figure 4.51}
+\begin{verbatim}
+SUB X2,X1,X3            
+AND X12,X2,X5          
+ORR X13,X6,X2           
+ADD X14,X2,X2           
+STUR X15,[X2,#200]      
+\end{verbatim}
+    \columnbreak
+    Rearranged code/pipeline using NOPs only
+    \PHFigure{!}{4in}{1in}{ARMFigures/Fig0451-crop-2NOP}{Figure 4.51}
+\begin{verbatim}
+SUB X2,X1,X3
+NOP
+NOP
+AND X12,X2,X5
+ORR X13,X6,X2
+ADD X14,X2,X2
+STUR X15,[X2,#200]
+\end{verbatim}
+\end{multicols}}
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item The book doesn't talk much about NOPs, nor does it mention the ARM NOP command
+\item We don't want a solution that requires different executables for each
+  architecture that shares the instruction set architecture
+\item We are only mentioning the NOP solution; modern hardware uses forwarding and stalls to make sure that code the works on single cycle works on pipelined
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Resolving Hazards --  Code Rearrangement with NOPs}
+{\tiny
+\begin{multicols}{2}
+Original code/pipeline
+\includegraphics[scale=0.27]{05-pipelining/figures/cbz-control-hazard-ex-zhk-red.png}
+\begin{verbatim}
+CBZ X1,#8            
+AND X12,X2,X5          
+ORR X13,X6,X2           
+ADD X14,X2,X2           
+LDUR X4,[X7,#100]      
+\end{verbatim}
+    \columnbreak
+    Rearranged code/pipeline using NOPs only
+    \PHFigure{!}{4.4in}{1.3in}{ARMFigures/Fig0451-crop-NOP}{Figure 4.51}
+\begin{verbatim}
+CBZ X1,#8     
+NOP
+NOP
+NOP
+AND X12,X2,X5          
+ORR X13,X6,X2           
+ADD X14,X2,X2           
+LDUR X4,[X7,#100] 
+\end{verbatim}
+\end{multicols}}
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item The book doesn't talk much about NOPs, nor does it mention the ARM NOP command
+\item We don't want a solution that requires different executables for each
+  architecture that shares the instruction set architecture
+\item We are only mentioning the NOP solution; modern hardware uses forwarding and stalls to make sure that code the works on single cycle works on pipelined
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+
+\begin{frame}[fragile]
+\STitle{Limitations of NOPs}
+\begin{itemize}
+% \item  ARM has an explicit {\tt NOP} assembly instruction
+\item Problems with NOP solutions:
+  \begin{itemize}
+  \item Increases the running time of the program.
+  \item Code that works on single cycle wouldn't work on pipelined datapath
+  \end{itemize}
+\item Better solutions exist in hardware
+\end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item The book doesn't talk much about NOPs, nor does it mention the ARM NOP command
+\item We don't want a solution that requires different executables for each
+  architecture that shares the instruction set architecture
+\item We are only mentioning the NOP solution; modern hardware uses forwarding and stalls to make sure that code the works on single cycle works on pipelined
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+
+
+
+
+\begin{frame}[fragile]
+\STitle{Resolving Hazards -- Forwarding for Data Hazards}
+	
+ \begin{figure}[H]
+\centering
+	% {\includegraphics[scale=0.2]{05-pipelining/figures/forwarding-nopipelinereg.png}}
+ \Figure{!}{1in}{1.2in}{ARMFigures/dataHazardForward-shaded}
+\end{figure}
+\begin{itemize}
+\item Observe: new value of {\tt X1} is {\tt ALUresult} in EX/MEM pipeline register in CC4 
+% \begin{itemize}
+    % \item new value of {\tt X1} is {\tt ALUresult} in EX/MEM pipeline register in CC4
+% \end{itemize}
+
+%   Result to be written to {\tt X1} is computed in CC3 (clock cycle 3)
+\item Solution: take {\tt ALUresult} from EX/MEM pipeline register and use it in {\tt ALU} computations
+% {\tt X1} \\
+  {\em \textbf{before}} it is written to Reg
+%     \item Limitation: doesn't handle all data hazards
+%     % {\tiny
+%     One example is the "load-use" data hazard.
+%   \begin{verbatim}
+% LDUR X1, [X3, #100]
+% ADD X4, X1, X7        
+% \end{verbatim}
+  
+\end{itemize}
+\BNotes\ifnum\Notes=1
+
+\begin{itemize}
+  \item The last comment refers to load-use hazards, which we'll cover later
+  \end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Example: Forwarding for Data Hazards}
+    \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+  title=Try this,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+ Consider the code segment below, identify all data hazards and show forwarding lines that resolve the data hazards, where possible.
+  \begin{verbatim}
+ADD X4, X2, X5   
+ORR X8, X6, X4
+LDUR X2, [X4, #100]
+ADD X9, X4, X1
+SUB X1, X4, X2
+\end{verbatim}
+  \end{tcolorbox}
+\end{frame}
+
+\ifnum\Ans=1{\color{red}
+\begin{frame}{Solution: Forwarding for Data Hazards}
+ \includegraphics[width=0.9\textwidth]{05-pipelining/figures/forwarding-solution.png}
+\end{frame}
+}\fi
+
+\begin{frame}[fragile]
+\STitle{Data Dependency Detection for Forwarding}
+\begin{itemize}
+\item To implement hardware for forwarding, we must detect data hazards 
+\item To detect data hazards, we need notation to refer to data or control values in pipeline registers
+\end{itemize}
+
+\begin{multicols}{2}
+    \includegraphics[height=2in]{05-pipelining/figures/pipeline-forwarding.png}
+\columnbreak
+
+\begin{itemize}
+\item {\tt ID/EX.RegisterRn1} -- name of the register indicated in
+  the Rn field of instruction in ID stage
+  \item {\tt ID/EX.RegisterRm2} -- name of read register 2, after {\tt Reg2loc/Instruction[28]} MUX. 
+  \item {\tt ID/EX.RegisterRd} -- name of read register {\tt Rd} or {\tt Rt} in {\tt Instruction[4-0]}. 
+\end{itemize}
+
+\end{multicols}
+
+\end{frame}
+
+
+% \item Example: if destination register of one instruction is first
+% source of the next instruction
+
+% Condition is
+
+% EX/MEM.RegisterRd = ID/Ex.RegisterRn1
+
+% \item Need to also check EX/MEM.RegWrite = 1
+\begin{frame}[fragile]
+\STitle{Example: Data dependency}
+ 
+ \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+  title=Try this,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+Write the condition to detect if the destination register of an instruction in the MEM stage is the {\tt Rn} register for the next instruction.
+
+\ifnum\Ans=1{\color{red}
+
+{\tt if EX/MEM.RegisterRd = ID/Ex.RegisterRn1 \\
+    and EX/MEM.RegWrite = 1}
+}\fi
+  \end{tcolorbox}
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item
+It's easy to get confused between register names and register values
+here. All the fields of the instruction that's being worked on get
+passed down through the pipeline registers. 
+\item 
+We must check RegWrite because some instructions do not write
+registers and may use the Rd field in other ways. It could be that the
+equality is satisfied by coincidence, but this is no reason to do the
+forwarding. 
+\item Note also that ``Rm'' is the Reg2loc of Figure 4.50, and not the
+``Rm'' field of R-format instructions - STUR and CBZ read from the 
+the ``Rt'' field.  Thus, we compare to destination register that appears
+further down the pipe.  Refer to the last datapath slide and point to
+the output of the MUX whose control is Reg2loc as being ``Rm''
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Forwarding - Data Hazard between MEM and EX}
+  {\footnotesize
+\begin{multicols}{2}
+\begin{verbatim}
+    ADD X2, X3, X4
+    SUB X4, X2, X1
+\end{verbatim}
+Hazard Condition 1a:
+
+\textbf{if} {\tt ({\color{orange}EX/MEM.RegWrite }}
+
+\textbf{and} {\tt ({\color{olive}EX/MEM.RegisterRd $\ne$ 31})}
+
+\textbf{and} {\tt ({\color{red}EX/MEM.RegisterRd} \textbf{=} {\color{blue} ID/EX.RegisterRn1}))}
+
+\textbf{then} {\tt Forward EX/MEM.ALUresult to ALUin1}
+\columnbreak
+
+\begin{verbatim}
+    ADD X2, X3, X4
+    SUB X4, X1, X2
+\end{verbatim}
+
+Hazard Condition 1b:
+
+\textbf{if} {\tt ({\color{orange}EX/MEM.RegWrite }}
+
+\textbf{and} {\tt ({\color{olive}EX/MEM.RegisterRd $\ne$ 31})}
+
+\textbf{and} {\tt ({\color{red}EX/MEM.RegisterRd} \textbf{=} {\color{blue} ID/EX.RegisterRm2}))}
+
+\textbf{then} {\tt Forward EX/MEM.ALUresult to ALUin2}
+\end{multicols}}
+
+Need to expand MUX for ALU input to allow this possibility
+
+\begin{center}
+\includegraphics[scale=0.25]{05-pipelining/figures/mem-forwarding.png}    
+\end{center}
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item Point out this hazard on the data hazard slide on the next slide
+\item This is figure 4.57 from the text. 
+\item It shows two types of pipeline
+	forwarding: one from EX/MEM to the ALU input, as just described, and
+	one from MEM/WB to the ALU input. Note that each of these comes in two
+	flavours, depending on which ALU input is involved, and that both ALU
+	inputs may be involved.
+\item Point out these hazards on the data hazard slide
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Forwarding - Data Hazard between WB and EX}
+\begin{multicols}{2}
+    {\tiny
+\begin{verbatim}
+    ADD X2, X3, X4
+    SUB X4, X5, X1
+    ADD X5, X2, X7
+\end{verbatim}
+}
+{\footnotesize
+ Hazard Condition 2a:
+
+\textbf{if} {\tt ({\color{orange}MEM/WB.RegWrite }}
+
+\textbf{and} {\tt ({\color{olive}MEM/WB.RegisterRd $\ne$ 31})}
+
+\textbf{and not} {\color{teal}{\tt Hazard Condition 1a}}\\{\tiny {\color{gray}(EX/MEM.RegWrite and  EX/MEM.Rd $\neq$ 31 and EX/MEM.RegisterRd = ID/EX.RegisterRn1)}}
+
+\textbf{and} {\tt ({\color{red}MEM/WB.RegisterRd} \textbf{=} {\color{blue} ID/EX.RegisterRn1}))}
+
+\textbf{then} {\tt Forward MEM/WB.ALUresult to ALUin1}
+}
+
+\columnbreak
+{\tiny
+\begin{verbatim}
+    ADD X2, X3, X4
+    SUB X4, X5, X1
+    ADD X5, X7, X2
+\end{verbatim}
+}
+{\footnotesize
+Hazard Condition 2b:
+
+\textbf{if} {\tt ({\color{orange}MEM/WB.RegWrite }}
+
+\textbf{and} {\tt ({\color{olive}MEM/WB.RegisterRd $\ne$ 31})}
+
+\textbf{and not} {\color{teal}{\tt Hazard Condition 1b}}\\ {\tiny {\color{gray}(EX/MEM.RegWrite and  EX/MEM.RegisterRd $\neq$ 31 and EX/MEM.RegisterRd = ID/EX.RegisterRm2)}}
+
+\textbf{and} {\tt ({\color{red}MEM/WB.RegisterRd} \textbf{=} \color{blue} ID/EX.RegisterRm2}))
+
+\textbf{then} {\tt Forward MEM/WB.ALUresult to ALUin2}
+}
+\end{multicols}
+\begin{center}
+\includegraphics[scale=0.2]{05-pipelining/figures/wb-forwarding.png}    
+\end{center}
+
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item Point out this hazard on the data hazard slide on the next slide
+\item This is figure 4.57 from the text. 
+\item It shows two types of pipeline
+	forwarding: one from EX/MEM to the ALU input, as just described, and
+	one from MEM/WB to the ALU input. Note that each of these comes in two
+	flavours, depending on which ALU input is involved, and that both ALU
+	inputs may be involved.
+\item Point out these hazards on the data hazard slide
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{Hardware for Forwarding}
+	% \PHFigure{!}{5in}{0.8in}{ARMFigures/Fig0453-crop}{Figure 4.53}
+ \begin{center}
+\includegraphics[scale=0.3]{05-pipelining/figures/combined-forwarding.png}     
+ \end{center}
+
+% Change figure to include only datapath with forwrding (figure b) 
+{\footnotesize
+ \begin{center}
+\begin{tabular}{|l|l|l|}\hline
+MUX control & Source & Explanation \\ \hline
+ForwardA = {\color{red}00} & {\color{red}ID/EX} & {\color{red}ALUin1 from reg file}\\
+ForwardA = {\color{blue}10} &  {\color{blue}EX/MEM} &  {\color{blue}ALUin1 from prev ALUresult}\\
+ForwardA = {\color{orange}01} & {\color{orange}MEM/WB} & {\color{orange}ALUin1 from writeback} \\\hline
+ForwardB = {\color{red}00} & {\color{red}ID/EX} & {\color{red}ALUin2 from reg file}\\
+ForwardB = {\color{blue}10}&  {\color{blue}EX/MEM} &  {\color{blue}ALUin2 from prev ALUresult}\\
+ForwardB = {\color{orange}01} & {\color{orange}MEM/WB} & {\color{orange}ALUin2 from writeback}\\ \hline
+\end{tabular}
+\end{center}}
+\BNotes\ifnum\Notes=1
+
+\begin{itemize}
+\item
+Point out the differences between top and bottom. We now need to
+complete the conditions that the control unit implements. This
+hardware is not complete: the signed-immediate input to the ALU
+(needed for loads and stores) is missing, and a form of forwarding can
+help with loads followed immediately by stores (memory-to-memory
+copy).
+
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+
+\begin{frame}[fragile]
+\Title{Datapath to handle forwarding}
+	\PHFigure{!}{4in}{2.8in}{ARMFigures/Fig0455-crop}{Figure 4.55}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+	\item Illustrate what happens either on the sub, and, or, add
+		sequence that appears earlier, or on the following sequence:
+		\begin{verbatim}
+		200 ADD X1,X2,X3
+		204 SUB X2,X1,X4
+		208 AND X2,X1,X2
+		212 ORR X5,X2,X6
+		\end{verbatim}
+		The points are (a) where does the data for the ALU come
+		from as each of these instructions is in the EX stage?
+		(b) Note in particular that \texttt{ADD} gets its data
+		from the ID/EX pipeline registers; \texttt{SUB} and \texttt{AND}
+		get their data at least partially forwarded; and \texttt{ORR}
+		gets its X2 from EX/MEM not MEM/WB.
+	\item This is a partial datapath to handle the forwards.  Note
+		that the branch hardware and the sign extension hardware
+		is missing.
+	\item The book (Pg 323) talks about that this hardware doesn't handle
+		\texttt{LDUR} followed by \texttt{STUR} where the same
+		register is used, which is useful for copying.  Consider
+		illustrating how to do this (you just need another MUX
+		in front of the data input to the Data Memory, with
+		one input being the current input, and the other input
+		coming from the MEM/WB pipeline registers).
+
+		Alternatively, consider showing LDUR/STUR example AFTER
+		stall hardware; then you can comment that you have to
+		modify stall condition to avoid LDUR/STUR.
+	\item The book also has another figure illustrating how to handle
+		the sign extended constant (Figure 4.56).  Consider
+		discussing this, too.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{Datapath to handle forwarding and immediates}
+	\includegraphics[scale=0.5]{05-pipelining/figures/forward-mux-with-immediate.png}
+
+ \end{frame}
+
+\begin{frame}[fragile]
+\STitle{Limitations of Forwarding}
+	% Limitations 
+ 
+\begin{itemize}
+  \item Doesn't handle all data hazards
+  
+\item One example is the ``load-use" data hazard.
+  \begin{verbatim}
+LDUR X1, [X3, #100]
+ADD  X4, X1, X7       // X1 needs LDUR to finish
+\end{verbatim}
+\item \texttt{X1} is retrieved in stage 4 MEM. This is the earliest time when LDUR can supply \texttt{X1} to the next instruction.
+  
+\end{itemize}
+
+\Figure{!}{4in}{1in}{PHALL/F0609-arm}
+\BNotes\ifnum\Notes=1
+
+\begin{itemize}
+  \item The last comment refers to load-use hazards, which we'll cover later
+  \end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{Detecting Load-use Hazard}
+\begin{verbatim}
+LDUR X1, [X3, #100]
+ADD  X4, X1, X7       
+\end{verbatim}
+Detect the following conditions:
+\begin{itemize}
+\item {\tt LDUR} is in EX stage and its data and control is in ID/EX pipeline register
+\begin{itemize}
+    \item  check {\tt MemRead} signal
+\end{itemize}
+\item either source--{\tt Rn} or {\tt Rm}-- of instruction in ID stage 
+\begin{itemize}
+ \item Data in IF/ID pipeline register
+\end{itemize}
+\item is same as destination {\tt RegisterRd} in EX stage
+\item Then hazard condition:
+
+~~\textbf{if} ({\color{red}ID/EX.MemRead} 
+
+~~\textbf{and} (({\color{blue}ID/EX.RegisterRd = IF/ID.RegisterRn1}) or
+
+~~\qquad ({\color{orange}ID/EX.RegisterRd = IF/ID.RegisterRm2})))
+
+~~\textbf{then} {\tt stall}
+
+\end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item Write stalling conditions on the board since it'll be easier
+	to refer back to them later.
+\item Note that these conditions are technically over restrictive;
+	ie, you can think of cases where the conditions are met and
+	you do NOT need to stall.  Most of these are silly cases where
+	either (a) the LDUR writes to X31; (b) the instruction after the
+	LDUR write to the same register as LDUR (in which case, why do the
+	read from memory?); (c) an instruction  that doesn't
+	use the Rn1 or Rm2 field has set the bits to match the destination 
+	register of the LDUR (shame on your compiler!).
+
+	The one case that it could be problematic is a LDUR followed by
+	a B.  But since B is handled in the same stage that you
+	handle the stall, presumably this could be dealt with.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{Resolving Hazards - Stalling for Data Hazards}
+\begin{itemize}
+\item Must prevent PC and IF/ID registers from changing
+\begin{itemize}
+\item disable writes to these registers
+\item PC and IF/ID registers contain same values in the next clock cycle
+\end{itemize}
+\item This \textit{stalls} instructions in IF and ID stages
+\item Must create bubble in EX stage
+\begin{itemize}
+\item \hl{Setting all nine control signals to 0 in EX,MEM,WB control
+fields of ID/EX register does this}
+\end{itemize}
+
+\end{itemize}
+\BNotes\ifnum\Notes=1
+~% notes text
+\fi\ENotes
+\end{frame}
+
+% for comprehensive
+\newpage
+\begin{frame}[fragile]
+\Title{Pipelined datapath with forwarding and stall}
+	% \PHFigure{!}{4in}{2.5in}{ARMFigures/Fig0459-crop}{Figure 4.59}
+\begin{figure}[H]
+\centering
+	{\includegraphics[width=0.9\textwidth]{05-pipelining/figures/stall_forward.png}}
+\end{figure}
+\textit{Sign extend unit and branch hardware omitted for clarity}
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item In the figure, be sure to point out
+\begin{itemize}
+	\item Hardard detection unit
+	\item Lines into Hazard detection unit:
+
+		ID/EX.Rd, IF/ID.Rn,Rm (not labeled as such), ID/EX.MemRead
+\end{itemize}
+\item For the three instructions on the earlier slide (LDUR, AND, ORR), show
+	what happens when 
+	\begin{itemize}
+		\item LDUR is in IE/EX, ADD is in IF/ID, PC = ORR
+
+			Hazard detected: 0 sent to PC and IF/ID, MUX selects 0 instead of Control lines to fee ID/EX
+		\item LDUR is in EX/MEM, NOP is in ID/EX, AND is in IF/ID, PC = OR
+	\end{itemize}
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{The Real Effect of a Stall}
+	\Figure{!}{4.5in}{2.8in}{ARMFigures/pipeex-and}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item This figure more accurately reflects what happens in the pipeline
+	when we have a load/use stall.
+\item In CC3, the second instruction is changed to a NOP (this is the
+	bubble).  At the same time, the IF/ID register block and the PC
+	are turned off, so at the end of CC3, the IF/ID registers remain
+	unchanced (as does the PC), and the IM stage has effectively
+	been shutoff during CC3.  
+\end{itemize}
+\fi\ENotes
+\end{frame}
+  
+
+
+
+\begin{frame}[fragile]
+\STitle{Conclusion}
+ \underline{\textbf{Lecture Summary}}
+ \begin{itemize}
+ \item Data hazards 
+ \item Conditions for detecting data hazards for forwarding and stalling  
+\item Pipelined datapath with forwarding and stalling 
+
+\end{itemize}
+
+ \underline{\textbf{Assigned Textbook Readings}}
+\begin{itemize}
+     \item \textbf{Read} Section 4.5--4.6 %4.9
+     \end{itemize}
+    \underline{\textbf{Next Steps}}
+    \begin{itemize}
+     \item \textbf{Review} Forwarding and stalls in pipelined datapath
+% \begin{itemize}
+%     \item Start thinking about A5
+% \end{itemize}
+\item \textbf{Attempt} questions in tutorial to make sure you understand the datapath. 
+    \item \textbf{Ask} questions in office hours or the next tutorial.
+ \end{itemize}
+
+\end{frame}
+
+

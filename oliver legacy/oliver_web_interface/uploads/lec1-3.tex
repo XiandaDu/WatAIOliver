@@ -1,0 +1,824 @@
+
+\begin{frame}[fragile]
+\STitle{Performance}
+
+
+\begin{itemize}
+\item How can we compare different computer designs?
+
+\item Two important performance metrics:
+    \begin{itemize}
+    	\item Response time: time between start and completion of a
+    	task
+    	\item Throughput: total number of tasks completed in a given unit of time
+    \end{itemize}
+    
+\item Improving response time usually improves throughput
+\item How can we measure time?
+
+% \item The computer that performs the work in the least amount of \textbf{time} is the fastest. 
+\item Nearly all computers have a clock.
+    \item Clock cycles or ticks: discrete time when hardware events take place.
+\item \textbf{Clock period}: the length of a clock cycle
+\item \textbf{Clock rate} $=\frac{1}{\text{\bf clock period}}$
+
+% \item A metric for measuring performance: {\tt CPU time = }
+% \begin{align*}
+% % &\text{CPU time}\\
+% &= \textbf{Number of } \text{clock cycles for a program}\times \textbf{length of} \text{ clock cycle} \\
+% &= \text{Number of clock cycles for a program}\times \frac{1}{\text{clock rate}}
+% \end{align*}
+
+
+% \item Analogy: Baking cookies %grocery-store checkout
+
+	% \item Useful concepts: clock ticks, cycles, rate
+\end{itemize}
+\BNotes\ifnum\Notes=1
+{
+\begin{itemize}
+\item This textbook is more readable than most, and students should
+develop the habit of keeping up with the readings rather than
+``reading on demand'' when they don't understand something. Using the
+text only for a definition or paragraph here and there may be
+misleading, as it often introduces a simplified version of some
+concept and then elaborates on it to bring in proper details. Students
+may find Chapter 1 entertaining and informative; it gives a ``big
+picture'' overview, including a useful historical perspective. Chapter
+1.6 goes into a little more mathematical detail than we will in class,
+but it is not very difficult math (mostly finding ratios, with a bit
+of discussion of different ``means'' or averages).
+\item Grocery-store analogy:
+	\begin{itemize}
+	\item One can improve response time in a grocery store (task
+	      is getting one person through with their groceries) by
+             adding scanners or rearranging the store
+	\item One can improve throughput in a grocery store by
+	      increasing the number of checkout clerks (this may
+	      shorten waiting time in line and thus improve response
+	      time, but it doesn't make an individual clerk faster) or
+	      by adding baggers who start bagging groceries before
+	      checkout is completely done (analogous to pipelining we
+	      will see later in the course)
+	\item In a synchronous computer system changes in state only
+	      occur at clock ticks. The period between ticks is the
+	      clock cycle or period; the inverse of this is the clock
+	      rate. 
+	\item This material is from pages 242--245 of the text, but that's
+		an earlier edition; I'm not sure what pages it's from in
+		the 5th edition.
+	\end{itemize}
+\end{itemize}
+}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Performance Metrics and Analysis}
+% \begin{itemize}
+    % \item To improve performance:
+     To improve performance:
+\begin{itemize}
+    \item Reduce the number of clock cycles for a program
+    \item Reduce the length of the clock cycle
+
+% \end{itemize}
+ % \item There There is a tradeoff between reducing number of clock cycles vs. reducing the length of the clock cycle
+
+% \item Performance metrics also include:
+%     \begin{itemize}
+%     	\item Response time: time between start and completion of a
+%     	task
+%     	\item Throughput: total amount of work done in a given time
+%     \end{itemize}
+    
+% \item Improving response time usually improves throughput
+ 
+ % \begin{itemize}
+\item Replace a slow processor with a faster one.
+\begin{itemize}
+\item Response time is faster, and so throughput will also increase
+\end{itemize}
+
+\item Adding more processors, where each processor does \textbf{only} one task.
+\begin{itemize}
+\item If all tasks are exactly the same, then only throughput increases.
+\end{itemize}	
+\end{itemize}
+% \end{itemize}
+\end{frame}
+
+
+\begin{frame}[fragile]
+\Title{Some factors affecting response time}
+\begin{itemize}
+	\item Speed of clock
+	\item Complexity of instruction set
+	\item Efficiency of compilers
+	\item Mix of instructions needed to complete a task
+	\item Some choices in designing computers:
+	\begin{itemize}
+		\item simple instruction set, fast clock, one instruction
+		executed per clock cycle
+		% \item complex instruction set, slower clock, one instruction
+		% executed per clock cycle
+		\item complex instruction set, faster clock, some instructions
+		take multiple cycles to execute
+	\end{itemize}
+\end{itemize}
+\BNotes\ifnum\Notes=1
+{
+\begin{itemize}
+\item The set of design choices on this slide has a loose
+correspondence with the designs we will see later. All of our designs
+use the same instruction set, to avoid confusion, and we later
+distinguish two ways of designing the control for a multi-cycle
+implementation. 
+\item Emphasize that for any task there could be several
+different algorithms to solve it; for any algorithm there could be
+several different implementations in a high-level language; for any
+HLL program, there could be several different translations into
+assembly language; and for any assembled program, the time could
+depend heavily on the data (think of sorting a nearly-sorted list
+versus a random one, using insertion sort).
+\end{itemize}
+}
+\fi\ENotes
+\end{frame}
+
+
+\begin{frame}[fragile]
+\Title{Example: Small code changes, big performance differences}
+\begin{multicols}{2}
+\begin{verbatim}
+#include<stdio.h> 
+#define NR 10000 
+#define NC 10000 
+
+int a[NR][NC]; 
+
+void main() { 
+  int i,j; 
+  for (i=0;i<NR;i++){ 
+    for (j=0;j<NC;j++){ 
+      a[i][j]=32767; } } }
+\end{verbatim}
+
+\begin{itemize}
+\item Row-by-row (a[i][j]): 1.693 sec 
+\end{itemize}
+
+\columnbreak
+
+\begin{verbatim}
+#include<stdio.h> 
+#define NR 10000 
+#define NC 10000 
+
+int a[NR][NC]; 
+
+void main() { 
+  int i,j; 
+  for (i=0;i<NR;i++){ 
+    for (j=0;j<NC;j++){ 
+      a[j][i]=32767; } } }
+\end{verbatim}
+\begin{itemize}
+\item Down a column (a[j][i]): 27.045 sec \\
+	(approx 16 times slower!)
+\end{itemize}
+\end{multicols}
+
+\BNotes\ifnum\Notes=1
+
+Instructor's Notes:
+\begin{itemize}
+\item ZHK - these examples are illustrated in student account 
+\item in the folder /cs251-student/intro-arm
+\item these should be accessible to students, check with ISA and maybe show usage from another student account
+\item If the last line of code is switched from row-by-row to column by
+	column, you get the performance drop indicated.  The point is:
+	just by switching the indices, performance drops by a factor of
+	16 even though the code still computes the same thing.
+
+\item This is a read-on-write caching issue.  You don't need to tell them why this is
+	slow right now.  Instead, note that it is a hardware issue (sort
+	of), and by understanding the hardware, they can avoid/fix issues
+	such as these.
+
+\item At the end of the term, this example appears again and you can 
+	explain it at that point.
+\end{itemize}
+
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{Example Revisited: Memory access vs. Registers}
+
+\begin{multicols}{2}
+\begin{verbatim}
+   #include<stdio.h> 
+   #define NR 10000 
+   #define NC 10000 
+
+   int a[NR][NC]; 
+
+   void main() { 
+     register int i,j; 
+     for (i=0;i<NR;i++){ 
+       for (j=0;j<NC;j++){ 
+         ; } } }
+\end{verbatim}
+\begin{itemize}
+\item \texttt{register int i,j}: 0.044 sec 
+\end{itemize}
+\columnbreak
+\begin{verbatim}
+   #include<stdio.h> 
+   #define NR 10000 
+   #define NC 10000 
+
+   int a[NR][NC]; 
+
+   void main() { 
+     int i,j; 
+     for (i=0;i<NR;i++){ 
+       for (j=0;j<NC;j++){ 
+         ; } } }
+\end{verbatim}
+
+\begin{itemize}
+\item \texttt{int i,j}: 0.27 sec 
+
+	(approx 6 times slower!)
+\end{itemize}
+
+\end{multicols}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item Timings on i7-2677M
+\item Note that the memory access has been removed; all we're timing is
+	the looping
+\item So registers made things faster.  Alas, we have a limited number
+	of registers.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+
+
+% \begin{frame}[fragile]
+% \STitle{Example: small code changes, big performance differences}
+% \begin{verbatim}
+%         #include<stdio.h> 
+%         #define NR 10000 
+%         #define NC 10000 
+
+%         int a[NR][NC]; 
+
+%         void main() { 
+%           int i,j; 
+%           for (i=0;i<NR;i++){ 
+%             for (j=0;j<NC;j++){ 
+%               a[i][j]=32767; } } }
+% \end{verbatim}
+
+% \begin{itemize}
+% \item Row-by-row (a[i][j]): 1.693 sec 
+% \item By column (a[j][i]): 27.045 sec 
+
+% 	(approx 16 times slower!)
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item If the last line of code is switched from row-by-row to column by
+% 	column, you get the performance drop indicated.  The point is:
+% 	just by switching the indices, performance drops by a factor of
+% 	16 even though the code still computes the same thing.
+
+% \item This is a read-on-write caching issue.  You don't need to tell them why this is
+% 	slow right now.  Instead, note that it is a hardware issue (sort
+% 	of), and by understanding the hardware, they can avoid/fix issues
+% 	such as these.
+
+% \item At the end of the term, this example appears again and you can 
+% 	explain it at that point.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+
+% \begin{frame}[fragile]
+% \STitle{Example on i7-2677M}
+% \begin{verbatim}
+%         #include<stdio.h> 
+%         #define NR 10000 
+%         #define NC 10000 
+
+%         int a[NR][NC]; 
+
+%         void main() { 
+%           int i,j; 
+%           for (i=0;i<NR;i++){ 
+%             for (j=0;j<NC;j++){ 
+%               a[i][j]=32767; } } }
+% \end{verbatim}
+
+% \begin{itemize}
+% \item Row-by-row (a[i][j]): 0.30 sec  [0.056 sec]
+% \item By column (a[j][i]): 1.24 sec  [0.23 sec]
+
+% 	(approx 4 times slower!)
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% 	\item I think the previous example was done on a SPARC of some
+% 		kind.  The point to make on this slide: different
+% 		hardware results in different impacts.  
+% 	\item The numbers are for a 32-bit i7; the numbers in
+% 		square brackets are for a 64-bit i7 computer
+% 	\item But something else is going on; we'll visit this example
+% 		again after ARM/LEG and see that i,j are causing memory
+% 		writes and slowing down the program.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+
+
+
+\begin{frame}[fragile]
+\STitle{Benchmarks}
+\begin{itemize}
+	\item Standard set of programs (and data) chosen to measure
+	performance
+	\item Advantages:
+	\begin{itemize}
+		\item Provides basis for meaningful comparisons
+		\item Design by committee may eliminate vendor bias
+	\end{itemize}
+	\item Disadvantages:
+	\begin{itemize}
+		\item Vendors can optimize for benchmark performance
+		\item Possible mismatch between benchmark and user needs
+		\item Still an artificial measurement
+	\end{itemize}
+\end{itemize}
+\BNotes\ifnum\Notes=1
+{
+\begin{itemize}
+\item This is a very quick overview of the benchmark material in 1.7 of the
+book, and does not go into the detail that the book does (well, maybe that
+was true of the 3rd and earlier editions, but the 4th edition doesn't go
+into much detail itself; consider incorporating Figure 1.20 in the notes). 
+Students
+should skim this material, but will not be responsible for being able
+to do the sorts of calculations that are done in this chapter.
+\end{itemize}
+}
+\fi\ENotes
+\end{frame}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+\begin{frame}[fragile]
+\STitle{Conclusion}
+ \underline{\textbf{Lecture Summary}}
+ \begin{itemize}
+ \item ARM instruction formats and their use
+ \item Read ARM code
+ \item Write ARM code
+ \item Performance metrics and measurements
+ \end{itemize}
+ \underline{\textbf{Assigned Textbook Readings}}
+\begin{itemize}
+     \item ARM Overview
+     \item Section 1.6, just until top of page 30. 
+     \item \textbf{Skim} rest of the section 
+     % \item ARM Reference 
+     \end{itemize}
+    \underline{\textbf{Next Steps}}
+    \begin{itemize}
+\item \textbf{Read} assignment A1. 
+\begin{itemize}
+    \item Start thinking about the questions in A1
+\end{itemize}
+\item \textbf{Attempt} questions that are similar to the problem we solved in the lecture. 
+    \item \textbf{Ask} questions in the next tutorial or office hours.
+ \end{itemize}
+
+ \end{frame}
+
+
+\begin{frame}{Additional Slides}
+    Remaining slides are additional notes for your information.
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{CS 251 vs CS 241}
+\begin{itemize}
+\item CS 241 uses MIPS, CS 251 uses ARM.
+\item CS241 from HLL to Assembly
+\item CS251 Assembly down to hardware
+
+	\item MIPS and ARM assembly similar:
+	\begin{center}
+	\begin{tabular}{lcl}
+	{\bf MIPS} & &{\bf ARM}\\\hline
+	\texttt{lw \$1, 0(\$2)} && \texttt{LDUR X1, [X2,\#0]} \\
+	\texttt{add \$1,\$2,\$3} && \texttt{ADD X1,X2,X3}\\
+	\texttt{addi \$1,\$2,22} && \texttt{ADDI X1,X2,\#22}\\
+%	\texttt{add \$1,\$0,\$2} && \texttt{MOV X2,X1}\\
+	\end{tabular}
+	\end{center}
+	\item ARMv7 has 15 registers; ARMv8 (LEG) and MIPS have 32\\
+
+		ARMv8,LEG: X31 is always 0\\
+
+		MIPS: \$0 is always 0
+	\item ARM takes about 1/4 the number of transistors as MIPS
+	\item ARMv7 has conditional forms of instructions \\
+
+		ARM compiler takes advantage of this; gcc does not\\
+
+               ARMv8 has fewer (than ARMv7) fancy features; we use none of them
+
+
+
+\end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+ \item There are likely some other differences, too.
+ \item We get the instruction straight out of memory, and don't use an
+	instruction register
+ \item 241 notes that registers \$0, \$29, \$30, and \$31 are special;
+
+	While more than X31 are special in ARM, we only use X31 (XZR)
+ \item The point of this slide: students are more likely to encounter
+	ARM in industry.  Their CS 241 MIPS knowledge will transfer to ARM knowledge.
+	
+%  \item Note the last instruction in the first bullet: 
+%	ARM has an explicit \texttt{move} command, MIPS does not.
+%	There is a MIPS pseudo-instruction for move, but it gets
+%	implemented as an ADD (or OR) with register 0.
+
+ \item "Conditional form": you can specify whether or not an ARM
+	instruction sets (or tests) the status bits; MIPS doesn't
+	even have status bits
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{ARM Register Format (R-Format) instructions}
+ \begin{itemize}
+ \item  Perform arithmetic or logic operations on data (operands) in registers
+     \item Examples:
+     \begin{itemize}
+         \item \texttt{ADD X1,X2,X3} $ \equiv X1 = X2 + X3$ \\
+   Adds contents of X2 with the contents of X3; store result in X1. 
+\item \texttt{SUB X1,X2,X3} $\equiv X1 = X2 - X3$\\
+   Subtracts contents of X3 from the contents of X2; store result in X1
+     \end{itemize}
+ \end{itemize}
+
+% \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+%   Consider the following high-level code:
+%   \begin{verbatim}
+%       a = b + c - d;
+%   \end{verbatim}
+%   Assume, the values of the variables {\tt a, b, c,} and {\tt d} are in general purpose registers X0, X1, X2 and X3, respectively.\\
+%   Convert the high-level code into an ARM program using minimum number of ARM instructions.
+% \end{tcolorbox}
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item as an example: consider running this code in the simulator
+%\item simulator is at file:///Users/huma/Documents/cs251/w23_zhk/Graphical-Micro-Architecture-Simulator-main/LEGv8_Simulator/war/LEGv8_Simulator.html
+\begin{verbatim}
+    ADDI	X2, X3, #3
+	ADDI	X4, XZR, #8
+	SUB	X1, X2, X4
+\end{verbatim}
+\item the solution looks like this:
+\begin{verbatim}
+    SUB X0, X2, X3     #X0 = c- d
+    ADD X0, X0, X1     #X0 = X0 + b
+\end{verbatim}
+    
+
+\end{itemize}
+\fi
+
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{ARM Data Format (D-Format) Instructions}
+  \begin{itemize}
+     \item Move data between memory and registers
+
+     \item Examples:
+     \begin{itemize}
+         \item \texttt {LDUR X1, [X2, \#24]} $\equiv \text{X1} \leftarrow \text{MEM}[\text{X2} + 24] $ \\
+         Load\footnote{\underline{L}oa\underline{D} \underline{U}nscaled \underline{R}egister (LDUR)} data stored in memory byte address X2+24 into register X1.
+     
+     \item  \texttt{STUR X1, [X2, \#32]} $\equiv \text{X1} \rightarrow \text{MEM}[\text{X2} + 24] $\\
+      Store\footnote{\underline{ST}ore \underline{U}nscaled \underline{R}egister (STUR)} contents of register X1 into memory at byte address X2+32
+     \end{itemize}
+     \item Ensure data memory byte address is a multiple of 8
+ \end{itemize}
+
+% \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+%   Convert the following high-level code into an ARM program using minimum number of ARM assembly instructions:
+%   \begin{verbatim}
+%       B[5] = B[4]
+%   \end{verbatim}
+%   Assume, the byte address of {\tt B[0]} is in general purpose register X1.
+% \end{tcolorbox}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item the solution looks like this:
+\begin{verbatim}
+    LDUR X0, [X1, #32]
+    STUR X0, [X1, #40]
+\end{verbatim}
+     \item computational operations \textbf{only} on data in registers  
+\begin{itemize}
+         \item sum of the contents of the register and the signed immediate (embedded in the instruction) is a multiple of 8
+     \end{itemize}
+    
+\end{itemize}
+\fi
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{ARM Immediate Format (I-Format) Instructions}
+
+\begin{itemize}  
+     \item One operand is in a register, one operand is a constant (an {\tt immediate}) embedded in the instruction
+     \item Examples: 
+     \begin{itemize}
+         \item \texttt{ADDI X1, X2, \#100} $\equiv X1 = X2 + 100$ \\
+   Adds constant 100 to contents of X2; store result in X1
+    \item \texttt{SUBI X1, X2, \#10} $\equiv X1 = X2 - 10$\\
+   Subtract constant 10 from the contents of X2; store result in X1
+     \end{itemize}    
+ \end{itemize}
+ \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+  title=Think About It,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+  \begin{itemize}
+      \item Why have both ADDI and SUBI instructions?\\
+   Is {\tt ADDI X1, X2, \#-10} $\equiv$ {\tt SUBI X1, X2, \#10}? \ifnum\Ans=1{\color{red}{NO}}\fi
+      \item {\tt immediate} \textbf{cannot} be negative in I-Format instructions
+  \end{itemize}
+\end{tcolorbox}
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item here too one operand is an immediate and one is a register
+\item the difference was that we took additional bits from opcode to allow encoding larger immediate (constant) values
+\end{itemize}
+\fi
+ 
+ \end{frame}
+
+
+% \begin{frame}[fragile]
+% \Title{I-Format Instruction - Example}
+% \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+%   Convert the following high level code into an ARM program using minimum number of ARM assembly instructions:
+%   \begin{verbatim}
+%       a = a + 7
+%   \end{verbatim}
+%   Assume, the value of the variable {\tt a} is stored in general purpose register X1.
+% \end{tcolorbox}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item the solution looks like this:
+% \begin{verbatim}
+%     ADDI X1, X1, #7
+% \end{verbatim}
+% \end{itemize}
+% \fi
+% \end{frame}
+
+ %%b format should go after cb format instructions
+ 
+\begin{frame}[fragile]
+\Title{ARM Branch Format (B-Format) Instructions for Control Flow}
+
+\begin{itemize}  
+    \item an \textbf{unconditional} goto statement is used to change the control flow in the execution of the instructions.
+    \item Example: \texttt{B \#28} $\equiv \text{PC} = \text{PC}+4\times28$
+    \item The {\tt immediate} specifies a \hl{word} offset relative to \textbf{current} PC
+\end{itemize}
+\bigskip
+\begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+  title=Think About It,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+  \begin{itemize}
+      \item Why multiply by 4? \\
+      That is the relationship between a word and a byte
+    \item Can {\tt immediate} be negative in control flow instructions? \ifnum\Ans=1{\color{red}{YES}}\fi
+  \end{itemize}
+\end{tcolorbox}
+\BNotes\ifnum\Notes=1
+
+\fi\ENotes
+\end{frame}
+
+% \begin{frame}[fragile]
+% \Title{B-Format - Example}
+% \bigskip
+%    \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+%   What are the first five values of PC when the following code is executed, with PC=4194304:
+%    \begin{center}
+%      \begin{tabular}{lll}
+%       PC $\rightarrow$& 4194304: & \texttt{B \#3}\\
+%       & 4194308: & \texttt{ADD X1, X2, X3}\\
+%       & 4194312: & \texttt{SUB X1, X3, X5}\\
+%       & 4194316: & \texttt{ADDI X2, X12, \#16}\\
+%       & 4194320: & \texttt{B \#-2}\\
+%      \end{tabular}
+%    \end{center}
+% \end{tcolorbox}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item solution is PC = 4194304, 4194316, 4194320, 4194312, 4194316
+% \item you can run this code in the simulator as an example
+% \begin{verbatim}
+%     ADDI	X2, X3, #3
+% loop:	ADDI	X4, XZR, #8
+% 	SUB	X1, X2, X4
+% 	B	loop
+% \end{verbatim}
+	
+% \end{itemize}
+% \item this code directly replicates the same code illustrated in the question
+% \begin{verbatim}
+%     	B	next
+% 	ADD	X1, X2, X3
+% loop:	SUB	X1, X3, X5
+% next:	ADDI	X2, X12, #16
+% 	B	loop
+% \end{verbatim}
+% \fi\ENotes
+% \end{frame}
+
+
+%%%%%%%%% move to the slides before this to after cb format 
+
+\begin{frame}[fragile]
+\Title{ARM Conditional Branch Format (CB-Format) Instructions}
+
+\begin{itemize}  
+    \item a \textbf{conditional} goto statement is used to change the flow in the execution of the instructions.
+\item Compare the contents of a general purpose register to \textbf{ZERO} 
+    \item Examples:
+    \begin{multicols}{2}
+ {\texttt{CBZ X1,\#8}} is equivalent to 
+\begin{verbatim}
+   if X1 == 0 then
+        PC = PC + 4 * 8
+   else  
+        PC = PC + 4
+\end{verbatim}
+\columnbreak
+ {\texttt{CBNZ X1,\#8}} is equivalent to 
+\begin{verbatim}
+   if X1 != 0 then
+        PC = PC + 4 * 8
+   else  
+        PC = PC + 4
+\end{verbatim}
+    \end{multicols}
+     
+    \item The {\tt immediate} specifies a \hl{word} offset relative to \textbf{current} PC
+ 
+ 
+\end{itemize}
+\BNotes\ifnum\Notes=1
+
+\fi\ENotes
+\end{frame}
+
+
+% \begin{frame}[fragile]
+% \Title{CB-Format Instructions - Example}
+% \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+%   Can you identify a loop in the ARM program below?
+%   \begin{center}
+% \begin{tabular}{rrl}
+% PC $\rightarrow$ &100: & \texttt{ADD X1, XZR, XZR}\\
+% &104: & \texttt{ADDI X2, XZR, \#6}\\
+% &108: & \texttt{ADDI X1, X1, \#5}\\
+% &112: & \texttt{SUBI X2, X2, \#1}\\
+% &116: & \texttt{CBNZ X2, \#-2}\\
+% &120: & \texttt{ADD X4, X6, X8}
+% \end{tabular}
+% \end{center}
+% If PC=100, how many iterations of the loop are executed?
+% \end{tcolorbox}
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item State what first four instructions do:
+% \begin{itemize}
+% \item First instruction: sets X1 to 0
+% \item Second instruction: set X2 to 6
+% \item Third instruction: add 5 to register X1
+% \item Fourth instruction: subtract immediate: subtracts 1 from X2
+% \end{itemize}
+% \item The fifth instruction is what interests us
+% \begin{itemize}
+%  \item Compare contents of X2 to 0
+%  \item First time through loop X2 is 5
+%    Since not 0, PC updated to PC$+(-2\times 4)=108$
+%  \item Execution returns to line 108, and 108 and 112 are executed
+%    five more times (until X2 is 0), at which point, rather than
+%    branch back to 108, we will execute 120.
+% \end{itemize}
+% \end{itemize}
+
+% \fi\ENotes
+% \end{frame}
+
+
+
+% \begin{frame}[fragile]
+% \Title{CS 251 vs CS 241}
+% \begin{itemize}
+% \item CS 241 uses MIPS, CS 251 uses ARM.
+% \item CS241 from HLL to Assembly
+% \item CS251 Assembly down to hardware
+
+% 	\item MIPS and ARM assembly similar:
+% 	\begin{center}
+% 	\begin{tabular}{lcl}
+% 	{\bf MIPS} & &{\bf ARM}\\\hline
+% 	\texttt{lw \$1, 0(\$2)} && \texttt{LDUR X1, [X2,\#0]} \\
+% 	\texttt{add \$1,\$2,\$3} && \texttt{ADD X1,X2,X3}\\
+% 	\texttt{addi \$1,\$2,22} && \texttt{ADDI X1,X2,\#22}\\
+% %	\texttt{add \$1,\$0,\$2} && \texttt{MOV X2,X1}\\
+% 	\end{tabular}
+% 	\end{center}
+% 	\item ARMv7 has 15 registers; ARMv8 (LEG) and MIPS have 32\\
+
+% 		ARMv8,LEG: X31 is always 0\\
+
+% 		MIPS: \$0 is always 0
+% 	\item ARM takes about 1/4 the number of transistors as MIPS
+% 	\item ARMv7 has conditional forms of instructions \\
+
+% 		ARM compiler takes advantage of this; gcc does not\\
+
+%                ARMv8 has fewer (than ARMv7) fancy features; we use none of them
+
+
+
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+%  \item There are likely some other differences, too.
+%  \item We get the instruction straight out of memory, and don't use an
+% 	instruction register
+%  \item 241 notes that registers \$0, \$29, \$30, and \$31 are special;
+
+% 	While more than X31 are special in ARM, we only use X31 (XZR)
+%  \item The point of this slide: students are more likely to encounter
+% 	ARM in industry.  Their CS 241 MIPS knowledge will transfer to ARM knowledge.
+	
+% %  \item Note the last instruction in the first bullet: 
+% %	ARM has an explicit \texttt{move} command, MIPS does not.
+% %	There is a MIPS pseudo-instruction for move, but it gets
+% %	implemented as an ADD (or OR) with register 0.
+
+%  \item "Conditional form": you can specify whether or not an ARM
+% 	instruction sets (or tests) the status bits; MIPS doesn't
+% 	even have status bits
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+

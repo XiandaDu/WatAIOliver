@@ -1,0 +1,8 @@
+<answer>yes</answer>
+
+Evidence from the report indicates that all stakeholders are clearly described along with why they are interested in the outcomes of the project. The stakeholders listed in the report and their interests are as follows:
+
+- Danish Germschi: Interested in health protection and accurate device measurements to avoid false warnings.
+- Employers of customers: Interested in improving worker productivity and reducing responsibility for worker's health.
+- Governmental or regulatory bodies: Interested in ensuring the project prevents shocks and that it maintains its performance under normal use.
+- Ontario Federation of Agriculture: Interested in accurate readings for providing leverage against employers.

@@ -1,0 +1,10 @@
+<answer>yes</answer>
+
+The report provides in-text citations to support how the customer (farm workers) is defined. For example, it cites sources to explain the risks and symptoms of heat stress that farm workers face, such as:
+
+* "As global temperatures continue to reach new highs in 2023, farm workers across Canada are at increasing risk of suffering from heat stress [1], [2]."
+* "Symptoms of heat stroke can include... [3]."
+* "Other aspects of heat stress include... [5]."
+* "Sunburn is also a common ailment... [6]."
+
+These citations are used to support the definition of the customer's problem and the risks they face, which helps to establish the need for the project.

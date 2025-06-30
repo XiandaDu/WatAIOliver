@@ -1,0 +1,59 @@
+```markdown
+# Student
+
+- + number: unsigned int
+- + name: string
+
+## + Student()
+- + Student(number: unsigned int, name: const string)
+
+## + ~Student()
+
+## + get_name(): string const
+
+## + get_number(): unsigned int const
+
+# HashTable
+
+- T: typename
+
+- # size: int
+- # max_size: int
+- # array: T[]
+
+## + HashTable(max_size: int)
+
+## + ~HashTable()
+
+## # hash_1(k: unsigned int): int
+
+# OpenHashTable
+
+## + OpenHashTable(max_size: int)
+
+## + ~OpenHashTable()
+
+## + insert(student_id: unsigned int, student_name: const string): void
+
+## + search(student_id: unsigned int): void
+
+## + remove(student_id: unsigned int): void
+
+## - hash_2(k: unsigned int): int
+
+## - find(student_id: unsigned int): int
+
+# OrderedHashTable
+
+## + OrderedHashTable(max_size: int)
+
+## + ~OrderedHashTable()
+
+## + insert(student_id: unsigned int, student_name: const string): void
+
+## + search(student_id: unsigned int): void
+
+## + remove(student_id: unsigned int): void
+
+## + print(position: int): void
+```

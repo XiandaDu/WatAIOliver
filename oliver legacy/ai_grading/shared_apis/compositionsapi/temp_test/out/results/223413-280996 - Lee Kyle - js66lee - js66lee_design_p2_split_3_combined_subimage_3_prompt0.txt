@@ -1,0 +1,12 @@
+# Project 2: Hashing
+
+## 3. Design Decisions Details
+
+### a. Class Student Constructor
+- If parameters are passed, assigns passed parameters to number and name, else, assigns 0 and empty string to number and name, respectively.
+
+### Destructor
+- Assigns 0 and empty string to number and name, respectively.
+
+### Function Examination
+Since both getter functions just returns private member variables (no change in object), "const" keyword has been used to both functions.

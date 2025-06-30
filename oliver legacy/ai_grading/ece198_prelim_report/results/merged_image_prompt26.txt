@@ -1,0 +1,28 @@
+Yes, every principle or standard mentioned in the report meets the criterion.
+
+1. **Scientific Principles:**
+   - **Principle 1:** The report mentions the principle of heat stress and its effects on farm workers. This principle is clearly stated in the "Customer problem" section.
+   - **Principle 2:** The report discusses the principle of heat stroke and its symptoms. This principle is explicitly mentioned in the "Customer problem" section.
+   - **Principle 3:** The report refers to the principle of heat exhaustion and its symptoms. This principle is clearly stated in the "Customer problem" section.
+
+2. **Mathematical Principles:**
+   - **Principle 1:** The report uses the standard deviation formula to calculate the deviation in the user's heart rate. The formula is provided: 
+     \[
+     \sigma = \sqrt{\frac{\sum_{i=1}^{N} (x_i - \mu)^2}{N}}
+     \]
+   - **Principle 2:** The report uses the concept of inequality to determine if the detected quantity is above the set range, providing the inequality:
+     \[
+     x < 5 \Rightarrow x \leq 5
+     \]
+
+3. **Engineering Standards:**
+   - **Standard 1:** The report mentions the safety requirement of 30W of power consumption. The relevant section of the standard is included:
+     \[
+     \text{Safety requirement 30W of power in any form may be consumed, transferred, discharged or expended at any point in time.}
+     \]
+   - **Standard 2:** The report refers to the electrical insulation standard. The relevant section of the standard is included:
+     \[
+     \text{Electrical insulation will be applied.}
+     \]
+
+Each principle or standard is clearly stated and supported by either an equation or the relevant section of the standard, meeting the criterion.

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Processor</title>
+    <script>
+        function validateForm() {
+            var checkboxes = document.getElementsByName("options");
+            var checked = false;
+            for (var i = 0; i < checkboxes.length; i++) {
+                if (checkboxes[i].checked) {
+                    checked = true;
+                    break;
+                }
+            }
+            if (!checked) {
+                alert("Please select at least one option.");
+                return false;
+            }
+            return true;
+        }
+    </script>
+</head>
+<body>
+    <h1>Project Processor</h1>
+    {% if error %}
+    <p style="color: red;">{{ error }}</p>
+    {% endif %}
+    {% if result %}
+    <p>{{ result }}</p>
+    {% endif %}
+    <form action="/run" method="post" enctype="multipart/form-data" onsubmit="return validateForm()">
+        <label for="project_name">Project Name:</label>
+        <input type="text" id="project_name" name="project_name" required><br><br>
+        <label for="question">Yes/no question: </label>
+        <input type="text" id="question" name="question" required><br><br>
+        <label for="zip_file">Upload Zip File:</label>
+        <input type="file" id="zip_file" name="zip_file" accept=".zip" required><br><br>
+
+        <fieldset>
+            <legend>Options:</legend>
+            <input type="checkbox" id="option1" name="options" value="option1">
+            <label for="option1">Option 1</label><br>
+            <input type="checkbox" id="option2" name="options" value="option2">
+            <label for="option2">Option 2</label><br>
+            <input type="checkbox" id="option3" name="options" value="option3">
+            <label for="option3">Option 3</label><br>
+        </fieldset><br>
+
+        <input type="submit" value="Run">
+    </form>
+</body>
+</html>

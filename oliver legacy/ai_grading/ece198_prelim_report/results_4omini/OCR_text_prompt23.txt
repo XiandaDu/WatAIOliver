@@ -1,0 +1,14 @@
+<answer>yes</answer>
+
+The report clearly states three mathematical principles. 
+
+1. The first mathematical principle is the calculation of standard deviation, as described: "The project will make use of mathematical principles through the calculation of standard deviation, which indicates how data is dispersed around the mean." The formula provided for standard deviation is also included: 
+   \[ \sigma = \sqrt{\frac{\sum (x_i - \mu)^2}{N}} \]
+
+2. The second principle involves solving systems of linear equations. The report states: "Additionally, the project will use mathematical principles involved in solving systems of linear equations." It provides a general form for these equations: 
+   \[ y = mx + b \]
+
+3. The third principle is the use of inequality functions, specified as: "The final mathematical principle this project would make use of is inequality." The report gives an example of how inequality functions are assigned to the expected ranges of quantities:
+   \[ x < 5, x > 5 \]
+
+These principles are explicitly stated, thus fulfilling the requirement for this standard.

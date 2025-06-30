@@ -1,0 +1,4055 @@
+\setlength{\columnseprule}{1pt}
+\def\columnseprulecolor{\color{blue}}
+
+
+% \begin{frame}[fragile]
+% \Title{Memory Hierarchies}
+% \begin{itemize}
+% \item Readings: Chapter 5, sections 5.1, 5.3 and 5.4
+% % --5.8
+% \item Goal: create illusion of unlimited fast memory
+% \item Problem: faster memories are more expensive, and larger memories
+% can be slower
+% \item Solution: move items to smaller, faster memory automatically
+% when they are needed
+% \item Rationale: locality of reference
+% \begin{itemize}
+% \item Temporal: Once accessed, likely to be accessed again soon
+% \item Spatial: Items ``nearby'' also likely to be accessed
+% \end{itemize}
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% The analogy given in the text is that of having books from the library
+% on your desk for easy access. But a better analogy would be that of
+% books that you simply reach for, and if it isn't on your desk, you are
+% frozen while some mechanism gets it from the library and puts it there.
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Memory Hierarchies}
+% %\PHFigure{!}{4in}{4in}{PHALL/F0703}{Figure 5.3}
+% \Figure{!}{3in}{2in}{Figs/memhierarchy}
+% \begin{itemize}
+% \item Items not in top level are brought up when requested
+% \item Data only copied between adjacent levels (focus on two)
+% \item Block: minimum unit of information present/not present
+% \item Hit: information present when requested
+% \item Miss: information not present, must be copied up
+% \item Terminology: hit ratio, hit time, miss penalty
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% At any point in the discussion, we focus on the relationship between
+% two adjacent levels (upper and lower); this interface will have its
+% own block size. 
+% \begin{itemize}
+% 	\item The hit ratio is the fraction of memory accesses found
+% 		in the upper level; since hits are cheaper than misses, a 
+% 		higher ratio means better performance. 
+% 	\item Hit time is the time needed to determine
+% 		whether an access is a hit or a miss; 
+% 	\item the miss penalty is the
+% 		additional time needed in the case of a miss.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}\frametitle{Cache}
+% The instruction memory and data memory in the datapath are actually caches. We will assume the memory hierarchy has three levels, cache, memory, and secondary storage.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/cache-datapath}}
+% \end{figure}
+
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \STitle{Cache}
+% \begin{itemize}
+% \item Cache: level of memory hierarchy between CPU and main memory
+% \item Important questions:
+% \begin{itemize}
+% \item How do we know if a data item is in the cache?
+% \item How do we find it?
+% \end{itemize}
+% % \item Direct mapped: each memory location is mapped to exactly one
+% % location in the cache
+% % \item Typical mapping: (block address) modulo (number of blocks in
+% % cache)
+% % \item Example: block = 1 word, cache size = 8, just take lower 3 bits of
+% % word address
+% % \item Need tag for each block in cache giving original location
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item Caches were THE major factor in CPU speeds.  Using the extra transistors
+%   as cache reduced memory access times and gave performance improvements well
+%   beyond those predicted by Moore's law.
+% \item The only ``gotcha'' (well...) with caches is that you can only put
+%   so much cache near the CPU.  Ie, you are limited in the amount of primary
+%   cache; adding more will slow down the CPU access to the cache, negating
+%   its value.  Multilevel caches are used to alleviate this problem,
+%   although there are clearly diminishing returns.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Direct-Mapped Cache - Terminology}
+% In a \textbf{direct-mapped cache}, each memory address is mapped exactly to one address in the cache. If the word is in the cache, finding it is straightforward. The cache address is also called the cache \textbf{index}.
+% \begin{itemize}
+% \item Let $c$ be the cache index.
+% \item Let $m$ be the memory address.
+% \item Let $n$ be the number of blocks in cache. 
+% \end{itemize}
+%  $$c \equiv m \text{ } (mod \text{ } n) .$$
+%   \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+% If the cache has $n=8$ blocks, then memory address 29 maps to:
+% \end{tcolorbox}
+% In general, for a cache with $n$ blocks, the index $c$ has $\log_2 (n)$ bits, so it is the lower $\log_2(n)$ bits of the memory address.
+% \begin{align*}
+% 29=(11&101)_2 \\
+% 5 = (&101)_2
+% \end{align*}
+% Note: $5 \equiv 29 \text{ } (mod \text{ } 8)$
+% % Recall that $29 = 8 \times 3 + 5$ and the definition of modulo from MATH 135.
+% \end{frame}
+
+% %-----------------------------------------------------
+% % \begin{frame}\frametitle{Direct-Mapped Cache}
+
+% % In binary notation, the cache address is the lower $\log_2 (8)=3$ bits of the memory address.
+% % \begin{align*}
+% % 29=(11&101)_2 \\
+% % 5 = (&101)_2
+% % \end{align*}
+% % In general, for a cache with $n$ blocks, the index $c$ has $\log_2 (n)$ bits, so it is the lower $\log_2(n)$ bits of the memory address.
+% % \hfill\break
+
+
+
+% % \end{frame}
+
+% %-----------------------------------------------------
+% % \begin{frame}\frametitle{Direct-Mapped Cache}
+
+% % The following diagram shows more examples of memory addresses mapping to cache indices.
+% % \begin{itemize}
+% % \item 00\textbf{001}, 01\textbf{001}, 10\textbf{001}, 11\textbf{001} all map to 001.
+% % \item 00\textbf{101}, 01\textbf{101}, 10\textbf{101}, 11\textbf{101} all map to 101.
+% % \end{itemize}
+
+% % \begin{figure}[H]
+% % \centering
+% % 	{\includegraphics[scale=0.2]{06-memory-hierarchies/figures/direct-map-cache-mem}}
+% % \end{figure}
+% % \end{frame}
+
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Direct-Mapped Cache - Terminology Continued}
+% {\footnotesize
+% \begin{itemize}
+%     \item A cache index can contain the contents of a number of different memory locations.
+%     \item Use \textbf{tag} to uniquely identify the data in the cache
+%     \item Tag contains the upper portion of the address, the bits that are not used as the cache index.
+
+% \begin{multicols}{2}
+    
+% \begin{center}
+% 	\begin{tabular}{c|c}
+% Memory Address & Tag \\\hline
+% \textbf{00}001, \textbf{00}101 & 00  \\
+% \textbf{01}001, \textbf{01}101 & 01  \\
+% \textbf{10}001, \textbf{10}101 & 10 \\ 
+% \textbf{11}001, \textbf{11}101 & 11 \\
+% \end{tabular}
+% \end{center}
+% \columnbreak
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[scale=0.12]{06-memory-hierarchies/figures/direct-map-cache-mem}}
+% \end{figure}
+
+% \end{multicols}
+
+% \item A \textbf{valid bit} indicates whether an entry contains valid data.
+% \item The valid bit and the tag are tested together.
+% \end{itemize}
+% }
+% \end{frame}
+% % \begin{frame}\frametitle{Direct-Mapped Cache}
+% % When the processor starts up, the cache does not have good data, and the tag fields are meaningless. After executing instructions, some cache entries can still be empty.
+% % \hfill\break
+
+% % A \textbf{valid bit} indicates whether an entry contains valid data.
+
+% % \hfill\break
+% % The valid bit and the tag are checked together.
+% % \end{frame}
+% \begin{frame}[fragile]
+% \Title{Example: Direct mapped cache}
+
+% \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+%   Can you fill in the tables below?
+% % \begin{center}
+
+% % \scriptsize
+% % \begin{tabular}{ccc}
+% %  Memory Access&~~~& Cache \\
+% % \begin{tabular}[t]{|c|c|c|c|}
+% % \hline
+% % Dec  & Binary  & Hit/miss & Cache block\\
+% % \hline
+% % 20 & 10100& &\\
+% % 18 & 10010& &\\
+% % \hline
+% % 20 & 10100& &\\
+% % 18 & 10010& &\\
+% % \hline
+% % 22 & 10110& &\\
+% % 7 & 00111& &\\
+% % \hline
+% % 22 & 10110& &\\
+% % 28 & 11100& &\\
+% % \hline
+% % \end{tabular}
+% % &~~~~&
+% % \begin{tabular}[t]{|c|c|c|c|}
+% % \hline
+% % Index & V & ~~Tag~~ & ~~~~~~Data~~~~~~\\
+% % \hline
+% % 000 & & &\\
+% % 001 & & &\\
+% % \hline
+% % 010 & & &\\
+% % 011 & & &\\
+% % \hline
+% % 100 & & &\\
+% % 101 & & &\\
+% % \hline
+% % 110 & & &\\
+% % 111 & & &\\
+% % \hline
+% % \end{tabular}
+% % \end{tabular}
+% % \end{center}
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex0}}
+% \end{tcolorbox}
+% For now, ignore requirements of 4 or 8 byte aligned addresses. 
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item This is a variation of the example on page 386/7 of
+% 	the text, or an equivalent (state of cache after each miss). 
+% \item Note the
+% ``valid bit'' field (V), which distinguishes an empty entry from a full one
+% 	(an empty entry has to have some bit pattern in the registers). Yes,
+% 	everything was byte addresses before this and in this example alone
+% 	there are word addresses. Make sure everyone is clear on this (it's
+% 	like dropping off the lower two bits for a moment). 
+% \item The ``Cache block'' is computed by taking the address mod 8 (in this
+% 	example).  Initially, work with the decimal address mod 8 to get
+% 	the cache block, but then...
+% \item ...point out that the
+% 	modulo computation is very simple if the cache contains a number of
+% 	blocks which is a power of two. This example does not talk about the
+% 	fine details of what happens when there is a hit or miss.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Accessing Direct-Mapped Cache Example: Part 1}
+% Want to access memory address 10100. Lookup index 100 in the cache. The valid bit $V$ is 0, therefore this is a cache miss.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex0}}
+% \end{figure}
+
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Accessing Direct-Mapped Cache Example: Part 2}
+% Since memory address 10100 has a cache miss, go to memory address 10100 read this and store it in the cache. Update the tag and valid bits.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex1}}
+% \end{figure}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Accessing Direct-Mapped Cache Example: Part 3}
+% Want to access memory address 10010. Lookup index 010 in the cache. The valid bit $V$ is 0, therefore this is a cache miss.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex1}}
+% \end{figure}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Accessing Direct-Mapped Cache Example: Part 4}
+% Since memory address 10010 has a cache miss, go to memory address 10010 read this and store it in the cache. Update the tag and valid bits.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex2}}
+% \end{figure}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Accessing Direct-Mapped Cache Example: Part 5}
+% Want to access memory address 10100. Lookup index 100 in the cache. The valid bit is 1, therefore compare the tags. Since $10=10$, we have a cache hit.
+
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex3}}
+% \end{figure}
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Accessing Direct-Mapped Cache Example: Part 6}
+% Want to access memory address 10010. Lookup index 010 in the cache. The valid bit is 1, therefore compare the tags. Since $10=10$, we have a cache hit.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex4}}
+% \end{figure}
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Accessing Direct-Mapped Cache Example: Part 7}
+% Want to access memory address 10110. Lookup index 110 in the cache. The valid bit is 0, therefore this is a cache miss.
+
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex4}}
+% \end{figure}
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Accessing Direct-Mapped Cache Example: Part 8}
+% Since memory address 10110 has a cache miss, go to memory address 10110 read this and store it in the cache. Update the tag and valid bits.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex5}}
+% \end{figure}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Accessing Direct-Mapped Cache Example: Part 9}
+% Want to access memory address 00111. Lookup index 111 in the cache. The valid bit is 0, therefore this is a cache miss.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex5}}
+% \end{figure}
+
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Accessing Direct-Mapped Cache Example: Part 10}
+% Since memory address 00111 has a cache miss, go to memory address 00111 read this and store it in the cache. Update the tag and valid bits.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex6}}
+% \end{figure}
+
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Accessing Direct-Mapped Cache Example: Part 11}
+% Want to access memory address 10110. Lookup index 110 in the cache. The valid bit is 1, therefore compare the tags. Since $10=10$, we have a cache hit.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex7}}
+% \end{figure}
+
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Accessing Direct-Mapped Cache Example: Part 12}
+% Want to access memory address 11100. Lookup index 100 in the cache. The valid bit is 1, therefore, compare the tags. Since $10\neq 11$, we have a cache miss.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex7}}
+% \end{figure}
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Accessing Direct-Mapped Cache Example: Part 13}
+% Since memory address 11100 has a cache miss, go to memory address 11100 read this and replace what is in the cache. Update the tag.
+
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex8}}
+% \end{figure}
+% \end{frame}
+% %-----------------------------------------------------
+
+
+% %-----------------------------------------------------
+
+% \begin{frame}[fragile]
+% \Title{Testing For Cache Hit/Miss}
+% \PHFigure{!}{4.5in}{3in}{ARMFigures/Fig0510-crop}{Figure 5.10}
+% \BNotes\ifnum\Notes=1
+% This is Figure 5.10.
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}\frametitle{Disadvantage of Direct-Mapped Cache}
+% In the previous example, consider if the next few memory address accesses are 20, 28, 20, 28, $\dots$ Since now address 20 is needed again, cache index 100 will be replaced again. This replacement continues, and the cache keeps on missing. Set-associative caches will help with this problem.
+
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[scale=0.2]{06-memory-hierarchies/figures/cache-access-ex8}}
+% \end{figure}
+% \end{frame}
+
+
+% \begin{frame}[fragile]
+% \Title{Handling Cache Misses, Writes}
+% \begin{itemize}
+% \item On a miss:stall entire processor until item fetched
+% \begin{itemize}
+%     \item either generate interrupt and OS handles cache miss
+%     \item or cache generates a miss signal that is used as input by Control unit to stall
+%     % \footnote{set all control signals to 0 in pipeline register until cache miss handled} processor
+% \end{itemize}
+% \item For miss on \texttt{STUR} instructions, often known as write miss: usually written item goes into cache
+% \item Write-through: 
+% \begin{itemize}
+%     \item immediately write item back into memory
+%     \item cache and main memory are consistent
+%     \item slow since every write causes data to be written to main memory. \item {\footnotesize A solution is to use a \textbf{write-buffer} to store all data  waiting to be written to main memory.}
+% \end{itemize}
+% \item Write-back:
+% \begin{itemize}
+%     \item write item \textbf{only} into cache
+%     \item cache and memory temporarily inconsistent
+% \item write back cache block only when it must be replaced
+% \item \textbf{dirty} bit needed to keep track of entries that need writing back
+% \end{itemize}
+% % \item Usually have separate instruction and data caches 
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item "Stall" could involve generating an interrupt.  The OS can then decide
+% 	what to do with the CPU while waiting for the memory.  Once word of
+% 	memory is in cache, it restarts the \texttt{LDUR} command.
+
+% 	Alternatively, rather than have OS involved (since \texttt{LDUR} stalls
+% 	are common and don't take that long to handle), have a stall signal
+% 	come from cache as input to Control unit, and have Control shutdown
+% 	all register updates in pipeline until word is back in memory.
+% \item An example of why the write-back strategy is useful occurs in programs
+% 	in which there are a fair amount of stores. The {\tt gcc} mix we keep
+% 	using has 11\% stores; if a memory write costs 10 cycles (not
+% 	unrealistic), this reduces performance by more than a factor of
+% 	two. 
+% \item An alternative to write back is to buffer writes. 
+% \item The reason for
+% 	the bandwidth increase with separate caches is parallelism.
+% \item Example:
+% \begin{verbatim}
+%     for (sum=0,i=0; i<100; i++) sum=sum+i;
+% \end{verbatim}
+% Each time through the loops there are two memory writes.
+
+% With 100cc memory, write-through takes 200*100+700cc =20700cc (700 being an estimate for the code time).
+
+% With write-back, total time is 900cc (assuming same code time and that i and sum are written back to memory at end of loop).
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Spatial Locality: Larger Block Sizes}
+% \PHFigure{!}{4in}{3in}{ARMFigures/Fig0513-crop}{Figure 5.13}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item
+%   This is figure 5.13 of a Intrinsity FastMATH processor (which is only a
+%   32-bit machine, thus the smaller word size).
+  
+% \item The block size is sixteen words, and
+%   total cache size is $2^{14}=16$KB. So there are 256 entries
+%   in the cache, indexed by 8 bits. The top 18 bits of the address are
+%   the tag; the bottom two bits are byte offset, and the next two bits
+%   are the block offset within the entry.
+% \item Note that with blocks in cache, then a cache write-miss may force a
+% 	cache read
+% \item The gain from block word caches is that fetching 16 words from memory
+% 	does NOT take 16 times as long.  Instead, you can design memory to
+% 	allow the 16 words to be fetched in parallel, and then sent one at
+% 	a time over the bus to the CPU.  Thus, if it takes 16cc to fetch a
+% 	word from memory, then a block size of 1 would take 17cc to fetch,
+% 	a block size of 4 would take 20cc to fetch, and a blocksize of 16
+%         words would take 32cc to fetch.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}\frametitle{Tradeoffs in Choosing Block Size}
+% For fixed size cache:
+% \begin{itemize}
+%     \item Smaller blocks: More misses for local reference.
+% \item Larger blocks can increase miss penalty:
+% \begin{itemize}
+% \item Fewer blocks in cache, so blocks can be bumped out prematurely.
+% \item Spatial locality decreases with larger blocks.
+% % \item If a block has only one word, STUR can directly write to memory. But if block has more than one word or doubleword, memory must be read on write miss to bring the block into the cache before writing to the cache. 
+% \item  If a block has multiple words, on a write miss (STUR instruction), memory must be read, block brought into the cache before writing to the cache. 
+% \item Design memory to allow multiple words to be fetched in \emph{parallel}. Then send each word over the bus to the cache/processor.
+
+% {\footnotesize
+% Suppose it takes 16cc to fetch a word from memory.
+% \begin{itemize}
+% \item A block size of 1 word would take $16 + 1 = 17$cc to fetch.
+% \item A block size of 4 words would take $16cc$ to fetch (in parallel), and sending to the CPU takes $16 + 4 = 20$cc.
+% \item A block size of 16 words would take $16cc$ to fetched (in parallel), and sending to the CPU takes $16 + 16 = 32$cc.
+% \end{itemize}
+% }
+% \end{itemize}
+% \end{itemize}
+
+% \end{frame}
+
+% % \begin{frame}\frametitle{Efficieny Gain: More Than One Word Per Block}
+% % Fetching 16 words from memory does \emph{not} take 16 times as long.
+% % \hfill\break
+
+% % Instead, design memory to allow the 16 words to be fetched in \emph{parallel}. Then sent them one at a time over the bus to the CPU.
+% % \hfill\break
+
+% % Suppose it takes 16cc to fetch a word from memory.
+% % \begin{itemize}
+% % \item A block size of 1 word would take $16 + 1 = 17$cc to fetch.
+% % \item A block size of 4 words would take $16cc$ to fetch (in parallel), fetching and sending to the CPU takes $16 + 4 = 20$cc.
+% % \item A block size of 16 words would take $16cc$ to fetched (in parallel), fetching and sending to the CPU takes $16 + 16 = 32$cc.
+% % \end{itemize}
+% % \end{frame}
+
+% % \begin{frame}[fragile]
+% % \Title{Tradeoffs in Choosing Block Size}
+% % \begin{itemize}
+% % \item Smaller blocks mean more misses for local references
+% % \item Larger blocks mean fewer blocks in cache, premature bumping
+% % \item Larger blocks increase miss penalty
+% % \item Memory must be read on write miss if block size $>$ 1
+% % \end{itemize}
+% % \BNotes\ifnum\Notes=1
+% % ~% notes text
+% % \fi\ENotes
+% % \end{frame}
+
+% \iffalse
+% % This dissappeared from the 5th edition, and I always found it hard
+% % to present, so I'm removing it from the course notes
+% \begin{frame}[fragile]
+% \Title{Designing Memory To Support Caches}
+% \Figure{!}{6in}{4in}{PHALL/F0713}
+% \BNotes\ifnum\Notes=1
+% Do the following analysis (from text, page 471 on the board. Suppose
+% it takes 1 clock cycle to send an address to memory or to get a word
+% back from memory on the bus, but 15 clock cycles for the DRAM to
+% respond. 
+% \begin{itemize}
+% \item With a block size of 4 words, the design on the left takes 
+% $1 + 15 \times 4 + 1 \times 4 = 65$ cycles for a miss, with bandwidth
+% $16/65 = 0.25$ bytes per clock cycle. 
+% \item The design in the middle, with
+% 2-word width, takes $1 + 15 \times 2 + 1 \times 2 = 33$ clock cycles,
+% with bandwidth $16/33 = 0.48$), and with 4-word width takes $1 + 15
+% \times 1 + 1 \times 1 = 17$ clock cycles, with bandwidth $16/17 =
+% 0.94$ bytes per clock cycle. 
+% \item But the design on the right takes $1 + 15
+% \times 1 + 4 \times 1 = 20$ clock cycles for bandwidth $16/20 =
+% 0.8$, and is a cheaper design.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \fi
+
+
+% % \begin{frame}[fragile]
+% % \vspace*{-.5in}\Title{Block Size Read Example}
+% % \begin{center}
+% % \begin{tabular}{r||c||c|c|c|c|}
+% %  & ~~Tag~~ & ~~~~~~00~~~~~~ & ~~~~~~01~~~~~~ & ~~~~~~10~~~~~~ & ~~~~~~11~~~~~~\\
+% % \hline
+% % \hline
+% % 000 &&&&&\\
+% % \hline
+% % 001 &&&&&\\
+% % \hline
+% % 010 &&&&&\\
+% % \hline
+% % 011 &\vspace*{.1in}&&&&\\
+% % \hline
+% % \hline
+% % 100 &&&&&\\
+% % \hline
+% % 101 &&&&&\\
+% % \hline
+% % 110 &&&&&\\
+% % \hline
+% % 111 &&&&&\\
+% % \hline
+% % \end{tabular}
+% % \end{center}
+% % \vspace*{-.2in}
+% % \begin{center}
+% % 	\begin{tabular}{lr|cccc|c}
+% % 	   & Dec & Tag & Indx & Block & Byte&Hit/Miss\\
+% % 	\hline
+% % 	\texttt{LDUR} & 96 & 000 & 011 & 00 & 000&\\
+% % 	\texttt{LDUR} & 104 & 000 & 011 & 01 & 000&\\
+% % 	\texttt{LDUR} & 112 & 000 & 011 & 10 & 000&\\
+% % 	\texttt{LDUR} & 120 & 000 & 011 & 11 & 000&\\
+% % 	\end{tabular}
+% % \end{center}
+
+% % \BNotes\ifnum\Notes=1
+% % \begin{itemize}
+% % \item Note: Either do the example on this slide followed by the example
+% % 	on the next slide, OR do the example on two slides from now.
+% % 	It's redundant to do both.  
+
+% % 	If you do the examples on this slide and the next, consider
+% % 	saving the cache from this slide and using it for the next
+% % 	slide (in essence, that's what the 3rd example does).
+
+% % \bigskip
+
+% % \item Assume the cache is initially empty.
+% % \item In this example, the first LDUR is a cache miss.  But it loads
+% % 	four words of memory into the cache, so the next three memory
+% % 	accesses are cache hits.  Total cost: 20cc for the memory
+% % 	access vs 4x17=68cc for direct mapped cache.
+% % \end{itemize}
+% % \fi\ENotes
+% % \end{frame}
+
+% % \begin{frame}[fragile]
+% % \vspace*{-.5in}\Title{Block Size Write Example}
+% % \begin{center}
+% % \begin{tabular}{r||c||c|c|c|c|}
+% %  & ~~Tag~~ & ~~~~~~00~~~~~~ & ~~~~~~01~~~~~~ & ~~~~~~10~~~~~~ & ~~~~~~11~~~~~~\\
+% % \hline
+% % \hline
+% % 000 &&&&&\\
+% % \hline
+% % 001 &&&&&\\
+% % \hline
+% % 010 &&&&&\\
+% % \hline
+% % 011 &\vspace*{.1in}&&&&\\
+% % \hline
+% % \hline
+% % 100 &&&&&\\
+% % \hline
+% % 101 &&&&&\\
+% % \hline
+% % 110 &&&&&\\
+% % \hline
+% % 111 &&&&&\\
+% % \hline
+% % \end{tabular}
+% % \end{center}
+% % \vspace*{-.2in}
+% % \begin{center}
+% % 	\begin{tabular}{lr|cccc|c}
+% % 	   & Dec & Tag & Indx & Block & Byte&Hit/Miss\\
+% % 	\hline
+% % 	\texttt{STUR} & 368 & 001 & 011 & 10 & 000&\\
+% % 	\texttt{LDUR} & 376 & 001 & 011 & 11 & 000&\\
+% % 	\end{tabular}
+% % \end{center}
+
+% % \BNotes\ifnum\Notes=1
+% % \begin{itemize}
+% % \item Assume the cache starts empty.
+% % \item When the write occurs, the tag bit of the block gets set.
+% % 	If we just write M[368] to the cache without a read, then
+% % 	the LDUR of 376 is invalid.  Thus, on a cache write we must
+% % 	read the case block if it isn't in memory.
+% % \end{itemize}
+% % \fi\ENotes
+% % \end{frame}
+
+
+% \begin{frame}\frametitle{Block Size Read/Write Example}
+%  \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+%   Assume, memory is addressable with 11 bits. 
+  
+%   Now, suppose a program requests the 
+  
+%   following addresses using \texttt{LDUR} and \texttt{STUR}. 
+  
+%   Mark whether each memory access results in a Hit or a Miss.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/block-size-read-write-ex}}
+% \end{figure}
+% \end{tcolorbox}
+
+% Note: That is, size of memory is $2^{11} = 2 \times 2^{10} = 2$KB.
+% Cache size is 8 lines and each line has four double-word blocks. 
+
+% \end{frame}
+
+% % \begin{frame}\frametitle{Mapping Address to a Multiword Cache Block}
+
+% % Consider a cache with 64 lines, the block size is 16 bytes $\Rightarrow$ 4 words in each block.
+% % \begin{table}
+% % \begin{center}
+% % \resizebox{!}{0.15\textheight}{
+% %     \begin{tabular}{ c|c|c|c|c|c|c|c|c|c}
+% %          & \multicolumn{4}{c|}{word 0}            & \dots & \multicolumn{4}{c}{word 3} \\ \hline
+% %          & byte 0 & byte 1 &byte 2 &byte 3 &\dots & byte 12 &byte 13 &byte 14 &byte 15 \\ \hline
+% % line 0  &        &        &       &       &\dots &         &        &        &        \\ \hline
+% % %block 1  &        &        &       &       &\dots &         &        &        &        \\ \hline
+% % \vdots   &        &         &       &       &\dots &         &        &        &        \\ \hline
+% % \textbf{line 11} & M[1200] &M[1201] &  M[1202]     & M[1203]       &\dots &  M[1212] & M[1213] & M[1214] & M[1215]     \\ \hline
+% % \vdots   &        &        &       &       &\dots &         &        &        &        \\ \hline
+% % line 63 &        &        &       &       &\dots &         &        &        &        \\ \hline
+% % \end{tabular}
+
+% % }
+% % %\caption{hi}\label{}
+% % \end{center}
+% % \end{table}
+
+% % We want to map memory address 1200 to a line in cache. Since each line has 16 bytes, memory address 1200 will be on line:
+% % \begin{align*}
+% % c \equiv  \left \lfloor \frac{1200}{16} \right \rfloor \equiv 75 \equiv 11.
+% % \end{align*}
+% % Block 11 maps all addresses between 1200 and 1215, e.g. memory address 1212
+% % \begin{align*}
+% % c \equiv  \left \lfloor \frac{1212}{16} \right \rfloor \equiv \left \lfloor 75.75 \right \rfloor \equiv 75 \equiv 11.
+% % \end{align*}
+% % \end{frame}
+
+% %-----------------------------------------------------
+
+
+% \begin{frame}[fragile]
+% \Title{Solution - Block Size Read/Write Example}
+% \vspace*{-.2in}
+% \begin{center}
+% \begin{tabular}{r||c||c|c|c|c|}
+%  & ~~Tag~~ & ~~~~~~00~~~~~~ & ~~~~~~01~~~~~~ & ~~~~~~10~~~~~~ & ~~~~~~11~~~~~~\\
+% \hline
+% \hline
+% 000 &&&&&\\
+% \hline
+% 001 &&&&&\\
+% \hline
+% 010 &&&&&\\
+% \hline
+% 011 &\vspace*{.1in}&&&&\\
+% \hline
+% \hline
+% 100 &&&&&\\
+% \hline
+% 101 &&&&&\\
+% \hline
+% 110 &&&&&\\
+% \hline
+% 111 &&&&&\\
+% \hline
+% \end{tabular}
+% \end{center}
+% \begin{center}
+% 	\begin{tabular}{lr|cccc|c}
+% 	   & Dec & Tag & Indx & Block & Byte&Hit/Miss\\
+% 	\hline
+% 	\texttt{LDUR} & 96 & 000 & 011 & 00 & 000&\\
+% 	\texttt{LDUR} & 104 & 000 & 011 & 01 & 000&\\
+% 	\texttt{LDUR} & 96 & 000 & 011 & 00 & 000&\\
+% 	\texttt{STUR} & 368 & 001 & 011 & 10 & 000&\\
+% 	\texttt{LDUR} & 376 & 001 & 011 & 11 & 000&\\
+% 	\texttt{LDUR} & 96 & 000 & 011 & 00 & 000&\\
+% 	\end{tabular}
+% \end{center}
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% 	\item In this example, assume cache starts empty.  There would
+% 		be other commands than \texttt{LD/ST UR}, but we are only concerned
+% 		about the \texttt{LD/ST UR} for cache effects.
+% 	\item Show the effect of each memory reference,
+% 		indicating in the boxes for row 011 what is stored in 
+% 		the cache (eg, M[96], M[104], M[112], M[120] after the
+% 		first memory reference), and when there is a cache hit
+% 		and miss.
+
+% 		The first \texttt{LDUR} is a cache miss; the second and third
+% 		are cache hits; the fourth causes a cache read, loading
+% 		M[352], M[360], M[368], M[376], and then overwriting
+% 		M[368]; the fifth (a cache hit) shows why we need to read 
+% 		when doing a write; the 6th line
+% 		causes a cache write to memory and
+% 		a cache read of the first block of memory addresses.
+% 	\item Note that first three commands read cache entries that
+% 		are NOT overwritten by the \texttt{STUR} or subsequent
+% 		\texttt{LDUR}; from this
+% 		point of view, the reading the second block of memory,
+% 		writing it back after the \texttt{STUR} and a following
+% 		\texttt{LDUR 96} and then reading back the first block of
+% 		memory is wasteful: all those elements would have fit
+% 		in the cache without conflict.  However, this is an
+% 		extreme bad case example, which isn't (perhaps) as bad
+% 		as it first looks.
+% 	\item Do a timing analysis from the numbers on the previous
+% 		slide.  Using the interleaved memory organization, using
+% 		the block version takes 3 block reads and one block write,
+% 		for 4x20cc=80cc.  If we used a direct cache (no block reads)
+% 		and assumed there were no conflicts, we'd need 3
+% 		reads and 1 write for 4x17cc=68cc (although perhaps the
+% 		write would be deferred and never occur if it were overwritten).
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Block Size Read/Write Example: Part 1}
+% The first request is a miss. A new block is written into the cache.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/block-size-read-write-ex-table0}}
+% \end{figure}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Block Size Read/Write Example: Part 2}
+% The next two requests will be hits.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/block-size-read-write-ex-table1}}
+% \end{figure}
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Block Size Read/Write Example: Part 3}
+% STUR requests to store into address 368. The index at 011 has tag 000, this does not match the tag 001 for address 368. Therefore, this is a cache miss. Fetch the block that address 368 belongs to.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/block-size-read-write-ex-table2}}
+% \end{figure}
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Block Size Read/Write Example: Part 3}
+% STUR will overwrite \texttt{Mem[368]} in the cache with new data. The cache and memory are not inconsistent. The cache sets the \textbf{dirty bit} to the row indexed by 011.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/block-size-read-write-ex-table2-d}}
+% \end{figure}
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Block Size Read/Write Example: Part 4}
+% The next request to address 376 will be a hit.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/block-size-read-write-ex-table3}}
+% \end{figure}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Block Size Read/Write Example: Part 5}
+% The next request to address 96 will be a miss. The block containing the modified data is \textbf{written-back} to memory. A new block is brought into the cache.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/block-size-read-write-ex-table4}}
+% \end{figure}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Block Size Read/Write Example: Timing Analysis}
+
+% \begin{itemize}
+% \item Let us assume the following time requirements: 
+% \begin{itemize}
+%     \item to access memory is 16 cc 
+%     \item to read/write a double word is 1 cc.
+% \end{itemize}
+% \end{itemize}
+% \begin{itemize}
+%     \item For a direct mapped cache with four double word block:
+%     \begin{itemize}
+%     \item This code segment takes, 3 block reads and 1 block write. 
+%     \item Then, to read/write a four double word block = 20 cc. 
+%     \item Then, 3 block reads and 1 block write = $4 \times 20 = 80$cc.
+% \end{itemize}
+% \item For a cache with one double word block:
+% \begin{itemize}
+%     \item This code segment has 3 misses and 1 write-back 
+%     \item Then, to read/write a double word = 17 cc. 
+%     \item Then, 4 misses\footnote{possible to write directly to memory, reducing misses to 3 but still need to account for writing to memory} = $4 \times 17 = 68$cc.
+% \end{itemize}
+% \end{itemize}
+
+
+% % \begin{figure}[H]
+% % \centering
+% % {\includegraphics[width=0.6\textwidth]{figures/block-size-read-write-ex-table4}}
+% % \end{figure}
+% \end{frame}
+
+% %-----------------------------------------------------
+
+
+% \begin{frame}[fragile]
+% \STitle{Block Size Code Example Execution Time: Arrays}
+% \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+% {\footnotesize
+% \begin{multicols}{2}
+
+%     \begin{verbatim}
+% sum=0
+% for (i=0; i < 1000; i ++){
+% //read from array and add to sum
+%     sum = sum + A[i] 
+% }
+% \end{verbatim}
+
+
+% \columnbreak
+
+% Pseudo-ARM: Sum the elements in an array A
+% \begin{verbatim}
+%       100 ADD X1, X31, X31
+%       104 ADD X2, X31, X31
+% loop: 108 LDUR X3, A(X1)
+%       112 ADD X2, X2, X3
+%       116 ADDI X1, X1, #1
+%       120 SUBI X4, X1, #1000
+%       124 CBNZ X4, loop
+%       128 NOP
+% \end{verbatim}
+% \end{multicols}
+  
+
+% Assume 1 cc per instruction (data forwarding, etc)
+
+% LDUR takes 1cc if in cache.
+
+% Block size 1: fetch from memory takes 17cc extra
+
+% Block size 4: fetch from memory takes 20cc (4 words) extra
+
+% \textbf{What is the total execution time for the code above?}
+% }
+% \end{tcolorbox}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item The memory access times are taken from the example of
+% 	designing memory to efficiently do block size reads.
+% \item The code basically does
+% \begin{verbatim}
+% sum = 0
+% for (i=0;i<1000;i++)
+%   sum = sum + A[i]
+% end
+% \end{verbatim}
+% The Pseudo-ARM is because we really should increment by 4 and compare to 4000
+% and details like that.
+% \item See if they can spot the load-use hazard, which can be removed by
+% 	swapping two lines of code. 
+
+% 	There's also a hazard between 120 and
+% 		124 (assuming branch in ID).  If they move 112 to 120 
+% 		(and 116,120 forward), they get rid of both hazards.
+%   \item The point of the example is to show how long it takes to
+%     execute.  
+
+%     The instructions take $2+6\times1000=6002$
+
+%     Memory access with block size 1 takes $1000\times17=17,000$
+
+%     Total: 23,002cc
+
+%     Memory access with block size 4 takes $250\times20=5000$
+
+%     Total: 11,002cc
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% %-----------------------------------------------------
+% % \begin{frame}[fragile]\frametitle{Block Size and Performance}
+
+% % Consider the following high-level code for summing elements of an array:
+% % \begin{verbatim}
+% % sum=0
+% % for (i=0; i < 1000; i ++)
+% % {
+% %     sum = sum + A[i] // read from array and add to sum
+% % }
+% % \end{verbatim}
+% % It is translated into the following pseudo-ARM code.
+% % \begin{verbatim}
+% %       100 ADD  X1, X31, X31  // set loop counter to 0
+% %       104 ADD  X2, X31, X31  // set sum to 0 
+% % loop: 108 LDUR X3, A(X1)     // read array entry
+% %       112 ADD  X2, X2, X3    // add array entry
+% %       116 ADDI X1, X1, #1    // go to next array element
+% %       120 SUBI X4, X1, #1000 // check if counter < 1000
+% %       124 CBNZ X4, loop      // continue looping 
+% %       128 NOP
+% % \end{verbatim}
+% % \end{frame}
+
+
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{Solution: Code Analysis - Block Size Code - Arrays}
+% Identify stalls in the code.
+% \begin{verbatim}
+%       100 ADD  X1, X31, X31   
+%       104 ADD  X2, X31, X31   
+% loop: 108 LDUR X3, A(X1)     
+%       112 ADD  X2, X2, X3    // load-use stall, wait for X3
+%       116 ADDI X1, X1, #1     
+%       120 SUBI X4, X1, #1000 
+%       124 CBNZ X4, loop      // stall, wait for X4
+%       128 NOP
+% \end{verbatim}
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{Solution: Code Rearrangement - Block Size Code - Arrays}
+% Move line 112 to after line 120.
+% \begin{verbatim}
+%       100 ADD  X1, X31, X31   
+%       104 ADD  X2, X31, X31   
+% loop: 108 LDUR X3, A(X1)     
+%       112 ADDI X1, X1, #1     
+%       116 SUBI X4, X1, #1000
+%       120 ADD  X2, X2, X3   // ** moved, X3 is ready
+%       124 CBNZ X4, loop     // forward X4
+%       128 NOP
+% \end{verbatim}
+% Execution time assumes perfect branch prediction:
+
+% 2 instructions outside the loop
+
+% 5 instructions inside the loop, iterating 1000 times:
+
+% $$2 + 1000 \cdot 5 =5002cc$$
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{Block Size Code and Performance: Array}
+% Recall, fetching data from memory takes 16cc plus 1cc for each doubleword.
+% \begin{itemize}
+% \item Block size 1 takes 16cc+1cc=17cc to fetch from memory. For 1000 iterations, $17\times 1000=17000$cc is needed to fetch data from memory. The total time to execute the code and fetch data from memory is:
+% $$5002+17 \cdot 1000 = 5002 + 17000 = 22002cc.$$
+% \item Block size 4 takes 16cc+4cc=20cc to fetch from memory, these are array elements A[i],..., A[i+3]. For 1000 iterations, we fetch 250 times from memory, $20\cdot 250=5000$cc is needed to fetch data from memory. The total time to execute code and fetch data from memory is:
+% $$5002+ 20\cdot 250 = 5002 + 5000 = 10002cc.$$
+% \end{itemize}
+% \textbf{This example justifies larger block sizes.}
+% \end{frame}
+
+% %-----------------------------------------------------
+
+
+
+
+% \begin{frame}[fragile]
+% \Title{Block Size Code Example: Linked List}
+
+% \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+% {\footnotesize
+% \begin{multicols}{2}
+% \begin{verbatim}
+% struct node {int data;
+%             struct node* next;}
+% sum=0
+% // while A is not NULL
+% while (A!=0) { 
+%     sum = sum + A->data   
+%       A = A->next        
+% }
+% \end{verbatim}
+
+%  \columnbreak
+
+%  Pseudo-ARM code: sum elements in a linked list A
+% \begin{verbatim}
+%       100 LDUR X1, A
+%       104 ADD X2, X31,X31
+%       108 CBZ X1, done
+% loop: 112 LDUR X3, [X1,#0]
+%       116 ADD X2, X2,X3
+%       120 LDUR X1, [X1,#8]
+%       124 CBNZ X1, loop
+% done: 128 nop
+% \end{verbatim}
+% \end{multicols}
+
+% Assume 1 cc per instruction (data forwarding, etc)
+
+% LDUR takes 1cc if in cache
+
+% Block size 1: fetch from memory takes 17cc extra
+
+% Block size 4: fetch from memory takes 20cc (4 words) extra
+
+% \textbf{What is the total execution time for the code above?}
+% }
+
+%   \end{tcolorbox}
+
+
+% \BNotes\ifnum\Notes=1
+
+% \begin{itemize}
+% 	\item The point here is to compare the time using an array to that
+% 		of using a linked list.  
+
+% The code here is basically
+% \begin{verbatim}
+% struct node {int data; struct node* next;}
+% sum=0
+% while (A!=0) {
+%   sum = sum + A->data
+%   A = A->next
+% }
+% \end{verbatim}
+% 	\item There are two load-use hazards that you can get rid of by
+% 		swapping two lines of code
+% 	\item Do a timing analysis with a cache with a block size of 1
+% 		assuming there are 1000 links in the list.
+
+% 	Code: $3+5\times1000=5003$cc
+
+% 	Block size 1 memory: $17\times2000=34,000$cc, total of $39,003$cc
+
+% 	Block size 4 memory: $20\times1000=20,000$cc, total of $25,003$cc
+
+% 	\item The example is unfair in the sense that it is pretty much the
+% 		worst case for a linked list: you only have one piece of
+% 		data at each node.  Still, the linked list requires an
+% 		extra memory access, and even though blocking helps, you
+% 		still do 4 times as many memory accesses than the array
+% 		(which is why the array cost is less, despite executing
+% 		more lines of code).
+
+% 		On the other hand, it's a smart compiler that recognizes
+% 		that we can store A in a register (ie, there really should be a 
+% 		\texttt{STUR A,X1} in the ARM loop)
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{Solution - Code Analysis - Block Size and Performance: Linked List}
+% Spot the stalls.
+% \begin{verbatim}
+%       100 LDUR X1, A       
+%       104 ADD  X2, X31,X31  
+%       108 CBZ  X1, done
+% loop: 112 LDUR X3, [X1,#0] 
+%       116 ADD  X2, X2,X3   // load-use hazard, 
+%                            // stall 1cc, wait for X3
+%       120 LDUR X1, [X1,#8] 
+%       124 CBNZ X1, loop    // load-use and branch data hazard
+%                            // stall 2cc, wait for X1
+% done: 128 nop
+% \end{verbatim}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{Solution - Code Rearrangement - Block Size and Performance: Linked List}
+% Swap lines 116 and 120 to get rid of 2cc of stall time.
+% \begin{verbatim}
+%       100 LDUR X1, A       
+%       104 ADD  X2, X31,X31  
+%       108 CBZ  X1, done
+% loop: 112 LDUR X3, [X1,#0] 
+%       120 LDUR X1, [X1,#8] // ** swapped
+%       116 ADD  X2, X2,X3   // ** swapped
+%       124 CBNZ X1, loop    // stall 1 cc then forward X1
+% done: 128 nop
+% \end{verbatim}
+% Execution time assuming perfect branch prediction:
+
+% 3 instructions outside the loop
+
+% 4 instructions inside the loop with 1 stall
+
+% $$3 + 1000 \cdot 5 = 5003cc$$.
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{Block Size and Performance: Linked List}
+% Recall, fetching data from memory takes 16cc plus 1cc for each doubleword.
+% \begin{itemize}
+% \item Block size 1 takes 16cc+1cc=17cc to fetch from memory. For 1000 iterations, each iteration reads twice from memory, for a total of $17\cdot 2 \cdot 1000 = 34000$cc. The total time to execute the code and fetch data from memory is:
+% $$5003 + 34000 =  39003cc.$$
+% \item Block size 4 takes 16cc+4cc=20cc to fetch from memory. The linked list is scattered throughout memory, so each block read contains the data and next pointer for one node, but the next two doublewords are wasted. Repeat this for 1000 times, gives a total of $20\cdot 1 \cdot 1000=20000$cc to fetch data from memory. The total time to execute the code and fetch data from memory is:
+% $$5003 + 20000 = 25003cc.$$
+% \end{itemize}
+% The improvement from using a larger block size for a linked list is less than the improvement for the array.
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}[fragile]\frametitle{Block Size and Performance: Summary}
+
+% Large block size is better if we expect data to be consecutive in memory.
+% \hfill\break
+
+% Arrays are a more effective data structure than linked lists because they require less memory accesses.
+
+% \end{frame}
+
+
+% \begin{frame}[fragile]
+% \STitle{Alternate Placement Schemes}
+% \begin{itemize}
+% \item Fully-associative: a block can go anywhere in the cache
+% \item Requires a comparator for each cache entry
+% \item Set-associative: combines direct mapped and fully-associative schemes
+
+%   %\PHFigure{!}{3in}{3in}{PHALL/F0715}{Figure 5.14}
+%   \Figure{!}{0.3in}{1.8in}{Figs/altcache}
+
+%   Green triangles show locations to search for Tag=13
+  
+%   Cyan triangles indicate position with Tag=13
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item In a fully-associative scheme, when the cache is full and there
+% is a miss, some sort of scheme to choose the entry to be overwritten is
+% needed. Typically the ``least recently used'' entry is used, though
+% this computation has to be quick and is often approximated.
+% \item
+% In the example on the slide, block 12 is mapped into slot 4 in the
+% direct-mapped cache, because $4 = 12 \bmod 8$; in the
+% fully-associative, it can be in any slot (arrows indicate the
+% comparisons that have to be made); in the 2-way set-associative, there
+% are four sets and so block 12 is located somewhere in set 0 (because
+% $0 = 12 \bmod 4$, but either entry in set 0 is possible (it is
+% fully-associative within the set), so both must be checked.
+% \item
+% The tradeoff here is that increasing the degree of associativity
+% decreases miss rate (because there is less likelihood that an entry
+% will be ejected from the cache prematurely) but increases hit time
+% (since a larger number of entries must be checked -- even if this is
+% done in parallel, there is overhead for the increased circuitry). The
+% book goes into much more detail.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{A 4-way Set-Associative Cache}
+% \PHFigure{!}{4in}{3in}{PHALL/F0719}{Figure 5.18}
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item
+%   This is figure 5.18 from the text.  They don't say why they didn't update
+%   this one to 64-bit.
+% \item Note the error in the MUX select lines.  This is the one place in
+% 	the course where we could use an encoder.  However, potentially you could
+% 	merge the shown select lines in this diagram with the MUX and AND each
+% 	of the four select lines with one of the inputs, essentially avoiding
+% 	using a decoder inside the MUX.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}\frametitle{4-Way Set Associative Cache Circuit}
+% Main ideas from the circuit:
+% \begin{itemize}
+% \item  In a 4-way set associative cache, each memory block can be placed in any 4 locations. 
+% \item Each memory block has its own tag which is compared to the tag of the address requested to determine if there is a hit.
+% \item Each location has a valid bit for its memory block, which is ANDed with the comparator's output to create the hit signal for one block.
+% \item All 4 of these hit signals are ORed to give the hit signal for the set. All 4 of these hit signals also control a 4-to-1 ``pseudo-mux" to select the data from the set.
+% \end{itemize}
+
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Example: 2-Way Set Associative Cache}
+% \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+% Consider the 2-way set associative cache below with the memory accesses shown:
+% {\footnotesize
+% \begin{center}
+%     \begin{tabular}{ccc}
+% Memory Access & & Cache \\
+% \begin{tabular}[t]{|c|c|c|}
+% \hline
+% Dec  & Binary  & Hit/miss \\
+% \hline
+% 20 & 10100&\\
+% 18 & 10010&\\
+% \hline
+% 20 & 10100&\\
+% 18 & 10010&\\
+% \hline
+% 22 & 10110&\\
+% 7 & 00111&\\
+% \hline
+% 22 & 10110&\\
+% 28 & 11100&\\
+% \hline
+% \end{tabular}
+% &~~~&
+% \begin{tabular}[t]{|c|c|c|}
+% \hline
+% Index & ~~Tag0~~ & ~~Tag1~~\\
+% \hline
+% 00 & &\\
+% 01 & &\\
+% \hline
+% 10 & &\\
+% 11 & &\\
+% \hline
+% \end{tabular}
+% \end{tabular}
+% \end{center}
+% }
+% Fill in the Cache with entries and record whether each memory access resulted in a hit or a miss.  
+%   \end{tcolorbox}
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item This is the same memory access example used for direct cache.
+% \item The V field has been omitted.  Assume not-valid unless spot filled
+% 	on slide, but real cache has valid bits.
+% \item On the slide in the ``Binary'' column, 
+% 	underline the index in blue and the tag in red.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Solution: 2-Way Set Associative Cache Example}
+% Memory access is shown on the left side. The state of the cache is shown on the right side. Note the cache index is 2 bits, and tag is therefore 3 bits. The valid bit is not shown. The data is also omitted.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/2-way-set-assoc-ex}}
+% \end{figure}
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{2-Way Set Associative Cache Example: Tag 0 vs Tag 1}
+% There are now two locations for the tag, Tag 0 and Tag 1\footnote{If there is more than one location for a block, in an assignment or the exam, \textbf{use} the \textbf{lower index} location first, so use Tag 0 before Tag 1.}.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/2-way-set-assoc-ex}}
+% \end{figure}
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{2-Way Set Associative Cache Example: Part 1}
+% First memory access is for address $(20)_{10}=(10100)_2$. At index 00, both data locations are empty and thus invalid, so this is a miss. We fetch the data and place in Tag0.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/2-way-set-assoc-ex0}}
+% \end{figure}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{2-Way Set Associative Cache Example: Part 2}
+% Access memory address $(18)_{10}=(10010)_2$. The index is 10, and the data is also invalid. So this is a miss. Fetch the data from memory and update the cache.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/2-way-set-assoc-ex1}}
+% \end{figure}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{2-Way Set Associative Cache Example: Part 3}
+% Access memory address $(20)_{10}=(10100)_2$. Look at index 00. Tag 0 is valid and the tags match, therefore this is a hit.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/2-way-set-assoc-ex2}}
+% \end{figure}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{2-Way Set Associative Cache Example: Part 4}
+% Access memory address $(18)_{10}=(10010)_2$. Look at index 10. The tag bits match so this is a hit.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/2-way-set-assoc-ex3}}
+% \end{figure}
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{2-Way Set Associative Cache Example: Part 5}
+% Access memory address $(22)_{10}= (10110)_2$. Look at index 10. The valid location has a mismatched tag, so this is a miss. Fetch the data place it in the next empty location, Tag1.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/2-way-set-assoc-ex4}}
+% \end{figure}
+
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{2-Way Set Associative Cache Example: Part 6}
+% Access memory address $(7)_{10}=(00111)_2$. Look at index 11, all locations are empty so they are invalid. This is a miss. Fetch the data and place it in the cache.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/2-way-set-assoc-ex5}}
+% \end{figure}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{2-Way Set Associative Cache Example: Part 7}
+% Access memory address $(22)_{10}=(10110)_2$. Look at index 10. One of the tags match so this is a hit.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/2-way-set-assoc-ex6}}
+% \end{figure}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{2-Way Set Associative Cache Example: Part 8}
+% Access memory address $(28)_{10}=(11100)_2$. Look at index 00. The first location is valid but the tags does not match. Therefore this is a miss. Fetch the data and place it in the cache.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/2-way-set-assoc-ex7}}
+% \end{figure}
+
+
+% \end{frame}
+% %-----------------------------------------------------
+
+% \begin{frame}\frametitle{Comparison: Direct-Map and 2-Way Set Associative Cache }
+% Recall the direct-mapped cache kept getting cache misses for alternating memory accesses $20, 28, 20, 28 \dots$. But now these will all be hits because the tags for both 20 and 28 are in the cache. 
+% % This cache is also using 1 more location (block) than before so less resources are sitting idle.
+% \begin{figure}[H]
+% \centering
+% 	\subfloat[Direct-Mapped Cache Example]{\includegraphics[height=0.4\textheight]{06-memory-hierarchies/figures/direct-map-ex-final-cache}}
+% 	\subfloat[2-Way Set Associative Cache Example]{\includegraphics[height=0.4\textheight]{06-memory-hierarchies/figures/2-way-set-assoc-ex-final-cache}}
+% \end{figure}
+
+
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{4-way Set Associative Cache Example}
+%  \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+% Consider the 4-way set associative cache below with the memory
+% accesses shown:
+% {\footnotesize
+% \begin{multicols}{2}
+    
+% \begin{center}
+% \hfill Memory Access\hfill~\medskip
+
+% \begin{tabular}{|c|c|c|}
+% \hline
+% Dec  & Binary  & Hit/miss \\
+% \hline
+% 20 & 10100&\\
+% 18 & 10010&\\
+% \hline
+% 20 & 10100&\\
+% 18 & 10010&\\
+% \hline
+% 22 & 10110&\\
+% 7 & 00111&\\
+% \hline
+% 22 & 10110&\\
+% 28 & 11100&\\
+% \hline
+% \end{tabular}
+% \end{center}
+
+% \columnbreak
+% \begin{center}
+    
+% \hfill Cache\hfill~\medskip
+
+% \begin{tabular}{|c|c|c|c|c|}
+% \hline
+% Index & Tag0 & Tag1 & Tag2 & Tag3\\
+% \hline
+% 0 & & & &\\
+% 1 & & & &\\
+% \hline
+% \end{tabular}
+% \end{center}
+
+% \end{multicols}
+% }
+
+% Fill in the Cache with entries and record whether each memory access
+% resulted in a hit or a miss.
+% \end{tcolorbox}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item This is the same memory access example used for direct cache.
+% \item The V field has been omitted.  Assume not-valid unless spot filled
+% 	on slide, but real cache has valid bits.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{4-Way Set Associative Cache Example}
+% The following example for the 4-way set associative cache will use the same memory accesses as the 2-way example. 1 bit,\textbf{ the LSB bit}, of the address is the cache index. The data and valid bit are again omitted from the cache.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.3\textwidth]{06-memory-hierarchies/figures/mem-access-cache-ex}}\\	
+% {\includegraphics[width=0.4\textwidth]{06-memory-hierarchies/figures/4-way-set-assoc-cache-ex}}
+% \end{figure}
+
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{4-Way Set Associative Cache Example: Part 1}
+% Access memory address $(20)_{10}=(10100)_2$. Look at index 0. It has no data so this is a miss. Fetch the data from memory and put it in the cache.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/4-way-set-assoc-cache-ex0}}
+% \end{figure}
+
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{4-Way Set Associative Cache Example: Part 2}
+% Access memory address $(18)_{10}=(10010)_2$. Look at index 0. It has a valid location, but the tag does not match. So this is a miss. Fetch the data and load it into the cache.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/4-way-set-assoc-cache-ex1}}
+% \end{figure}
+
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{4-Way Set Associative Cache Example: Part 3}
+% Access memory address $(20)_{10}=(10100)_2$. Look at index 0. It has two valid locations, exactly one tag matches. So this is a hit. \textbf{Remember there cannot be more than one match.}
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/4-way-set-assoc-cache-ex1}}
+% \end{figure}
+
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{4-Way Set Associative Cache Example: Part 4}
+% Access memory address $(18)_{10}=(10010)_2$. Look at index 0. It has two valid locations, exactly one tag matches. So this is a hit. 
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/4-way-set-assoc-cache-ex1}}
+% \end{figure}
+
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{4-Way Set Associative Cache Example: Part 4}
+% Access memory address $(22)_{10}=(10110)_2$. Look at index 0. It has two valid locations, but none of the tags match. So this is a miss. Fetch the data from memory and update the cache.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/4-way-set-assoc-cache-ex2}}
+% \end{figure}
+
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{4-Way Set Associative Cache Example: Part 4}
+% Access memory address $(7)_{10}=(00111)_2$. Look at index 1. It has no valid locations. So this is a miss. Fetch the data from memory and update the cache.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/4-way-set-assoc-cache-ex3}}
+% \end{figure}
+
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{4-Way Set Associative Cache Example: Part 5}
+% Access memory address $(22)_{10}=(10110)_2$. Look at index 0. It has three valid locations, one of the tags match. So this is a hit. 
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/4-way-set-assoc-cache-ex3}}
+% \end{figure}
+
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{4-Way Set Associative Cache Example: Part 6}
+% Access memory address $(28)_{10}=(11100)_2$. Look at index 0. It has three valid locations, but none of the tags match. So this is a miss. Fetch the data and update the cache. 
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/4-way-set-assoc-cache-ex4}}
+% \end{figure}
+
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{4-Way Set Associative Cache Example: Part 7}
+% Subsequently, a sequence of alternating requests like $20, 28, 20, 28, \dots$ are all hits.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.6\textwidth]{06-memory-hierarchies/figures/4-way-set-assoc-cache-ex4}}
+% \end{figure}
+
+% \end{frame}
+
+
+
+% \begin{frame}[fragile]
+% \Title{Fully Associative Cache Example}
+% \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+%   {\footnotesize
+%   Fill in the fully associative cache with entries and record whether each memory access resulted in a hit or a miss.
+% \begin{center}
+% Memory Access
+
+% \begin{tabular}{|c|c|c|}
+% \hline
+% Dec  & Binary  & Hit/miss \\
+% \hline
+% 20 & 10100&\\
+% 18 & 10010&\\
+% \hline
+% 20 & 10100&\\
+% 18 & 10010&\\
+% \hline
+% 22 & 10110&\\
+% 7 & 00111&\\
+% \hline
+% 22 & 10110&\\
+% 28 & 11100&\\
+% \hline
+% \end{tabular}
+
+% \bigskip\bigskip
+% Cache
+
+% \footnotesize
+% \begin{tabular}{|c|c|c|c|c|c|c|c|c|}
+% \hline
+%  ~~Tag0 & Tag1~~ & Tag2~~ & Tag3~~ & Tag4~~ & Tag5~~ & Tag6~~ & Tag7~~\\
+% \hline
+% & & & & & & & \\
+% \hline
+% \end{tabular}
+% \end{center}
+% }
+% \end{tcolorbox}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item This is the same memory access example used for direct cache.
+% \item The V field has been omitted.  Assume not-valid unless spot filled
+% 	on slide, but real cache has valid bits.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Fully Associative Cache Example: Part 1}
+% Access address $(20)_{10}=(10100)_2$. There are no valid locations. So this is a miss. Fetch the data and put it in the cache.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/fully-assoc-ex0}}
+% \end{figure}
+
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Fully Associative Cache Example: Part 2}
+% Access address $(18)_{10}=(10010)_2$. There is one valid location, but the tags do not match. So this is a miss. Fetch the data and put it in the cache.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/fully-assoc-ex1}}
+% \end{figure}
+
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Fully Associative Cache Example: Part 3}
+% Access address $(20)_{10}=(10100)_2$. There are two valid locations, and one of the tags match. So this is a hit.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/fully-assoc-ex1}}
+% \end{figure}
+
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Fully Associative Cache Example: Part 4}
+% Access address $(18)_{10}=(10010)_2$. There are two valid locations, and one of the tags match. So this is a hit.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/fully-assoc-ex1}}
+% \end{figure}
+
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Fully Associative Cache Example: Part 5}
+% Access address $(22)_{10}=(10110)_2$. There are two valid locations, but none of the tags match. So this is a miss. Fetch the data and put it in the cache.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/fully-assoc-ex2}}
+% \end{figure}
+
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Fully Associative Cache Example: Part 6}
+% Access address $(7)_{10}=(00111)_2$. There are three valid locations, but none of the tags match. So this is a miss. Fetch the data and put it in the cache.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/fully-assoc-ex3}}
+% \end{figure}
+
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Fully Associative Cache Example: Part 7}
+% Access address $(22)_{10}=(10110)_2$. There are four valid locations, one of the tags, Tag2, match. So this is a hit.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/fully-assoc-ex3}}
+% \end{figure}
+
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Fully Associative Cache Example: Part 7}
+% Access address $(28)_{10}=(11100)_2$. There are four valid locations, but none of the tags match. So this is a miss. Fetch the data and put it in the cache.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/fully-assoc-ex4}}
+% \end{figure}
+
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Fully Associative Cache Example: Part 8}
+% Thereafter, if we have alternating requests like $20, 28, 20, 28, \dots$, the cache will keep on getting a hit.
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/fully-assoc-ex4}}
+% \end{figure}
+
+% \end{frame}
+
+% %-----------------------------------------------------
+
+% \begin{frame}[fragile]
+% \Title{Which one to kick out?}
+% \begin{itemize}
+% 	\item What if all tags are full for an index? evict cache entries
+% 	\item Which entry to evict? LRU (Least Recently Used): Replace the cache entry whose most recent use was furthest in the past
+%   \end{itemize}
+
+%  \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+% Fill in the 2-way set associative cache entries below with the following memory word accesses and use LRU replacement scheme when cache is full:
+
+% 	20 (10100), 28 (11100), 20 (10100), 24 (11000)
+
+% \begin{center}
+% \begin{tabular}[t]{|c|c|c|}
+% \hline
+% Index & ~~Tag0~~ & ~~Tag1~~\\
+% \hline
+% 00 & &\\
+% 01 & &\\
+% \hline
+% 10 & &\\
+% 11 & &\\
+% \hline
+% \end{tabular}
+% \end{center}
+%   \end{tcolorbox}
+  
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item In the example, when we access 24, we would replace 28, since 20
+% 	was more recently used.
+% \item How much hardware to implement LRU?
+
+% 	For 2-way set associative, you would only need 1-bit per index.
+
+% 	It's a lot harder for more than 2-ways.  Eg, consider 4-way set
+% 	asociative.  There are $4!=24$ different ways to order a set of
+% 	tag accesses, so you would need 5-bits, and significant hardware
+% 	(a 9-bit truth table) to determine how to update the 5-bit on a
+% 	memory access.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}{Solution: LRU cache replacement}
+
+% Suppose memory addresses are accessed in the following order:
+% {\footnotesize
+% \begin{multicols}{4}
+% \begin{enumerate}
+% \item 20
+% \columnbreak
+% \item 28
+% \columnbreak
+% \item 20
+% \columnbreak
+% \item 24    
+%  \end{enumerate}   
+% \end{multicols}
+% }
+% {\Large
+% \begin{center}
+% \begin{tabular}[t]{|c|c||c|c||c|c|}
+% \hline
+% Index & Use & ~~Tag0~~ & V& ~~Tag1~~&V\\
+% \hline
+% 00 & & & & &\\
+% 01 & & & & &\\
+% \hline
+% 10 & & & & &\\
+% 11 & & & & &\\
+% \hline
+% \end{tabular}
+% \end{center}
+% }
+% \medskip
+%     \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+%   title=Think About It,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+% How many additional hardware components are needed to implement LRU replacement scheme?
+%   \end{tcolorbox}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Solution: Least Recently Used (LRU): Part 1}
+% Access memory address $(20)_{10}=(10100)_2$. Look at index 00. There is no data in the cache so this is a miss. Fetch the data and put it in the cache.
+
+% Suppose memory addresses are accessed in the following order:
+% \begin{enumerate}
+% \item {\color{gray}20}
+% \item 28
+% \item 20
+% \item 24
+% \end{enumerate}
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.4\textwidth]{06-memory-hierarchies/figures/2-way-assoc-cache-kickout-ex0}}
+% \end{figure}
+
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Solution: Least Recently Used (LRU): Part 2}
+% Access memory address $(28)_{10}=(11100)_2$. Look at index 00. There is one valid location but the tags do not match. So this is a miss. Fetch the data and put it in the cache.
+% \begin{enumerate}
+% \item {\color{gray}20}
+% \item {\color{gray}28}
+% \item 20
+% \item 24
+% \end{enumerate}
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.4\textwidth]{06-memory-hierarchies/figures/2-way-assoc-cache-kickout-ex1}}
+% \end{figure}
+
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Solution: Least Recently Used (LRU): Part 3}
+% Access memory address $(20)_{10}=(10100)_2$. Look at index 00. There are two valid locations and one of the tags match. So this is a hit.
+% \begin{enumerate}
+% \item {\color{gray}20}
+% \item {\color{gray}28}
+% \item {\color{gray}20}
+% \item 24
+% \end{enumerate}
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.4\textwidth]{06-memory-hierarchies/figures/2-way-assoc-cache-kickout-ex1}}
+% \end{figure}
+
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Least Recently Used (LRU): Part 3}
+% \begin{enumerate}
+% \item {\color{gray}20}
+% \item {\color{gray}28}
+% \item {\color{gray}20}
+% \item 24
+% \end{enumerate}
+% Access memory address $(24)_{10}=(11000)_2$.
+% {\footnotesize Look at index 00. There are two valid locations and none of the tags match. So this is a miss. Now we have to kick out one of these locations.
+% \begin{itemize}
+% \item Tag 101 was the most recently used.
+% \item Tag 111 was the least recently used. So kick this one out.
+% \end{itemize}
+% }
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.4\textwidth]{06-memory-hierarchies/figures/2-way-assoc-cache-kickout-ex1}}
+% \end{figure}
+
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Solution: Least Recently Used (LRU): Part 3}
+% \begin{enumerate}
+% \item {\color{gray}20}
+% \item {\color{gray}28}
+% \item {\color{gray}20}
+% \item {\color{gray}24}
+% \end{enumerate}
+% Fetch memory address $(24)_{10}=(11000)_2$ and put it in the cache. Kick out tag 111.
+% \begin{itemize}
+% \item Tag 101 was the most recently used.
+% \item Tag 111 was the least recently used. So kick this one out.
+% \end{itemize}
+% \begin{figure}[H]
+% \centering
+% {\includegraphics[width=0.4\textwidth]{06-memory-hierarchies/figures/2-way-assoc-cache-kickout-ex2}}
+% \end{figure}
+
+% \end{frame}
+
+
+% \begin{frame}\frametitle{Additional Hardware for Least Recently Used (LRU) Replacement Scheme}
+% A 2-way set associative cache can use one bit to track which tag was recently used.
+% \hfill\break
+
+% But for 4-way, the cache needs more than two bits. It needs to track the order of access to the tags and there are $4!=24$ possible combinations to track!
+% % , so perhaps a 5 state finite state machine can be used. Additional hardware is needed to update the state machine.
+% \hfill\break
+
+% Practically, we can implement:
+% % As caches get bigger, we cannot use the LRU scheme. We can choose from:
+% \begin{itemize}
+% \item LRU approximation techniques, or
+% \item Randomly select a block to replace: reasonably good for sets with higher degrees of associativity, since the probability that a block from $n$ blocks, is used again is $1/n$, which is small for large $n$.
+% \end{itemize}
+
+% \end{frame}
+
+% %-----------------------------------------------------
+
+
+% \def\online{0}
+% \newcommand\cw{\color{white}}
+
+\begin{frame}[fragile]
+\Title{Mixing ``Ways'' and ``Blocks''}
+
+  \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+  title=Think About It,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+Fill in the 2-way set associative, 4 word linesize cache{\footnote{assume 16 entries in cache}} below:
+\Figure{!}{1.2in}{0.7in}{Figs/2wayLineSize4}
+
+with entries based on the following memory references:
+
+\begin{tabular}{rlc}\\
+            Decimal & Binary & Hit/Miss\\\hline
+          4 = &000 0000 01 00&\\
+          256 = &001 0000 00 00&\\
+          8 = & 000 0000 10 00&\\
+          \hline
+          \end{tabular}
+
+  \end{tcolorbox}
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item Give an example: word address $00\,0000\,01=4_{10}$ could go in Tag 0 and
+	word address $01\,0000\,00=256_{10}$ could go in Tag 1, and 
+	$00\,0000\,10=8_{10}$ could go in Tag 0 (the same as 
+	address 4, but in a different block).
+
+	(all base 10 numbers were computed after appending the byte offset bits)
+\item With block size $2^b$, then $b$ block bits
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\ifnum\Ans=1{
+\begin{frame}[fragile]
+\Title{Solution: Mixing ``Ways'' and ``Blocks'' and Observations}
+
+Solution: Can have both ways and blocks in a cache
+ \begin{tabular}{rlc}\\
+            Decimal & Binary & Hit/Miss\\\hline
+          4 = &000 0000 01 00&MISS\\
+          256 = &001 0000 00 00&MISS\\
+          8 = & 000 0000 10 00&HIT
+          \end{tabular}
+        
+\Figure{!}{0.5in}{0.7in}{Figs/2wayLineSize4}
+
+Observations:
+\begin{itemize}
+	\item Caches typically associative with block size $>1$
+	\item Block size determines number of block bits          
+\end{itemize}
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item Give an example: word address $00\,0000\,01=4_{10}$ could go in Tag 0 and
+	word address $01\,0000\,00=256_{10}$ could go in Tag 1, and 
+	$00\,0000\,10=8_{10}$ could go in Tag 0 (the same as 
+	address 4, but in a different block).
+
+	(all base 10 numbers were computed after appending the byte offset bits)
+\item With block size $2^b$, then $b$ block bits
+\end{itemize}
+\fi\ENotes
+\end{frame}
+}\fi
+% \ifnum\online=1
+% \begin{frame}[fragile]
+% \Title{Mixing ``Ways'' and ``Blocks''}
+
+% \begin{itemize}
+% 	\item Can have both ways and blocks in a cache
+
+% 		Example: 2-way set associative, 4 word linesize
+% \Figure{!}{1.5in}{1in}{Figs/2wayLineSize4}
+% 	\item Caches typically associative with block size $>1$
+% 	\item Block size determines number of block bits
+%           \ifnum\online=1
+%         \item Example
+          
+%           \begin{tabular}{rlc}\\
+%             Decimal & Binary & Hit/Miss\\\hline
+%           4 = &000 0000 01 00&MISS\\
+%           \cw 256 = &\cw 001 0000 00 00&\cw MISS\\
+%           \cw 8 = & \cw 000 0000 10 00&\cw HIT
+%           \end{tabular}
+%           \fi
+% \end{itemize}
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item Give an example: word address $00\,0000\,01=4_{10}$ could go in Tag 0 and
+% 	word address $01\,0000\,00=256_{10}$ could go in Tag 1, and 
+% 	$00\,0000\,10=8_{10}$ could go in Tag 0 (the same as 
+% 	address 4, but in a different block).
+
+% 	(all base 10 numbers were computed after appending the byte offset bits)
+% \item With block size $2^b$, then $b$ block bits
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Mixing ``Ways'' and ``Blocks''}
+
+% \begin{itemize}
+% 	\item Can have both ways and blocks in a cache
+
+% 		Example: 2-way set associative, 4 word linesize
+% \Figure{!}{1.5in}{1in}{Figs/2wayLineSize4}
+% 	\item Caches typically associative with block size $>1$
+% 	\item Block size determines number of block bits
+%           \ifnum\online=1
+%         \item Example
+          
+%           \begin{tabular}{rlc}\\
+%             Decimal & Binary & Hit/Miss\\\hline
+%           4 = &000 0000 01 00&MISS\\
+%            256 = & 001 0000 00 00& MISS\\
+%           \cw 8 = & \cw 000 0000 10 00&\cw HIT
+%           \end{tabular}
+%           \fi
+% \end{itemize}
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item Give an example: word address $00\,0000\,01=4_{10}$ could go in Tag 0 and
+% 	word address $01\,0000\,00=256_{10}$ could go in Tag 1, and 
+% 	$00\,0000\,10=8_{10}$ could go in Tag 0 (the same as 
+% 	address 4, but in a different block).
+
+% 	(all base 10 numbers were computed after appending the byte offset bits)
+% \item With block size $2^b$, then $b$ block bits
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Mixing ``Ways'' and ``Blocks''}
+
+% \begin{itemize}
+% 	\item Can have both ways and blocks in a cache
+
+% 		Example: 2-way set associative, 4 word linesize
+% \Figure{!}{1.5in}{1in}{Figs/2wayLineSize4}
+% 	\item Caches typically associative with block size $>1$
+% 	\item Block size determines number of block bits
+%           \ifnum\online=1
+%         \item Example
+          
+%           \begin{tabular}{rlc}\\
+%             Decimal & Binary & Hit/Miss\\\hline
+%           4 = &000 0000 01 00&MISS\\
+%           256 = &001 0000 00 00&MISS\\
+%           8 = & 000 0000 10 00&HIT
+%           \end{tabular}
+%           \fi
+% \end{itemize}
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item Give an example: word address $00\,0000\,01=4_{10}$ could go in Tag 0 and
+% 	word address $01\,0000\,00=256_{10}$ could go in Tag 1, and 
+% 	$00\,0000\,10=8_{10}$ could go in Tag 0 (the same as 
+% 	address 4, but in a different block).
+
+% 	(all base 10 numbers were computed after appending the byte offset bits)
+% \item With block size $2^b$, then $b$ block bits
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+% \fi
+
+\begin{frame}[fragile]
+\Title{Breaking Address into Byte, Block, Index, and Tag}
+\Figure{!}{1.in}{0.5in}{Figs/blocksizecacheword64}
+	
+\begin{itemize}
+\item	Number of index bits depends on cache size, block size, and the
+	number of ways.  
+	
+\item An $2^n$-way cache of size $2^k$ bytes, with a block size of $2^b$:
+\begin{itemize}
+\item 2 byte bits (or possibly 3-byte block)
+\item $b$ block bits
+
+	Vendors use {\em linesize}, which is sum of byte and block bits
+\item Index bits $i=k-2-b-n=k-ls-n$ 
+\item Tag are remaining bits: $64-2-b-i=64-ls-i$ 
+\end{itemize}
+\end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item Note that $n$ is NOT subtracted when computing number of tag bits
+\item Give an example, or use the caches on the next two slides for examples
+  
+\item The 2 vs 3 byte bits is that instructions use words while data
+  uses double-words.  To keep things simple, we'll use words and not
+  double-words in our examples.
+\item Manufacturers usually report {\em linesize}, which is block+byte bits.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{Example: 2017 Asus Skylake (2015), i7}
+Intel i7, 2 cores
+
+%\Figure{!}{5in}{3in}{Figs/asusCache}
+\begin{center}
+    \includegraphics[width=0.75\textwidth]{Figs/asusCacheAnnotated.png}
+\end{center}
+
+{\scriptsize
+Consider the L2 Cache:
+\vspace{-0.7cm}
+\begin{columns}
+    \begin{column}{0.2\textwidth}
+    \begin{align*}
+        & \text{Size of cache} \\
+        &= 256 KB  \\
+        &= 2^8 \times 2^{10} B
+        &= 2^{18} B
+    \end{align*}
+    \end{column}
+    \vrule{}
+        
+    \begin{column}{0.2\textwidth}
+    \begin{align*}
+        & \text{Size of row in cache} \\
+        &= 4 \times 64 \\
+        &= 2^2 \times 2^6 \\
+        &= 2^8 \text{Bytes}
+    \end{align*}
+    \end{column}
+    \vrule{}
+
+    \begin{column}{0.2\textwidth}
+    \begin{align*}
+        & \text{\# of indicies} \\
+        &= \frac{2^{18}}{2^{8}} \\
+        &= 2^{10} \text{rows} \\
+        & \text{10 bit index}
+    \end{align*}
+    \end{column}
+    \vrule{}
+
+    \begin{column}{0.2\textwidth}
+    \begin{align*}
+        & \text{tag} \\
+        &= 64 - 10 - 6 \\
+        &= 48 \text{ bit}
+    \end{align*}
+    \end{column}
+    
+\end{columns}
+}
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item CPU-Z is a program that will give you info about your cache (and
+	similar hardware things) for your Windows or Mac machine, (also available
+	for Android devices but without cache info):
+\texttt{http://www.cpuid.com/cpuz.php}
+
+\item In some linux versions, look in 
+\texttt{/sys/devices/system/cpu/cpu0/cache/index0/}
+
+	where there will be files index0, index1, etc.  In each directory will
+	be a set of files that gives the cache information.  Also programs like hardinfo
+
+      \item Note 32KB L1 caches. $k=15$, $b+2=6$, $n=3$ so \#idx bits $= 15-6-3=6$ or 64 rows in the cache
+
+        Tag bits = $64-6-6=52$, although for ARM it is $48-6-6=36$ bits.
+
+        (the reporting on this slide is for linesize in bytes, which includes both byte and block bits, thus the $b+2=6$)
+        \item 256KB L2 cache.  $k=18$, $b+2=6$, $n=2$ so \#idx bits $=18-6-2=10$ or 1024 rows in the cache
+
+          Tag bits = $64-6-10=48$, although for ARM it is $48-6-10=32$ bits.
+
+        \item Note 4MB L3 cache.  $k=22$, $b+2=6$, $n=4$ so \#idx bits $=22-6-4=12$ or 4096 rows in the cache
+
+          Tag bits $64-6-12=46$ bits, or $48-6-12=30$ bits for ARM
+
+\item Speed (based on tests; see Jumper slide's instructor notes):
+
+		L1D: 4cc\\
+		L2: 21cc\\
+		L3: 62cc\\
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+
+
+%-----------------------------------------------------
+\begin{frame}\frametitle{2017 Asus Skylake (2015), i7 Cache Example: Calculations}
+\begin{itemize}
+    \item For L1 Cache
+    \begin{itemize}
+        \item The number of bits for the index is $i=k-ls-n=15-6-3=6$. This means the L1 cache has $2^6=64$ rows.
+\item 
+The number of bits for the tag\footnote{on ARM processor, 48 bit is addressable memory is used} is $64-ls-i=64-6-6=52$.
+    \end{itemize}
+    \item L2 Cache:
+    \begin{itemize}
+        \item The number of bits for the index is $i=k-ls-n=18-6-2=10$. This cache has $2^{10}$ rows.
+        \item The number of bits for the tag is $=64-ls-i=64-6-10=48$.
+    \end{itemize}
+    \item L3 Cache:
+    \begin{itemize}
+        \item The cache size is 4 MiB, which is $2^2 \cdot 2^{20}$ bytes, so $k=22$. $ls=6$ as before, $n=4$ for $16=2^4$ ways. The number of index bits is $i=22-6-4=12$. This cache has $2^{12}$ rows. 
+        \item The number of bits for the tag is $64-ls-i=64-6-12=46 $
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+% \begin{frame}\frametitle{2017 Asus Skylake (2015), i7 Cache Example: Speed}
+% CPU-Z also can determine the cache's speeds. It cannot check L1 I-Cache\footnote{probably because the L1 instruction cache runs at clock speed.}
+
+% In this example, they were found to be:
+% \begin{itemize}
+% \item L1 D-cache: 4cc
+% \item L2: 21cc
+% \item L3: 62cc
+% \end{itemize}
+% Thus caches are slow and can cause stalls. Memory is even slower, at least 100cc.
+
+% \end{frame}
+
+
+
+\begin{frame}[fragile]
+\Title{Example: 2017 Asus Kaby Lake (2016), i7}
+Intel i7, 4 cores, ROG
+
+\Figure{!}{5in}{3in}{Figs/asusROGCache}
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+      \item Note 32KB L1 caches. $k=15$, $b+2=6$, $n=3$ so \#idx bits $= 15-6-3=6$ or 64 rows in the cache
+
+        Tag bits = $64-6-6=52$, although for ARM it is $48-6-6=36$ bits.
+
+        (the reporting on this slide is for linesize in bytes, which includes both byte and block bits, thus the $b+2=6$)
+        \item 256KB L2 cache.  $k=18$, $b+2=6$, $n=2$ so \#idx bits $=18-6-2=10$ or 1024 rows in the cache
+
+          Tag bits = $64-6-10=48$, although for ARM it is $48-6-10=32$ bits.
+
+        \item Note 6MB L3 cache.  This is 12-way, so computation is a bit
+          different.  Divide by 3 to get 2MB, 4-way.  Each way has 521Kb.
+          $k=21$ (for 2MB), $b+2=6$, $n=2$ so \#idx bits $=21-6-2=13$ or 8192 rows in the cache
+
+          Tag bits $64-6-12=46$ bits, or $48-6-12=30$ bits for ARM
+
+\item Speed (based on tests; see next slide's instructor notes):
+
+		L1D: 3cc (16kb)\\
+		L2: 12cc (256kb)\\
+		L3: 31cc (2048kb)\\
+		L4: 79cc (4096kb)\\
+
+                Not sure why it says 16kb L1D (which is 32kb),
+                but 256kb L2 is correct.
+
+                There is no L4, but note that L3+L4 sizes add up to
+                actual L4 size, so presumably there is some strange
+                L3 effect when it gets partially full, or something
+                related to the 12-way cache
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+
+%-----------------------------------------------------
+\begin{frame}\frametitle{2017 Asus Kaby Lake (2016) i7 Cache Example: Calculations}
+\begin{itemize}
+    \item For L1 Cache
+    \begin{itemize}
+        \item The number of bits for the index is $i=k-ls-n=15-6-3=6$. This means the L1 cache has $2^6=64$ rows.
+\item The number of bits for the tag\footnote{on ARM processor, 48 bit is addressable memory is used} is $64-ls-i=64-6-6=52$.
+    \end{itemize}
+    \item L2 Cache:
+    \begin{itemize}
+        \item The number of bits for the index is $i=k-ls-n=18-6-2=10$. This cache has $2^{10}$ rows.
+        \item The number of bits for the tag is $=64-ls-i=64-6-10=48$.
+    \end{itemize}
+    \item L3 Cache:
+    \begin{itemize}
+        \item The cache size is 6 MiB, which is $3 \times 2 \cdot 2^{20}$ bytes, and $ls=6$ as before, therefore, $\frac{3 \times 2 \cdot 2^{20}}{3 \times 4 \cdot 2^{6}}$. Therefore, the number of sets, or rows are $\frac{3 \times 2^{21}}{3 \times 2^{8}} = 2^{21-8} = 2^{13}$. Therefore, this cache has $2^{13} = 2^3 \times 2^{10} = 8192$ rows. 
+        \item The number of bits for the tag is $64-ls-i=64-6-13=45 $
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+
+
+
+\begin{frame}[fragile]
+\Title{Example: 2016 Jumper 2}
+Intel Atom, 4 cores
+
+\Figure{!}{5in}{3in}{Figs/AtomCacheSize}
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item This Jumper is a \$250 (tax and shipping included) computer has 4 cores, thus the x4 on instruction and data L1 caches.  x2 on L2 means one cache for each pair of cores.
+
+\item Note the ways and linesizes ("linesize" is what we call "block size")
+\item Note the small size of L1 caches.  In particular, since this is a 64 bit (8 byte) machine, and 8-way set associative, there are 128 rows in the cache.  
+\item Note lack of L3 cache (this is a cheap machine)
+		\bigskip
+\item cpuid also has a program to run that times the cache.  No idea on how
+	accurate it is, but on this Jumper 2 laptop, it said L1 Data took 3
+	clock cycles, L2 took 10, and L3(!) took 30 clock cycles (there is no
+	L3 on this machine).  It says it can't check L1 Instruction, which is
+	probably because the L1 instruction cache runs at clock speed.
+\iffalse
+\item 
+There are variations on i5, i7, so numbers may vary.  i5 and i7 appears to have
+the same size L1,L2 caches.  At least one i5 has 4MB L3 cache.  Anyway, i7 sizes appear to be
+\begin{verbatim}
+	32kB L1 instruction cache (8-way set associative)  64-byte linesize
+	32kB L1 data cache (8-way set associative), 64-byte linesize
+	256kB L2 cache (8-way set associative), 64-byte linesize
+	8MB+ L3 cache (16-way set associative), 64-byte linesize
+\end{verbatim}
+with multiple L1 caches matching the number of cores.
+\fi
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}\frametitle{2016 Jumper 2 Example: Calculations}
+\begin{itemize}
+    \item For L1 Cache
+    \begin{itemize}
+        \item The cache size is 24 KB, and $n=6$ with $ls=6$. Then, number of sets are $\frac{24 \times 2^{10}}{6 \times 2^{6}}$. Therefore, the number of sets, or rows are $4 \times 2^{10-6} = 2^{2} \times 2^4 = 2^6$. Therefore, this cache has $ 2^{6} = 64$ rows. 
+\item The number of bits for the tag\footnote{on ARM processor, 48 bit is addressable memory is used} is $64-ls-i=64-6-6=52$.
+    \end{itemize}
+    \item L2 Cache:
+    \begin{itemize}
+        \item The number of bits for the index is $i=k-ls-n=20-6-4=10$. This cache has $2^{10} = 1024$ rows.
+        \item The number of bits for the tag is $=64-ls-i=64-6-10=48$.
+    \end{itemize}
+    \item  If a cache is shared by multiple cores, then from the perspective of each core, the effective cache size is divided by the number of cores. So we want more ways in the cache.
+\item So the 16-way set associative cache is more like an 8-way 
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Calculating Average Memory Access Time}
+\begin{itemize}
+\item How long to access memory?
+\item Average Memory Access Time (AMAT)
+
+	AMAT = Time for a hit + Miss rate $\times$ Miss penalty
+ \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+  title=Think About It,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+	What is the AMAT, with a 1ns clock, miss penalty of 20cc, miss rate of 5\%, and cache access time of 1cc?
+\end{tcolorbox}
+
+Solution: $1\times 1\text{ns} + 0.05 \times 20 \times 1 \text{ns} = 2$ns.
+\begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+  title=Try this,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+What is the AMAT, with a 1ns clock, miss penalty of 100cc, miss rate of 5\%, and cache access time of 1cc?
+
+  \end{tcolorbox}
+
+
+\end{itemize}
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+	\item This example comes from page 402 of the text.
+		The answer is AMAT = 2cc, but work it out on the
+		board.
+	
+		Then redo the example with a miss penalty of 100cc,
+		showing the problems that arise when the CPU gets
+		much faster than memory.
+	\item Consider redoing both with a miss rate of 1\%, as suggested
+		for the 128KB cache from the previous slide.
+
+	\item Also compare these time to just using the miss penalty, which
+		is roughly the time of memory access with NO cache.
+	\item If you want to do an L1/L2 type of example, see pg 414 of
+		Computer Architecture, A Quantitative Approach, 3rd edition,
+		Hennessy and Patteron.
+
+	\item Better example: 100ps clock, 2ns memory, 5\% miss rate gives
+		200ps AMAT.  If this is instruction memory, this is
+		the execution speed.
+
+		Now use 1\% miss rate: AMAT = 120ps
+
+		The point is: having an extra 60KB cache (from 4KB to 64KB 
+		4-way set associative on previous slide) boosts performance 
+		by 40\%.
+
+		\medskip
+		Now use 10ps clock, 2ns memory, 5\% miss rate = 120 ps AMAT
+
+		Now use 10ps clock, 2ns memory, 1\% miss rate = 40 ps AMAT
+
+
+		Having the 5\% miss rate means making CPU 10x faster only gives 
+		40\% speedup, while with a 1\% miss rate, we get 3x speedup.
+
+	\item As a separate note, look at Section 5.10 (page 539 of the text)
+		 on "real world" memory hierarchies if you want to ground it
+		in real computers (albeit a bit dated).
+\end{itemize}
+\fi\ENotes
+\end{frame}
+\ifnum\Ans=1{
+\begin{frame}{Solution: AMAT Example}
+\begin{itemize}
+    \item With a 1ns clock, miss penalty of 100cc, miss rate of 5\%, and cache access time of 1cc?
+
+\item The AMAT in cc is
+    $1 + 0.05 \times 100 = 6$cc. 
+\item Since $1\text{cc}=1\text{ns}$, then, $6\text{cc}=6\text{ns}$
+\end{itemize}
+
+\end{frame}
+}\fi
+
+
+\begin{frame}[fragile]
+\Title{How useful are the ways?}
+\begin{itemize}
+	\item For small (8 word) caches, fully associative makes sense
+	\item For larger caches, more ``ways" means fewer cache misses,
+		but is the extra hardware worth it?
+	% \item Experiment on a 64KB cache, 16-word block:
+\end{itemize}
+\begin{multicols}{2}
+Experiment on a 64KB cache, 16-word block:
+	\begin{center}
+	\begin{tabular}{c|c}
+	Associativity & Miss Rate\\
+	\hline
+	1 & 10.3\% {\color{red} \scriptsize (A)}\\
+	2 & 8.6\% {\color{red} \scriptsize (B)}\\
+	4 & 8.3\%\\
+	8 & 8.1\%
+	\end{tabular}
+	\end{center}
+
+ {\scriptsize Assume miss penalty = 10cc
+
+ \vspace{-0.4cm}
+
+ \begin{align*}
+     \text{then } & \text{{\color{red} (A) }} 1 + 10(0.103) = 2.03 \\
+                 & \text{{\color{red} (B) }} 1 + 10(0.086) = 1.86 \\
+ \end{align*}
+
+ \vspace{-0.4cm}
+
+$\frac{2.003 - 1.86}{2.03} = 8.4\%$ improvement in AMAT
+
+
+ 
+ }
+
+
+\columnbreak
+\PHFigure{!}{3.5in}{1.50in}{PH4Figs/F05-30}{Data cache miss rates}
+    
+\end{multicols}
+
+
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item The table is Figure 5.15 of the 4th edition.
+\item If cache miss takes 10cc, then over 100 instructions (assuming no
+	stalling), the rows take 203cc, 186cc, 183cc, 181cc.  So 
+	going from 1-way to 2-way gives an 8.5\% improvement (which is
+	probably worthwhile), while 2-way to 4-way only gives a 1.7\%.
+\end{itemize}
+\begin{itemize}
+	\item Figure 5-30.  The caption says
+
+	The data cache miss rates for each of eight cache sizes improves as
+	the associativity increases.  While the benefit of going from one-way
+	to two-way set associative is significant, the benefits of further
+	associativeity are smaller (e.g., 1\%--10\% improvement going
+	from two-way to four-way versus 20\%--30\% improvement going from 
+	one-way to two-way).  There is even less improvment in going from
+	four-way to eight-way set associative, which, in turn, comes very
+	close to the miss rates of a fully associative cache.  Smaller caches
+	obtain a signficantly larger absolute benefit from associativity 
+	because the base miss rate of a small cache is larger.
+
+\item Note that if a cache is shared by multiple cores, then you want
+	more ways in the cache.  So the 16-way set associative L2 cache
+	on the Jumper 2 computer seen earlier is perhaps more like a 8-way
+	cache.  The book notes the problem of moving from a 16-core design
+	to a 32-core design and having performance problems because the
+	L2 cache was 16-way in both designs.
+\end{itemize}
+\fi\ENotes
+
+\end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Data cache miss rates}
+% \PHFigure{!}{5.5in}{2.00in}{PH4Figs/F05-30}{Data cache miss rates}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% 	\item Figure 5-30.  The caption says
+
+% 	The data cache miss rates for each of eight cache sizes improves as
+% 	the associativity increases.  While the benefit of going from one-way
+% 	to two-way set associative is significant, the benefits of further
+% 	associativeity are smaller (e.g., 1\%--10\% improvement going
+% 	from two-way to four-way versus 20\%--30\% improvement going from 
+% 	one-way to two-way).  There is even less improvment in going from
+% 	four-way to eight-way set associative, which, in turn, comes very
+% 	close to the miss rates of a fully associative cache.  Smaller caches
+% 	obtain a signficantly larger absolute benefit from associativity 
+% 	because the base miss rate of a small cache is larger.
+
+% \item Note that if a cache is shared by multiple cores, then you want
+% 	more ways in the cache.  So the 16-way set associative L2 cache
+% 	on the Jumper 2 computer seen earlier is perhaps more like a 8-way
+% 	cache.  The book notes the problem of moving from a 16-core design
+% 	to a 32-core design and having performance problems because the
+% 	L2 cache was 16-way in both designs.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \STitle{Calculating Average Memory Access Time}
+% \begin{itemize}
+% \item How long to access memory?
+% \item Average Memory Access Time (AMAT)
+
+% 	AMAT = Time for a hit + Miss rate $\times$ Miss penalty
+%  \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+%   title=Think About It,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+% 	What is the AMAT, with a 1ns clock, miss penalty of 20cc, miss rate of 5\%, and cache access time of 1cc?
+% \end{tcolorbox}
+
+% Solution: $1\times 1\text{ns} + 0.05 \times 20 \times 1 \text{ns} = 2$ns.
+% \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+% What is the AMAT, with a 1ns clock, miss penalty of 100cc, miss rate of 5\%, and cache access time of 1cc?
+
+%   \end{tcolorbox}
+
+
+% \end{itemize}
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% 	\item This example comes from page 402 of the text.
+% 		The answer is AMAT = 2cc, but work it out on the
+% 		board.
+	
+% 		Then redo the example with a miss penalty of 100cc,
+% 		showing the problems that arise when the CPU gets
+% 		much faster than memory.
+% 	\item Consider redoing both with a miss rate of 1\%, as suggested
+% 		for the 128KB cache from the previous slide.
+
+% 	\item Also compare these time to just using the miss penalty, which
+% 		is roughly the time of memory access with NO cache.
+% 	\item If you want to do an L1/L2 type of example, see pg 414 of
+% 		Computer Architecture, A Quantitative Approach, 3rd edition,
+% 		Hennessy and Patteron.
+
+% 	\item Better example: 100ps clock, 2ns memory, 5\% miss rate gives
+% 		200ps AMAT.  If this is instruction memory, this is
+% 		the execution speed.
+
+% 		Now use 1\% miss rate: AMAT = 120ps
+
+% 		The point is: having an extra 60KB cache (from 4KB to 64KB 
+% 		4-way set associative on previous slide) boosts performance 
+% 		by 40\%.
+
+% 		\medskip
+% 		Now use 10ps clock, 2ns memory, 5\% miss rate = 120 ps AMAT
+
+% 		Now use 10ps clock, 2ns memory, 1\% miss rate = 40 ps AMAT
+
+
+% 		Having the 5\% miss rate means making CPU 10x faster only gives 
+% 		40\% speedup, while with a 1\% miss rate, we get 3x speedup.
+
+% 	\item As a separate note, look at Section 5.10 (page 539 of the text)
+% 		 on "real world" memory hierarchies if you want to ground it
+% 		in real computers (albeit a bit dated).
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+% \ifnum\Ans=1{
+% \begin{frame}{Solution: AMAT Example}
+% \begin{itemize}
+%     \item With a 1ns clock, miss penalty of 100cc, miss rate of 5\%, and cache access time of 1cc?
+
+% \item The AMAT in cc is
+%     $1 + 0.05 \times 100 = 6$cc. 
+% \item Since $1\text{cc}=1\text{ns}$, then, $6\text{cc}=6\text{ns}$
+% \end{itemize}
+
+% \end{frame}
+% }\fi
+% \begin{frame}{AMAT - Practice}
+% \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+% What is the AMAT, if the processor has a clock cycle time of 100ps, a memory access time of $2ns=2000ps$ which is the miss penalty. Suppose the miss rate is 5\%:
+% \end{tcolorbox}
+
+% Solution: $$AMAT = 100ps + 0.05 \cdot 2000ps = 200ps.$$
+
+
+% \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+%   What is the AMAT, if the processor has a clock cycle time of 100ps, a memory access time of $2ns=2000ps$ which is the miss penalty. Suppose the miss rate is 1\%:
+%   \end{tcolorbox}
+% Solution: $$AMAT = 100ps + 0.01 \cdot 2000ps = 120ps.$$    
+% \end{frame}
+
+
+% \begin{frame}\frametitle{Observe: Performance Based on AMAT}
+% Suppose the processor has a clock cycle time of 10ps:
+% $$AMAT = 10ps + 0.05 \cdot 2000ps = 110ps.$$
+% Althought the CPU is 10 times faster, the performance does not even double.
+% \hfill\break
+
+% Suppose the miss rate is 1\%:
+% $$AMAT = 10ps + 0.01 \cdot 2000ps = 30ps.$$
+% A CPU that is 10 times faster gives a factor of 4 in the performance gain, not a factor of 10.
+% \hfill\break
+
+% We want small cache miss rates because memory is much slower than CPU. Small improvements in cache miss rates is a big deal.
+% \end{frame}
+
+
+% \begin{frame}\frametitle{Observe: Performance Based on AMAT: Bigger Caches Have Smaller Miss Rate}
+
+% The 4KiB cache has about a 5\% miss rate whereas the 64 KiB cache has about a 1\% miss rate. Adding 60KiB in cache gives a huge performance gain. We don't have to add a lot of cache to get big performance gains.
+
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.8\textwidth]{06-memory-hierarchies/figures/miss-assoc}}
+% \end{figure}
+
+% \end{frame}
+
+% \begin{frame}\frametitle{Take Away Idea: Utilize Memory Hierarchy}
+% \begin{itemize}
+%     \item Vital to performance: Using the memory hierarchy properly 
+%     \item Consider: two sorting algorithms:
+%     \begin{multicols}{2}
+%         \textbf{Radix Sort}: For sorting decimal numbers: linear pass through data, sorting on least significant digit (caution: do not swap ties). Repeat on second digit, then third digit etc. Worst case: $\text{O}(wn)$, where $w$ is the number of digits and $n$ is the number of items to sort.  
+
+%         \columnbreak
+
+%         \textbf{QuickSort}: select a pivot, sorts the data into two groups, those that are less than pivot and those that are greater than pivot, then recursively applies quicksort to each subgroup independently. Worst case $\text{O}(n^2)$ but generally $O(n \text{log} n)$.
+        
+%     \end{multicols}
+% \item For large enough data sets, expectation would be Radix sort is faster. 
+% \end{itemize}
+
+% \end{frame}
+
+\begin{frame}[fragile]
+\STitle{Sorting Example}
+Impact of cache on performance
+\PHFigure{\textwidth}{!}{!}{PH5Figs/F05-19}{Figure 5.19}
+% \begin{itemize}
+% 	\item Left: instructions
+% 	\item Center: run time
+% 	\item Right: cache misses
+% \end{itemize}
+{\footnotesize
+Note: although radix sort takes fewer instruction, quicksort is faster because of fewer cache misses
+
+% \begin{wrapfigure}{r}{0.5\textwidth}
+% \centering
+
+\begin{multicols}{2}
+ Radix Sort
+ \begin{itemize}
+\item For each digit, radix sort makes a linear pass through data.
+\item If data bigger than cache, no subsets of data remain in cache.
+\end{itemize}
+
+ \columnbreak
+
+Quick Sort
+	{\includegraphics[width=0.475\textwidth]{06-memory-hierarchies/figures/quicksort-cache}}
+
+
+\end{multicols}
+}
+% \end{wrapfigure}
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+    \item Review: quick sort: select a pivot, separate into two groups:
+		though less than pivot, those greater than pivot.  Recursively
+		apply to each subgroup.  $O(n^2)$, but generally $O(n\log n)$
+		(bad case is when starting with sorted data and unwise selection
+		 of pivot).
+
+		Radix sort: for sorting decimal numbers: linear pass through
+		data, sorting on least significant digit (caution: do not
+		swap ties).  Repeat on second digit, then third digit, then...  
+		$O(wn)$ where $w$ is the number of digits, and $n$ is the number
+		of things to sort.
+    \item For large enough data sets, would expect radix sort to be faster.
+	\item The point of this example is that radix sort is using fewer
+		instructions (left) but takes more execution time (middle).
+		The reason is illustrated on the bottom: radix sort has
+		a larger number of cache misses.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+
+%-----------------------------------------------------
+% \begin{frame}\frametitle{Radix and Quick Sort: Performance Analysis}
+% Radix sort executes less instructions per item as the number of items to sort increases.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.4\textwidth]{06-memory-hierarchies/figures/sort-instr-graph}}
+% \end{figure}
+% However, takes longer execution time
+% % clock cycle per item stops decreasing after a while for radix sort.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.4\textwidth]{06-memory-hierarchies/figures/sort-cc-graph}}
+% \end{figure}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Radix and Quick Sort: Performance Analysis}
+% \begin{itemize}
+%     \item Cache misses can explain this divergent behaviour of radix sort. Radix sort starts with improving cache misses but then after 64K, starts to increase in cache misses. 
+% \item The cache size is probably about 256 KiB. 
+% % The cache size is probably about $64000\times 4$ bytes which is about 256 KiB. 
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.5\textwidth]{06-memory-hierarchies/figures/sort-cache-miss-graph}}
+% \end{figure}
+% \item This example shows executing less instructions alone does not mean better performance since \textbf{cache can also affect performance}.
+% \end{itemize}
+
+% \end{frame}
+
+%-----------------------------------------------------
+% \begin{frame}\frametitle{Performance Analysis: Radix and Quick Sort}
+% \begin{multicols}{2}
+% {\footnotesize
+% Radix Sort: 
+% \begin{itemize}
+% \item For each digit, radix sort makes a linear pass through data.
+% \item If data bigger than cache, no subsets of data remain in cache.
+% \end{itemize}
+
+% \columnbreak
+%     Quick Sort:
+%     \begin{itemize}
+%         \item breaks the data into subgroups and sorts each chunk independently.
+%         \item initially data too large to fit in cache
+%         \item but at some depth, data fits in cache and remains in cache for all deeper levels 
+%         \item \textbf{Quicksort sorts the data in cache.}
+%     \end{itemize}
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.5\textwidth]{06-memory-hierarchies/figures/quicksort-cache}}
+% \end{figure}
+%  }   
+% \end{multicols}
+
+
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Sorting Example: Quicksort Quick Overview}
+% For a large amount of data to sort, initially the data does not fit in the cache. Quicksort breaks the data into two chunks and sorts each chunks independently. Eventually the data is small enough to fit in cache. \textbf{Quicksort sorts the data in cache.}
+
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.9\textwidth]{06-memory-hierarchies/figures/quicksort-cache}}
+% \end{figure}
+% \end{frame}
+%-----------------------------------------------------
+
+% \begin{frame}[fragile]
+% \STitle{Sorting Example}
+% Impact of cache on performance
+% \PHFigure{\textwidth}{!}{!}{PH5Figs/F05-19}{Figure 5.19}
+% \begin{itemize}
+% 	\item Left: instructions
+% 	\item Center: run time
+% 	\item Right: cache misses
+% \end{itemize}
+% Thus, although radix sort takes fewer instruction, quicksort is faster because of fewer cache misses
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+%     \item Review: quick sort: select a pivot, separate into two groups:
+% 		though less than pivot, those greater than pivot.  Recursively
+% 		apply to each subgroup.  $O(n^2)$, but generally $O(n\log n)$
+% 		(bad case is when starting with sorted data and unwise selection
+% 		 of pivot).
+
+% 		Radix sort: for sorting decimal numbers: linear pass through
+% 		data, sorting on least significant digit (caution: do not
+% 		swap ties).  Repeat on second digit, then third digit, then...  
+% 		$O(wn)$ where $w$ is the number of digits, and $n$ is the number
+% 		of things to sort.
+%     \item For large enough data sets, would expect radix sort to be faster.
+% 	\item The point of this example is that radix sort is using fewer
+% 		instructions (left) but takes more execution time (middle).
+% 		The reason is illustrated on the bottom: radix sort has
+% 		a larger number of cache misses.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Radix Sort}
+% \begin{itemize}
+% 	\item For each digit, linear pass through data
+% 	\item If data bigger than cache, no subsets of data remain in cache
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item ~
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Quicksort}
+% \Figure{!}{3in}{2in}{Figs/qsort}
+% \begin{itemize}
+% 	\item Initially, data too large for cache...
+% 	\item ...but at some depth, data fits in cache and remains
+% 		in cache for all deeper levels
+% \end{itemize}
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% 	\item The top level is the unsorted data, 4x cache size, so too big for
+% 		it all to fit in cache.
+% 	\item After 2 levels of recursion, the data is small enough to fit in
+% 		cache.  And for all recursive calls below this, the data
+% 		remains in cache and there should be no cache misses.
+% 	\item When the second block (next to the circled block) is processed,
+% 		the top block is all cache misses.  But once read in, all the
+% 		subblocks will again be in cache and no cache misses.
+% 	\item For each of the top levels (ie, of size cache or larger), there
+% 		will be a constant number of cache misses per item.  Doubling
+% 		the amount of data will add a constant number of cache misses
+% 		per item.  Thus, the big-O number of cache misses is $\log n$,
+% 		and the total number of cache misses is $n\log n$.  
+
+% 		So big-O, quicksort isn't so hot.  But with a cache size of
+% 		8MB, you need a lot of integer elements to sort before you
+% 		have bad effects.  Naturally, if you have structures that
+% 		you're sorting based on an integer key, the effective cache
+% 		size will be smaller (since more than the integer key will
+% 		be in cache), and the caching benefits won't be as large.
+% 	\item Looking back at the previous slide, you can guess that they
+% 		had a 256KB cache.  Radix sort runs into cache issues
+% 		earlier because it linearly sweeps through the entire data set
+% 		each time it processes a digit.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}{For the curious minds}
+%     Additional slides for discussion and observations 
+% \end{frame}
+
+
+% \begin{frame}\frametitle{2017 Asus Kaby Lake (2016) i7 Cache Example: Speed}
+% This cache example has the following speeds according to CPU-Z:
+% \begin{itemize}
+% \item L1 D: 3cc (16 KiB)
+% \item L2: 12cc (256 KiB)
+% \item L3: 31cc (2048 KiB)
+% \item L4: 79cc (4096 KiB)
+% \end{itemize}
+% It is unclear why CPU-Z used 16 KiB for L1 D instead of 32 KiB. There is no L4 Cache, but adding the sizes of the L3 and L4 shown above gives 6 MiB. So presumably there is some strange L3 effect when it gets partially full.
+% \end{frame}
+
+
+
+% \begin{frame}[fragile]
+% \STitle{Virtual Memory}
+% \begin{itemize}
+% 	\item Level of memory hierarchy between main memory and secondary
+% 		storage (disks)
+% 	\item Motivations: 
+% 	\begin{itemize}
+% 		\item Sharing memory among multiple programs
+% 		\item Allowing single user program to exceed size of main memory
+% 	\end{itemize}
+% 	\item Different terminology:
+% 	\begin{itemize}
+% 		\item Page: virtual memory block
+% 		\item Page fault: virtual memory miss
+% 	\end{itemize} 
+% 	\item Idea similar to cache:
+% 	\begin{itemize}
+% 		\item Complete program (instructions and data) stored on disk
+% 		\item Only keep parts you need in memory
+% 		\item Use large (4KB+) blocks to reduce costs
+% 	\end{itemize}
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item What are the problems in sharing memory among multiple programs?
+% Only one can be executing at any given time, but the user should be
+% given the illusion that all are executing. This can be done by sharing
+% the CPU in small timeslices. But when the execution of one program is
+% suspended to allow another program to execute, what is done with the
+% first program's data? Keep in mind that typically each program is
+% using only a small fraction of the total address space, in total, and
+% even less when you consider ``active'' use.
+% \item One radical choice is to save all of main memory on disk, but
+% this is clearly ridiculous. Another is to divide up main memory into
+% sections and confine each program to one section. But the situation is
+% dynamic: when compiling a program, we know nothing about what other
+% programs will be running with it, and we don't want to plan for the
+% worst case.
+% \item One solution is to have a virtual address space for each
+% program, and then translate the references to virtual memory into
+% references to physical memory as the references are made at run time.
+% \item For the second motivation, invoke the days of old when
+% microprocessors were lucky to have 1K of memory. 
+
+% Now with base configurations start at 4GB, there is less of a problem
+% with programs (+data) that don't fit in memory.  Maybe video editing, but
+% probably little else in the consumer market.  Of course, on a smart phone...
+
+% \item Emphasize that virtual memory is really the same idea as caches,
+% but at a different level (main memory vs disk), with different choices
+% because of the physical differences and motivations,
+% and different terminology because of historical development. 
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{How to run two programs at once?}
+% \begin{itemize}
+% \item Each program starts at address 0 and goes up to $2^{64}-4$ (64 bit)
+
+% \item How do we run two programs?
+
+% \item Time slice: each program gets to run for a while, then another program
+%     runs.
+
+% \item How do we switch between programs?
+
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% 	\item Instruction addresses go up to $2^{64}-4$; load word/store word
+% 		addresses go up to $2^{64}-8$.
+% 	\item Note: on the following slides, figures will often show
+% 		memory going from 0 to $2^{64}$.  This is to save space
+% 		on the slides; the address space really just runs to $2^{64}-8$.
+% 	\item With 32 bit computers, addresses start at 0 and go up to $2^{32}-4$
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+
+
+
+% % % \ifnum\slides=0
+% % \begin{frame}[fragile]
+% % \Title{Idea 1: Copy back/forth to disk}
+% % \begin{itemize}
+% % \item When changing programs, copy current program onto disk and \\
+% % 	read next program from disk
+
+% % \TwoFigure{!}{2in}{1.5in}{VM/vm1}{VM/vm2}
+
+% % % \TwoFigure{!}{3in}{2in}{VM/vm3}{VM/vm4}
+
+% % \item  At 70MB/s, swapping between two 100MB programs takes over 2 seconds
+% % \end{itemize}
+% % \BNotes\ifnum\Notes=1
+% % ~
+% % \fi\ENotes
+% % \end{frame}
+
+% % % \else
+
+% % \begin{frame}[fragile]
+% % \Title{Idea 1: Copy back/forth to disk}
+% % \begin{itemize}
+% % \item When changing programs, copy current program onto disk and \\
+% % 	read next program from disk
+
+% % % \TwoFigure{!}{2in}{2in}{VM/vm1}{VM/vm2}
+
+% % \TwoFigure{!}{2in}{2in}{VM/vm3}{VM/vm4}
+
+% % \item  At 70MB/s, swapping between two 100MB programs takes over 2 seconds
+% % \end{itemize}
+% % \BNotes\ifnum\Notes=1
+% % \begin{itemize}
+% % 	\item This is to illustrate what would happen with a copy scheme.
+% % 	\item Note: these four figures are shown as a sequence on the
+% % 		slides.
+% % \end{itemize}
+% % \fi\ENotes
+% % \end{frame}
+
+% % \else
+
+% \begin{frame}[fragile]
+% \Title{Idea 1: Copy back/forth to disk}
+% \begin{itemize}
+% \item When changing programs, copy current program onto disk and \\
+% 	read next program from disk
+% \\
+% \includegraphics[height=1.75in]{VM/vm1}
+% ``
+% \end{itemize}
+
+% \end{frame}
+
+
+% \begin{frame}[fragile]
+% \Title{Idea 1: Copy back/forth to disk}
+% \begin{itemize}
+% \item When changing programs, copy current program onto disk and \\
+% 	read next program from disk
+
+% \includegraphics[height=1.75in]{VM/vm2}
+
+% \end{itemize}
+
+% \end{frame}
+
+
+% \begin{frame}[fragile]
+% \Title{Idea 1: Copy back/forth to disk}
+% \begin{itemize}
+% \item When changing programs, copy current program onto disk and \\
+% 	read next program from disk
+
+% \includegraphics[height=1.75in]{VM/vm3}
+
+% %\item  At 70MB/s, swapping between two 100MB programs takes over 2 seconds
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% ~
+% \fi\ENotes
+% \end{frame}
+
+
+% \begin{frame}[fragile]
+% \Title{Idea 1: Copy back/forth to disk}
+% \begin{itemize}
+% \item When changing programs, copy current program onto disk and \\
+% 	read next program from disk
+
+% \includegraphics[height=2in]{VM/vm4}
+
+% \item  At 70MB/s, swapping between two 100MB programs takes over 2 seconds
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% ~
+% \fi\ENotes
+% \end{frame}
+% % \fi
+% % \fi % \ifnum\slides=0
+
+
+% \begin{frame}[fragile]
+% \Title{Idea 2: Keep both programs in memory}
+% \begin{itemize}
+% \item Keep both programs in memory as follows:\\
+% \begin{columns}[c] % The "c" option specifies centered vertical alignment while the "t" option is used for top vertical alignment
+% \column{.47\textwidth} % Left column and width
+
+
+% % \begin{minipage}{4in}
+% \begin{itemize}
+%     \item Assume 4GB+ memory
+%     \item Assume 2GB program size
+%     \item Program 1: 0 to $2^{31}-4$
+%     \item Program 2: $2^{31}$ to $2^{32}-4$
+% \end{itemize}
+% % \end{minipage}
+
+% \column{.41\textwidth} % Right column and width
+% \Figure{!}{2in}{1.5in}{VM/vm5}
+% \end{columns}
+
+%     \item Compiler creates Program 2's address space to start at $2^{31}$
+
+%     \item When swapping, just start second program.
+
+%     \item Problem 1: What if two programs overlap.
+
+%     \item Problem 2: What if both programs need more than 2GB?
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item The numbers to the left of Memory are physical memory addresses;
+% 	the numbers to the right are program memory addresses.
+% \item The idea is that programs are created to use a memory space that
+% 	does NOT necessarily start at 0.  By coordinating creation
+% 	of programs, we could keep multiple programs in memory at
+% 	once, and just update the PC to switch between them.
+% \item The point of Problem 1 is that the compiler has to decide where a
+% 	program stops and starts in physical memory, and if two programs
+% 	are given overlapping addresses, we'd have to swap them out.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+
+% \begin{frame}[fragile]
+% \Title{Idea 3: Keep both programs in memory}
+% \begin{itemize}
+% \item Keep both programs in memory as follows:
+% \begin{columns}[c] % The "c" option specifies centered vertical alignment while the "t" option is used for top vertical alignment
+% \column{.47\textwidth} % Left column and width
+
+% \begin{itemize}
+%     \item Assume 4GB+ memory
+%     \item Assume 2GB program size
+%     \item Program 1: 0 to $2^{31}-4$
+%     \item Program 2: stored in $2^{31}$ to $2^{32}-4$ \\
+% 	BUT program addresses from 0 to $2^{31}-4$
+% \end{itemize}
+
+
+% \column{.41\textwidth} % Right column and width
+% \Figure{!}{2in}{1.5in}{VM/vm6}
+% \end{columns}
+
+%     \item When swapping, just start second program.
+
+%     \item Problem 1: Program 2's addresses need to be converted to physical addresses
+
+%     \item Problem 2: What if both programs need more than 2GB?
+
+%     \item Problem 3: Slow to load large programs
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item The numbers to the left of Memory are physical memory addresses;
+% 	the numbers to the right are program memory addresses.
+% \item Problem 3 may not be too bad in general, since most programs
+% 	are small.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+
+% \begin{frame}[fragile]
+% \Title{Idea 4: Virtual Memory}
+% \begin{itemize}
+%     \item Like idea 3, but split memory into pages (eg, 4KB pieces).  
+%     \item Each page of program can be in any page of physical memory.
+
+% \begin{center}
+% \Figure{!}{2.5in}{1.5in}{VM/vm7}
+% \end{center}
+
+%     \item Use page table to map program address to physical address.
+%     \item If program wants more space, give it a new page.
+
+% 	If no pages available, replace ``lightly used" page
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+%     \item The number on the right of the MEMORY is the start address of that block that the program sees (the virtual address).  Note the arbitrary order, and note for the blue program, blocks start at 0, 4K, and 24K (ie, a lot are missing).
+% 	\item The key idea is that you don't need all of any one program
+% 		in memory to execute it; you just need the parts that
+% 		contain the instructions/data currently being used.
+% 	\item Note that the entire program (instructions, data) are on
+% 		disk; only parts of them are in memory.
+% 	\item Note that any subset of the pages of a program can be anywhere
+% 		in memory (and thus the scrambled program addresses).
+
+% 		The program addresses are {\it virtual memory addresses.}
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Virtual Memory Mappings}
+% \bigskip
+% \PHFigure{!}{2in}{1.2in}{PHALL/F0720}{Figure 5.25}
+
+% \PHFigure{!}{2in}{1.2in}{PHALL/F0721-64}{Figure 5.26}
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item Note: this figure differs from 5.26 of the text, which only has 48-bits
+%   in the virtual address.  That's because ARMv8 doesn't use the upper 16-bits
+%   of the address space.
+% \item Note that the address translation, which is also called memory
+%   mapping, allows us to map the virtual address space of a program
+%   anywhere in physical memory. 
+% \item Thus two different programs can be
+%   compiled to use overlapping parts of virtual memory (or even exactly
+%   the same part) because their physical memory counterparts can be
+%   arranged so that they don't overlap. Furthermore, doing the mapping in
+%   small chunks means that memory can be managed effectively. 
+
+% \item Note that figure erroneously has two virtual pages pointing to
+% 	same physical page.  Point this out and state that this is
+% 	incorrect: a physical can be pointed to by at most one virtual
+% 	page.  The exception would be for a page shared by two programs,
+%         but then each program would have its own page table.
+
+% \item Instructor should draw a second page table (program) and show it
+% 	linking one page to the only empty page in physical addresses.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Key Decisions for Virtual Memory}
+% \begin{itemize}
+% \item Misses very expensive (millions of cycles)
+% \item Pages are larger (1KB to 4KB up to 64KB)
+% \item Fully-associative schemes pay off, though full search too expensive
+% \item Page faults handled in software (OS)
+% \item Write-back used (write-through too expensive)
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item The 1KB is (according to the book) for embedded devices.  We will
+%   use 4KB pages because it makes the hex address translation easy.
+
+%   ARMv8 apparently supports 4KB, 16KB, or 64 KB pages.
+%   \item
+% The decisions are motivated by the high miss penalty. A page size of
+% 4KB (1K words) was standard for many years but the page sizes are now
+% increasing. Typically magnetic memory allow consecutive words after
+% the first to be fetched at a small incremental cost compared to the
+% cost of the first access, so having a larger page makes sense. Increasing
+% associativity lowers the page fault rate which is the overwhelming
+% concern, so pages can be placed anywhere in physical memory. It is
+% more expensive to process page faults in software rather than in
+% hardware, but this overhead is dwarfed by the cost of a page
+% replacement, so clever schemes that take a little more time pay
+% off. The operating system takes care of this with hardware assistance.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Page Replacement Schemes}
+% When a page needs replacement, we must decide which to replace.
+% \begin{itemize}
+% 	\item LRU (Least Recently Used)
+% 	\item LFU (Least Frequently Used)
+% 	\item FIFO (First In, First Out)
+% 	\item Random
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item An ideal page would be one that is never used again, but can't
+% 	compute that.
+% \item A reasonable approximation to "never used" is used "furthest into
+% 	the future".  Again, we can't compute that.
+% \item LRU is a guess as to which page we won't need or won't need until
+% 	furthest into the future.  Requires time stamping your pages
+% 	and sorting time stamps.
+% \item LFU is also a guess as to which one page we won't need or won't
+% 	need until furthest into the future.  The idea is that we
+% 	have a counter as well as a time stamp (for when page was
+% 	created) and we can check how frequently a page gets used.
+% \item FIFO just queues up the pages in to order in which they were
+% 	allocated (not used) and replaces the oldest page.  Probably
+% 	not the best way, but it's easy to implement.  Of course, if
+% 	you're going to queue pages, and you can access into the
+% 	queue when you access a page, you could move pages to end of
+% 	the queue to get LRU, but then page access becomes too expensive.
+% \item If you have LOTS of pages, then just randomly pick a page to replace.
+% 	The advantage is that the method is cheap and requires no book
+% 	keeping.  And while it's possible you will toss the very next
+% 	page needed, it's very unlikely (if you have lots of pages).
+% \item Note that caches have to make a similar decision.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Page Tables}
+% \PHFigure{!}{4in}{3in}{PHALL/F0722-64}{Figure 5.27}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item
+% This is figure 5.22 from the text, modified to be 64-bit, showing the page table for a
+% virtual address space of $2^{64}$ bytes, and physical
+% address space of 8GB. The page size is $2^{12}$ bytes or
+% 4 Kb. 
+% \item
+% Note the size of the page table is $2^{42}$ entries, much too big for 
+% physical memory in 2016!  There
+% is a detailed discussion on page 450 of what to do about this, but we
+% sketch some ideas on the next slide.
+% \item
+% Note the page table register, a hardware register containing the
+% address of the page table. The lookup algorithm can be implemented
+% either in hardware or software.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Page Table Example}
+% 4KB pages 
+% \Figure{!}{2.3in}{1.9in}{Figs/pt}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item This is an example of converting a virtual address to a physical address.
+
+% 	First, note that this is only a small part of the page table.
+
+% 	Second, the '...' means we need another 32 0's to complete the 64-bit
+% 	address.
+
+% 	Third, do the mapping in the three cases.  Use the first 5 blocks
+% 	as an index into the page table to get the physical address.  Note
+% 	that in the 3rd case, the valid bit is 0, so this page isn't in memory
+% 	and you can't do the mapping.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{More on Page Tables}
+% \begin{itemize}
+% \item Page replacement policies:
+% \begin{itemize}
+% \item Optimal: replace page used farthest into the future
+% \item Good approximation: LRU (Least Recently Used)
+% \item Too expensive to implement exactly, use approximation (eg
+% reference bits)
+% \end{itemize}
+% \item Page tables are large (contain mappings for every virtual page)
+% \begin{itemize}
+% \item Multi-level page tables reduce space needed 
+% \item Page tables can themselves be paged
+% \end{itemize}
+% \item VM must use writeback (called copyback here)
+% \begin{itemize}
+% \item Dirty bit
+% \end{itemize}
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item
+% Reference bits mark pages that have been used recently; periodically
+% the OS goes through and clears them all. When a page fault occurs, any
+% page with the reference bit cleared is game for replacement.
+% \item 
+% The size of page tables can be reduced by making them multi-level,
+% where the highest level entries have an indication as to whether or
+% not there are any lower-level entries (like an incomplete tree). The
+% entries in multi-level page tables can themselves be pages that can be
+% kicked out of memory, provided care is taken to not create situations
+% where a long series of page faults occurs. 
+% \item
+% Copy-back refers to the writeback scheme applied to
+% pages. Write-through makes no sense with VM because every write to a
+% single word in memory would result in the entire page being copied
+% back to disk. A page can be augmented with a
+% dirty bit that is set when it is written to while in memory. If a page
+% is only read, it doesn't have to be written back to disk when ejected
+% from memory.
+
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% % \ifnum\slides=1
+% \begin{frame}[fragile]
+% \Title{Data Initially On Disk}
+% \centerline{\includegraphics[height=3in]{Figs/swap1}}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item In this example, we have a picture stored on disk
+% \item Note the disk is partitioned into a swap space and other space
+% \item Note page table in memory
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Program Reads File Into Memory}
+% \centerline{\includegraphics[height=3in]{Figs/swap2}}
+% Also copied into swap space
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item When a program reads the image, the image is copied into memory,\\
+%   to OS copies it into swap space,\\
+%   and an entry made in the page table.
+% \item Note the dirty bit in the page table is 0
+% \item Note that the green copy is explicitly caused by the program, \\
+% 			while the blue copy is done by the OS, invisible to
+% 			the program.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Picture Is Modified In Memory}
+% \centerline{\includegraphics[height=3in]{Figs/swap3}}
+% Dirty bit set to 1, swap copy differs from memory copy
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item If the image is edited, the copy in memory changes, but the copies on disk are unchanged.
+% \item The dirty bit is set in the page table to reflect that the memory copy differs from the swap space copy.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{If Picture Page In Memory Is Swapped Out...}
+% \centerline{\includegraphics[height=3in]{Figs/swap4}}
+% Since dirty bit is 1, have to copy to reuse page in memory
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item This copy out of memory is invisible to the program
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+
+% \begin{frame}[fragile]
+% \Title{Picture only in swap, not in memory}
+% \centerline{\includegraphics[height=3in]{Figs/swap5}}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item Note copy in swap differs from copy on disk
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+
+% \begin{frame}[fragile]
+% \Title{Picture Read Into Memory When Needed}
+% \centerline{\includegraphics[height=3in]{Figs/swap6}}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item This copy into memory is invisible to the program
+% \item Note that location in physicl memory will probably be different than where it was before, despite having same virtual address 
+% \item Also note that copy in swap/memory differs from other copy on disk; the program has to explicitly save the picture to update the other copy on disk.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+% % \else
+% % \begin{tabular}{cc}
+% % Picture initially on disk&When read, copied to memory,swap\\
+% % \includegraphics[height=2.5in]{Figs/swap1.pdf}&
+% % \includegraphics[height=2.5in]{Figs/swap2}\\
+% % Set dirty bit if picture modifed & Copy to swap if pic page swapped out\\
+% % \includegraphics[height=2.5in]{Figs/swap3}&
+% % \includegraphics[height=2.5in]{Figs/swap4}\\
+% % Picture only in swap&Copy back to memory when used again\\
+% % \includegraphics[height=2.5in]{Figs/swap5}&
+% % \includegraphics[height=2.5in]{Figs/swap6}
+% % \end{tabular}
+% % \fi
+
+% \begin{frame}[fragile]
+% \Title{A Problem With Virtual Memory}
+% \begin{itemize}
+% 	\item Convert virtual address to physical address: 
+
+% 		look up virtual address in Page Table
+% 	\item Page Table stored in memory
+% 	\item To do \texttt{LDUR A}, we have to
+% 	\begin{itemize}
+% 		\item Look up virtual address \texttt{A} in Page Table to get
+% 			physical address \texttt{A'}
+% 		\item Read \texttt{A'} from physical memory
+% 	\end{itemize}
+
+% 	With virtual memory, \texttt{LDUR} requires {\bf two} memory accesses
+
+% 	(Four memory accessed if \texttt{LDUR} instruction not in cache)
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item The example assumes \texttt{LDUR} is in cache, otherwise \texttt{LDUR} would
+% 	take 4 memory looks ups!
+% \item This is all lead-in to the TLB material on the next slides
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+
+% \begin{frame}[fragile]
+% \STitle{Translation Lookaside Buffers}
+% \PHFigure{!}{3.5in}{2.5in}{PH4Figs/F05-23}{Figure 5.30}
+
+% A cache for page table entries
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item Note:  This is figure 5.29 in the 5th edition.
+
+% \item A TLB is basically a cache of recent mappings from virtual pages
+% to physical pages. Typically, it is fairly small (at most 4K
+% entries) and contains only entries for pages in memory. The TLB must
+% be flushed when a page is ejected from memory. 
+
+% \item Go through examples:
+% \begin{itemize}
+% 	\item Page is in TLB (and PT) with Valid bit 1, use Physical Address from TLB
+% 	\item Page is not in TLB but valid bit 1 in PT : use
+% 		Physical address from PT, and put page in TLB (in the
+% 		slide shown, one TLB entry has a 0 valid bit, so it can go 
+% 		there).
+% 	\item Page not in TLB and valid bit 0 in PT: fetch page from disk,
+% 		find available page in memory, update PT and TLB.  If there
+% 		are no free pages (as suggested in this figure), then use
+% 		Ref bit to find a page to replace (ie, any page with ref
+% 		bit=0 is fair game).
+
+% 		If page chosen to removed from memory has ref=0 and dirty=1 
+% 		(which can happen), then would need to write page back to disk 
+% 		before replacing it.
+% \end{itemize}
+
+% \item Integrating virtual
+% memory, TLBs, and the caches already discussed can be fairly tricky,
+% as now there are three possible levels of misses. Think of a memory
+% reference: it can miss at the cache level first, then at the TLB
+% level, and then at the page level. There are three other possibilities
+% for misses (miss-miss-hit, miss-hit-X, and hit-miss-hit). This is
+% discussed in more detail on page 440--444 of the text.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]{Virtual Memory: Two Memory Accesses}
+% \Figure{!}{4in}{2in}{VM/VM10}
+
+% Reading memory from a virtual address requires two memory accesses
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item This figure shows fetching an instruction or data: the virtual address
+% 	has to be converted to physical address via the page table (which is
+% 	in RAM).  The physical address is used to fetch the data from
+% 	RAM.
+
+% 	The green area is the page offset and is just copied from the virtual
+% 	address to the physical address.
+% \item Memory is shown in red to indicate that it is slow and to be avoided.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]{Virtual Memory: TLB and Cache}
+% \Figure{!}{4in}{2in}{VM/VM11}
+
+% Reading from the TLB and cache avoids reading from memory
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item This figure shows how the TLB and cache bypass the memory accesses.
+% 	If an entry is not in the TLB/cache, we have to used the dashed
+% 	lines to fetch the data, requiring memory access.
+
+% \item The Page Table is in the RAM (ie, they shouldn't be separate), but
+% 	separating them simplifies the idea.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]{Virtual Memory: The CPU}
+% \Figure{!}{5in}{3in}{VM/VM12}
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item This figure is a reorganized version of the previous figure, with the
+% 	ALU added as well as a box indicating the CPU.  Everything within
+% 	the CPU is fast; going outside the CPU (to memory) is slow.
+
+% 	We have also shown the Page Table as being part of the common RAM.
+% \item Also note the arc from the Page Table to both the TLB and Physical Address, and the arc from RAM to both the Register File and to Cache.  It's an implementation detail as to when going to the page table if page info goes from RAM directly to the Physical Address or if it has to go through the TLB.  Likewise, it's an implementation detail as to whether data not in Cache that we get from RAM has to go through Cache to get to the Register File or if it is sent directly to the Register file.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Example (X1=0x1000, X2=0x2000, X6=0x6000, X8=0x8000)}
+% \ifnum\slides=1
+% \else
+% \newpage
+% \fi
+% \scriptsize
+% \begin{verbatim}
+% Free pages: 0 1 2 3 4 5 6 7
+% PT:                        TLB: (4 lines)
+% Index: V D R  PG           V D R    TAG   PG
+% 00000:                   0 
+% 00001:                     
+% 00002:                   1 
+% 00003:                     
+% 00004:                   2 
+% 00005:                     
+% 00006:                   3 
+% 00007:                     
+% 00008:                     
+%  ...     ...
+%  Code (0):
+%     0x00000100: ADD  X11,X2,X3
+%     0x00000104: LDUR X10,[X6,0x000]
+%     0x00000108: LDUR X10,[X6,0x008]
+%     0x0000010c: STUR X10,[X8,0x000]
+%     0x00000110: LDUR X10,[X2,0x000]
+%     0x00000114: LDUR X10,[X1,0x000]
+%     0x00000118: LDUR X10,[X6,0x008]
+% \end{verbatim}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% %\item Run the program in /u/smann/251-PT-TLB/tlb-pt and you will get a screen similar to the above
+% \item This is for 4K page tables, addresses (and TAGs) are in hex, so the
+% 	last three digits of the address are a page offset, while the first 5
+% 	digits are the page index.
+% \item The assumed values for registers are needed since the constant field
+% 	of LD/ST is 9-bit and of ADDI is 12-bits.
+% \item Addresses are 32-bit; should be 48- or 64-bit, but left as 32 for space
+% 	reasons.
+% \item Point out the Free Pages (at the top), the Page Table (PT), the 4 line TLB, and the code.  When running the program, the code scrolls.
+% \item For each memory access, first check the TLB.  If not there, check the page table.  If not in PT, fetch from memory and update page table and TLB.  (If in PT but not TLB, update the TLB).  
+% \item Note the setting of reference bits, valid bits, and (for ST), the dirty bit.
+% \item The reference bits are cleared every four instructions executed.  This seems to be frequently enough on this example that you never get the case of all the TLB reference bits being 1 and needing a new entry in the TLB.
+% %\item If you run past the end of the code, it starts over from the beginning.  
+% \end{itemize}
+% \fi\ENotes
+
+% \end{frame}
+
+
+% \begin{frame}[fragile]
+% \Title{VM and Multitasking}
+% \begin{itemize}
+% \item Need two modes: user process or operating system process
+% \item OS processes are privileged (can do more)
+% \begin{itemize}
+% \item Write page table register
+% \item Modify page tables or TLB
+% \end{itemize}
+% \item Need method of switching modes
+% \begin{itemize}
+% \item User process to OS: System call or exception
+% \item OS to user process: return-from-exception
+% \end{itemize}
+% \item To swap processes, OS rewrites page table register and flushes TLB
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item The two modes describe the running process, and must be part of
+% the hardware design. An OS process has more privileges; certain
+% instructions are forbidden to user processes.
+% \item Page tables are kept in the OS's
+% address space, and the OS ensures that any two processes have disjoint
+% physical memory pages (or allows some limited sharing, if supported
+% and requested). 
+% \item Moving from user mode to OS mode is typically done by a system
+% 	call (special instruction) or happens in the case of certain
+% 	exceptions; in any case, the PC and associated status
+% 	information are saved and control is transferred to the OS; moving
+% 	back is done by a return-from-exception, which reverses this process.
+% 	Draw this on the board.
+
+% \bigskip
+% \item See also Section~5.13, and pg 483 in particular, for a real world
+% 	putting it together.
+% \end{itemize}
+% ~%notes text
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Memory Hierarchy}
+
+% %\PHFigure{!}{3in}{4in}{PHALL/F0703}{Figure 5.3}
+% \Figure{!}{2.2in}{1.8in}{Figs/memhierarchy}
+
+% Things at lower levels in hierarchy also in all higher levels:
+% \begin{itemize}
+% 		\item Data: L1 Cache, L2 Cache, L3 Cache, Memory, Disk
+% 		\item Address: TLB, Page Table, Disk
+% \end{itemize}
+% When executing an instruction, two hierarchies active
+% \begin{itemize}
+% 		\item convert virtual address to physical address
+% 		\item load instruction from memory
+% \end{itemize}
+% (load word does this twice)
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% 		\item We will use a simplified hierarchy; ie, it might be possible
+% 			to have something in the TLB but not page table (since they
+% 			have different replacement schemes), but we won't consider
+% 			those cases.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \begin{itemize}
+
+% \item Example (4K pages):
+
+% \texttt{LDUR X1,[X2,\#20]}--where 20+X2=0x2000
+
+% \begin{itemize}
+% \item Need to convert virtual page 2 to physical page
+
+% TLB? Page Table?
+
+% \item Need to load data at M[0x2000] into X1
+
+% Cache?  RAM?
+% \end{itemize}
+% \item Not all combinations possible
+% \begin{center}
+
+% \footnotesize
+
+% \hspace*{-0.5in}
+% \begin{tabular}{ccccc|ccc}
+% TLB & PT &RAM* & Cache & Disk & Possible? & \# Disk Reads & \# Mem Access\\
+% \hline
+% HIT & HIT & HIT & HIT & HIT & Possible & 0 & 0 \\
+% Miss & Miss & Miss & Miss & HIT & &\\
+% HIT & Miss & Miss & Miss & HIT & &\\
+% 	\hline
+% Miss & Miss & HIT & HIT & HIT & &\\
+% Miss & HIT & Miss & Miss & HIT & & \\
+% Miss & HIT & HIT & Miss & HIT & &\\
+% 	\hline
+% Miss & HIT & HIT & HIT & HIT & &\\
+% \end{tabular}
+% \end{center}
+% \end{itemize}
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% 	\item Just considering fetch of the data used by the LDUR instruction
+% 		and not the line of code for the LDUR instruction itself
+% 	\item Page Table is stored in RAM; in this table, the RAM* column
+% 		refers to non-Page-table data in RAM.
+%     \item A (possibly out-of-date) copy of everything should be on disk
+% 	\item Answers are
+% 	\begin{itemize}
+% 	\item Row 2: Possible, 1 disk read, 2 memory writes, and 3 memory reads.
+
+% 		 After you get a miss
+% 		in the TLB, you read the PT (first memory read),
+% 		which is a miss.  You then read the page from disk and
+% 		write it to memory (4KB memory writes), 
+% 		and write a new entry to the page table.
+% 		You then read this entry from the page table (2nd memory
+% 		read) and update the TLB.  You then read the data from memory
+% 		(3rd memory read).  Maybe--hardware might avoid the 2nd PT read 
+% 		and the last mem read
+% 	\item Row 3: Impossible (if in TLB, must be in PT)
+% 	\item Row 4: Not possible (if data in memory, page table entry must be valid)
+%     \item Row 5: Not possible (if valid page table entry, then data in memory)
+
+% 	\item Row 6: Possible, no disk reads, 2 memory reads
+% 	\item Row 7: Possible, no disk reads, 1 memory read
+% 	\end{itemize}
+% \item Note that PT and RAM* should be the same (ie, either both HIT or both MISS)
+
+% 		Disk should always be HIT
+
+% \item Also, in all Possible cases, the TLB/PT/RAM*/Cache will be updated to be all HIT for 0x2000
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+%   \STitle{Virtual Memory: Summary}
+%   {\bf Problem:}
+%   \begin{itemize}
+%   \item Program address space is larger than physical memory
+
+%     $2^{64}$ vs $2^{34}$
+
+%     Program (compiler) layout in memory uses high memory addresses
+%     \item Multiple programs share memory
+%   \end{itemize}
+%   {\bf Solution:}
+%   \begin{itemize}
+%   \item Map program address (virual address) to RAM address (physical address)
+%   \item Map blocks (pages) [4KB $\Rightarrow$ 12-bit sub-address]
+%   \item PAGE TABLE CONTAINS THIS MAPPING
+%   \item Store copy of what's in RAM on disk (swap space)
+%   \item Use reference bits (occassionally cleared) to approximate LRU
+%   \end{itemize}
+
+%   \BNotes\ifnum\Notes=1
+%   \begin{itemize}
+%   \item The $2^{34}$ physical address space is an example; the exact amount
+%     will vary based on the device; likewise the $2^{64}$ is conceptual; ARM
+%     only has $2^{48}$ virtual address space
+%   \item The compiler comment is there to indicate that we have to deal with
+%     memory addresses that are larger than the largest physical memory address
+%   \item The 4KB page size isn't definite; other page sizes are possible
+%     \end{itemize}
+%   \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Virtual Memory: Making it faster}
+% \begin{itemize}
+% \item Problem with virtual memory: doubles memory accesses
+
+%   Page table stored in RAM
+% \item Solution: TLB--a cache for the page table
+% \end{itemize}
+% \Figure{!}{3in}{2in}{Figs/VMflowchart}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item The chart shows the process of a memory look up.
+
+%   Start at the diamond at the top.  End with getting data out of cache (bold oval)
+% \item Go through the chart at least twice, once where nothing is in TLB, PT, or CACHE, and once where it is in TLB and CACHE (and implicitly in PT).  The former touches on every item in the chart; the latter (the ideal case) just hits the upper left edge of the chart and is done in a single clock cycle.
+% \item Chart suggests that PT is direct map (which it mostly is, but may be
+%   multi-level) and that TLB is fully associative; a real TLB might not be
+%   fully associative, but we will treat it as such in this course.
+%   \item Details of bumping, etc., omitted
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+
+% \begin{frame}[fragile]
+% \STitle{Conclusion}
+%  \underline{\textbf{Lecture Summary}}
+%  \begin{itemize}
+% \item Create illusion of unlimited fast memory
+% \item Problem: faster memories are more expensive, and larger memories
+% can be slower
+% \item Solution: move items to smaller, faster memory automatically
+% when they are needed
+% \item Rationale: locality of reference
+% \begin{itemize}
+% \item Temporal: Once accessed, likely to be accessed again soon
+% \item Spatial: Items ``nearby'' also likely to be accessed
+% \end{itemize}
+% \end{itemize}
+
+%  \underline{\textbf{Assigned Readings}}
+% \begin{itemize}
+%      \item \textbf{Read} Section 5.1, 5.3 and 5.4
+%      \end{itemize}
+%     \underline{\textbf{Next Steps}}
+%     \begin{itemize}
+%      \item \textbf{Review} Pipelined datapath and forwarding unit. 
+% \begin{itemize}
+%     \item Start the exercises in A5
+% \end{itemize}
+% \item Next week, we will introduce cache to speedup the pipelined datapath even further
+% \item \textbf{Attempt} questions in this week's tutorial. 
+%     \item \textbf{Ask} questions in office hours or the next tutorial.
+%  \end{itemize}
+
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \STitle{Calculating Average Memory Access Time}
+% \begin{itemize}
+% \item How long to access memory?
+% \item Average Memory Access Time (AMAT)
+
+% 	AMAT = Time for a hit + Miss rate $\times$ Miss penalty
+%  \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+%   title=Think About It,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+% 	What is the AMAT, with a 1ns clock, miss penalty of 20cc, miss rate of 5\%, and cache access time of 1cc?
+% \end{tcolorbox}
+
+% Solution: $1\times 1\text{ns} + 0.05 \times 20 \times 1 \text{ns} = 2$ns.
+% \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+% What is the AMAT, with a 1ns clock, miss penalty of 100cc, miss rate of 5\%, and cache access time of 1cc?
+
+%   \end{tcolorbox}
+
+
+% \end{itemize}
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% 	\item This example comes from page 402 of the text.
+% 		The answer is AMAT = 2cc, but work it out on the
+% 		board.
+	
+% 		Then redo the example with a miss penalty of 100cc,
+% 		showing the problems that arise when the CPU gets
+% 		much faster than memory.
+% 	\item Consider redoing both with a miss rate of 1\%, as suggested
+% 		for the 128KB cache from the previous slide.
+
+% 	\item Also compare these time to just using the miss penalty, which
+% 		is roughly the time of memory access with NO cache.
+% 	\item If you want to do an L1/L2 type of example, see pg 414 of
+% 		Computer Architecture, A Quantitative Approach, 3rd edition,
+% 		Hennessy and Patteron.
+
+% 	\item Better example: 100ps clock, 2ns memory, 5\% miss rate gives
+% 		200ps AMAT.  If this is instruction memory, this is
+% 		the execution speed.
+
+% 		Now use 1\% miss rate: AMAT = 120ps
+
+% 		The point is: having an extra 60KB cache (from 4KB to 64KB 
+% 		4-way set associative on previous slide) boosts performance 
+% 		by 40\%.
+
+% 		\medskip
+% 		Now use 10ps clock, 2ns memory, 5\% miss rate = 120 ps AMAT
+
+% 		Now use 10ps clock, 2ns memory, 1\% miss rate = 40 ps AMAT
+
+
+% 		Having the 5\% miss rate means making CPU 10x faster only gives 
+% 		40\% speedup, while with a 1\% miss rate, we get 3x speedup.
+
+% 	\item As a separate note, look at Section 5.10 (page 539 of the text)
+% 		 on "real world" memory hierarchies if you want to ground it
+% 		in real computers (albeit a bit dated).
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+% \ifnum\Ans=1{
+% \begin{frame}{Solution: AMAT Example}
+% \begin{itemize}
+%     \item With a 1ns clock, miss penalty of 100cc, miss rate of 5\%, and cache access time of 1cc?
+
+% \item The AMAT in cc is
+%     $1 + 0.05 \times 100 = 6$cc. 
+% \item Since $1\text{cc}=1\text{ns}$, then, $6\text{cc}=6\text{ns}$
+% \end{itemize}
+
+% \end{frame}
+% }\fi
+
+\begin{frame}[fragile]
+\STitle{Conclusion}
+ \underline{\textbf{Lecture Summary}}
+ \begin{itemize}
+\item Set associative cache
+\item Fully associative cache
+\item AMAT and performance impact
+% \item Performance 
+% \item Introduction to Virtual Memory
+\end{itemize}
+
+ \underline{\textbf{Assigned Textbook Readings}}
+\begin{itemize}
+     % \item \textbf{Read} Section 5.5, 5.6 and 5.8
+   \item \textbf{Read} Section 5.3, 5.4
+     \end{itemize}
+    \underline{\textbf{Next Steps}}
+    \begin{itemize}
+     \item \textbf{Review} Cache access strategies 
+\begin{itemize}
+    \item Start the exercises in A6
+\end{itemize}
+\item Next class, we will introduce discuss mixing blocks and ways.
+\item \textbf{Attempt} questions in this week's tutorial. 
+    \item \textbf{Ask} questions in office hours or the next tutorial.
+ \end{itemize}
+
+\end{frame}

@@ -1,0 +1,29 @@
+**Standard 1: Consider only the technical requirements listed in the document. Is every requirement clearly appropriate for the problem defined in the report?**
+
+**Answer:** Yes.
+
+**Evidence from the report:**
+
+1. **Temperature Measurement and Warning:**
+   - Requirement: "Measures body temperature in the range of 35.6 to 40.6 degrees Celsius and warns user of high body temperature [10]"
+   - Appropriateness: This requirement is directly related to the problem of heat stress, as high body temperature is a symptom of heat stroke.
+
+2. **Heart Rate Measurement and Warning:**
+   - Requirement: "Measures heart rate in the range of 60 to 200 beats per minute and warns user of over-exertion [11]"
+   - Appropriateness: Over-exertion is a common cause of heat stress, so measuring and warning about high heart rates is appropriate.
+
+3. **UV Index Measurement and Warning:**
+   - Requirement: "Measures ultraviolet index ranging from 1 to 11, the full range of the scale, providing warnings for potential sunburn [12]"
+   - Appropriateness: Prolonged exposure to UV radiation can cause sunburn, which is a common ailment for those exposed to excess UV radiation, as mentioned in the report.
+
+4. **Warning System:**
+   - Requirement: "Displays light warnings between 150 and 200 millicandelas (luminous intensity of hobby LEDs) and sound warnings of at least 70 decibels (like an alarm clock) are produced [13][14]"
+   - Appropriateness: A warning system is necessary to alert the user to the dangers of heat stress, over-exertion, and sunburn.
+
+5. **Power and Energy Limits:**
+   - Requirement: "No more than 30W of power (in any form) may be consumed, transferred, discharged or expended at any point in time" and "The project must not store more than 500mJ of energy (in any form) at any point in time"
+   - Appropriateness: These requirements ensure the safety of the user, which is a key concern in any device designed to monitor health conditions.
+
+6. **Electrical Insulation:**
+   - Requirement: "Electrical insulation will be applied"
+   - Appropriateness: This requirement is also about user safety

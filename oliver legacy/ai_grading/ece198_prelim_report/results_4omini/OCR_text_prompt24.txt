@@ -1,0 +1,3 @@
+<answer>yes</answer>
+
+The report includes three mathematical principles clearly stated: the calculation of standard deviation, the use of systems of linear equations, and the application of inequality functions. Each principle is associated with a clear description of its significance in the context of the project. For example, the calculation of standard deviation is explained as indicating data dispersion around the mean and is directly related to monitoring heart rate deviations to issue warnings. Additionally, citations are provided to support the claims related to these mathematical principles, enhancing the credibility of the information presented.

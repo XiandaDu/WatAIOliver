@@ -1,0 +1,16 @@
+1. Are special interest groups relevant to the client's problem clearly listed as stakeholders?
+   - Yes.
+
+2. Are all stakeholders clearly described, along with why they are interested in the outcomes of this project?
+   - Yes. The report states: "Stakeholders:
+     a. Construction workers and supervisors: vulnerable to heat stress
+     b. Contractors: concern for the health and safety of workers
+     c. Occupational health and safety regulators: enforcing heat stress safety standards
+     d. Equipment manufacturers: ensuring compatibility with safety protocols and regulations."
+
+3. The assignment distinguishes between "technical requirements" and "functional requirements". Are both types of requirements present in the document?
+   - Yes. The report includes evidence for both:
+     - Functional Requirements:
+       "Functional requirements include but are not limited to the ability to detect heat stress symptoms early, real-time monitoring and alerting systems, and compatibility with wearable technology."
+     - Technical Requirements:
+       "Technical requirements specify the system must integrate with existing safety equipment, utilize reliable sensors for temperature and humidity, and be durable enough to sustain construction site conditions."

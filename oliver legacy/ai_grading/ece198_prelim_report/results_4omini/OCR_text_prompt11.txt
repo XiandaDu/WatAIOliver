@@ -1,0 +1,8 @@
+<answer>yes</answer>
+
+The report distinguishes between "technical requirements" and "functional requirements." 
+- The **functional requirements** are specifically outlined in the section labeled "Functional requirements," which includes items such as: "Measures body temperature in the range of 35.6 to 40.6 degrees Celsius and warns user of high body temperature" and "Measures heart rate in the range of 60 to 200 beats per minute and warns user of over-exertion."
+  
+- The **technical requirements** are found in the section titled "Technical requirements," with points like: "When the temperature sensor reads a body temperature greater than 37.2°C, the microcontroller turns on the sound and a red light warning" and "Updates and provides warnings within 150 milliseconds of a change in stimulus."
+
+Both types of requirements are clearly present in the document.

@@ -1,0 +1,782 @@
+\setlength{\columnseprule}{1pt}
+\def\columnseprulecolor{\color{blue}}
+
+\begin{frame}[fragile]\frametitle{Example: Execution Time}
+
+\begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+  title=Try this,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]  
+  What is the execution time of the code segment below on a pipelined datapath that is \textbf{already running}. 
+\begin{verbatim}
+ADDI X4, X31, #6   
+LDUR X1, [X2,#20]  
+ADDI X1, X1, #4   
+STUR X1, [X2,#20]  
+ADDI X2, X2, #8    
+SUBI X4, X4, #1    
+CBNZ X4, #-5      
+ADD X1,X2,X3       
+\end{verbatim}
+
+\textbf{Assume branch not taken}
+% 4cc (startup) + 
+% 1 + 6* (1 (load-use) + 1 (branch data stall) + 6 (instructions) + 1 (flush or execute instruction after last loop) )
+\end{tcolorbox}
+\end{frame}
+\ifnum\Ans=1{
+\begin{frame}[fragile]\frametitle{Solution: Execution Time}
+
+You \textbf{do not} need to add pipeline start-up time.
+{\footnotesize
+\begin{verbatim}
+ADDI X4, X31, #6   // Initialize counter to 6
+                   // Instructions inside the loop
+LDUR X1, [X2,#20]  // 1. Branch to here
+ADDI X1, X1, #4    // 2. Load-use stall
+STUR X1, [X2,#20]  // 
+ADDI X2, X2, #8    // 
+SUBI X4, X4, #1    // 
+CBNZ X4, #-5       // 3. Branch data stall, wait for X4
+                   // Instructions outside the loop
+ADD X1,X2,X3       // 4. Flush this instruction everytime, except the last time
+\end{verbatim}
+
+Assuming \textbf{branch not taken}:
+
+Instructions inside the loop =  6 (instructions) \\ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ + 1 (load-use stall) \\ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ + 1 (branch data stall) \\ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ = 8 instructions inside the loop\\
+6 iterations of the loop\\
+Total execution time: $1 + (6 \times 8) + (5 \times 1) + 1 = 55cc $
+% $1 + 6 \times (1 (load-use) + 1 (branch data stall) + 6 (instructions) + 1 (flush or execute instruction after last loop) )$
+
+Hint: If pipeline was not already running, add startup time of 4 cc. 
+}
+\end{frame}
+}\fi
+
+\begin{frame}\frametitle{Average Performance of Pipelined Design}
+\begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+  title=Try this,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]  
+Assume the following mix of instructions:
+
+\begin{multicols}{2}
+    
+\begin{itemize}
+\item 22\% loads
+\item 11\% stores
+\item 49\% R-format
+\columnbreak
+
+\item 16\% conditional branches
+\item 2\% branch (unconditional branch)
+\end{itemize}
+\end{multicols}
+
+\emph{Without} the pipeline start-up time of 4cc, the above instructions each take \textbf{1cc to finish}. However, some instructions have hazards:
+\begin{itemize}
+\item Load-use hazards: 2cc for half of all loads.
+\item Branch mispredicted: 2cc for a quarter of all conditional branches. Assume branch in ID.
+% \item Branches can store their destination address so they are always correctly predicted.
+\item B-format instructions are always correctly predicted.
+% \item Assume branching in the ID stage.
+\end{itemize}
+
+Calculate the weighted average CPI for this mix.
+\end{tcolorbox}
+
+
+\end{frame}
+
+%-----------------------------------------------------
+\ifnum\Ans=1{\color{red}
+\begin{frame}\frametitle{Solution: Weighted Average CPI}
+The following table shows the instructions and their execution times, without the pipeline start-up time.
+
+\begin{center}
+	\begin{tabular}{c|c|c}
+Instuction & Execution Time (clock cycles)  & Mix \\ \hline\hline
+loads      & 1(0.5)+2(0.5)=1.5 & 0.22 \\ \hline
+stores     & 1 & 0.11 \\ \hline
+R-format   & 1 & 0.49 \\ \hline
+CB-format   & 1(0.75) + 2(0.25)=1.25 & 0.16 \\ \hline
+B-format      & 1 & 0.02 \\ \hline
+ \end{tabular}
+\end{center}
+Weighted average CPI:
+$$(1.5)(0.22) + (1)(0.11) + (1)(0.49) + (1.25)(0.16)+(1)(0.02)=1.15$$
+This means with all the forwarding, stalling, flushing, hazard detection etc. implemented, instructions on average take \textbf{close to 1cc to finish}.
+
+\end{frame}
+}\fi
+
+\begin{frame}[fragile]
+\STitle{Compiler Issues}
+ARM architecture with forwarding, stalls guarantees correct execution
+of ARM assembly.  But...
+\begin{multicols}{2}
+Consider the C code below:
+\begin{verbatim}
+c = 2*a+b;
+\end{verbatim}
+\columnbreak
+
+Straightforward pseudo-ARM code:
+\begin{verbatim}
+LDUR a
+ADD t,a,a
+LDUR b
+ADD t,t,b
+STUR c,t
+\end{verbatim}
+\end{multicols}
+
+
+\begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+  title=Think About It,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+ How long does this take to execute? Can we do better?
+\end{tcolorbox}
+
+
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item Pseudo-ARM: \texttt{LDUR a} would really be something like
+	\texttt{LDUR X1, [X2,\#200]}
+\item Code has two load-use hazards takes 7 clock cycles 
+	(ignoring cycles to fill the pipeline).
+\item Improve to 5 clock cycles by rearranging to
+\begin{verbatim}
+LDUR a
+LDUR b
+ADD t,a,a
+ADD t,t,b
+STUR c,t
+\end{verbatim}
+\item Timing formula from previous slide: if code rearrangement
+	gets rid of ALL load-use hazards, then performance is
+	1.06 cc = 112ps per instruction---a 10\% improvement.
+
+	Even reducing load-use hazards to 25\% improves performance by 5\%
+\item Rewriting the C as
+	\texttt{c = b+2*a;}  should change assembler to
+\begin{verbatim}
+LDUR b
+LDUR a
+ADD t,a,a
+ADD t,t,b
+STUR c,t
+\end{verbatim}
+which gets rid of 1 load-use hazard.
+\item Bottom line: software writers need to know what hardware is doing
+	to get top performance.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]\frametitle{Code Rearrangement}
+\begin{multicols}{2}
+Original code has two stalls, and will take 7cc to finish.
+\begin{verbatim}
+LDUR a      
+ADD  t,a,a  // load-use stall
+LDUR b
+ADD  t,t,b  // load-use stall
+STUR c,t
+\end{verbatim}
+
+\columnbreak
+Rearranged code, avoids the load-use stall and takes 5cc to finish.
+\begin{verbatim}
+LDUR a
+LDUR b
+ADD  t,a,a 
+ADD  t,t,b 
+STUR c,t
+\end{verbatim}
+
+\end{multicols}
+\begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+  title=Think About It,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+  {\footnotesize
+ Rewriting the C code as \texttt{c = b+2*a;} produces pseudo-arm code as follows
+\begin{verbatim}
+LDUR b
+LDUR a
+ADD t,a,a
+ADD t,t,b
+STUR c,t
+\end{verbatim}
+ How long does this code take to execute? \ifnum\Ans=1{\color{red}6cc}\fi
+ }
+\end{tcolorbox}
+
+
+\end{frame}
+
+
+\begin{frame}[fragile]
+\Title{Loop unrolling}
+Consider the following:
+{\footnotesize
+\begin{multicols}{2}
+     C code:
+\begin{verbatim}
+sum = 0;
+for (i=0; i<100; i++) {
+  sum += a[i];
+}
+\end{verbatim}
+
+\columnbreak
+Pseudo-ARM code (on datapath where branch is taken):
+\begin{verbatim}
+    ADD sum,XZR,XZR    ; #1
+    ADD i,XZR,XZR      ; #2
+    LDUR t,a[i]        ; #3
+    ADD sum,sum,t      ; #4
+    ADDI i,i,#1        ; #5
+    SUBI t,i,#100      ; #6
+    CBNZ t,#-4         ; #7
+    nexti              ; #8
+\end{verbatim}
+\end{multicols}
+}
+The execution time is:
+$$2 + 100 * ( 5 + 2 ) = 702 cc\;.$$
+
+With code rearrangement, we can reduce the execution time to:
+$$2 + 100 * (5) = 502 cc\;.$$
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item This code takes 7cc per loop or 700 cc total (there is a load-use stall).
+
+	Swapping the \texttt{add sum,sum,t} and \texttt{addi i,i,1}
+	reduces this to 6cc per loop or 600 cc total.
+\item But if we unroll the loop 100 times,
+\begin{verbatim}
+    ADD sum,XZR,XZR
+    ADD i,XZR,XZR
+
+    LDUR t,a[i]
+    ADD sum,sum,t
+    ADDI i,i,#1
+    LDUR t,a[i]
+    ADD sum,sum,t
+    ADDI i,i,#1
+    ...
+\end{verbatim}
+cost reduces to 300cc total.  Actual savings will be less because \texttt{lw}
+costs more than 1cc.
+\item For cache reasons, we may not want to unroll 100 times, but even
+	unrolling 10 times (and looping 10 times), total cost reduced from
+	600 to 330cc (10 SUBI + 10 CBNZ + 10 stalls).
+\item For real code, further complications (because loop control likely a
+	variable rather than a constant; because if we unroll 10 times and
+	number of times in loop not a multiple of 10, we need to handle
+	the last few cases; etc), but still a huge gain.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]\frametitle{Loop Unrolling}
+Consider rearranging and replicating the repeated code instead of looping, then:
+% Suppose the loop ran 100 times, like in the previous example, then:
+\begin{verbatim}
+ ADD  sum,XZR,XZR   ; #1
+ ADD  i,XZR,XZR     ; #2
+
+ LDUR t,a[i]        ; #3
+ ADDI i,i,#1        ; #5 Rearranged to remove load-use stall
+ ADD  sum,sum,t     ; #4 No more load-use stall.
+
+  LDUR t,a[i]       ; Copy repeating code block
+ ADDI i,i,#1        ; #5 Rearranged to remove load-use stall
+ ADD  sum,sum,t     ; #4 No more load-use stall.
+...
+\end{verbatim}
+
+The execution time is:
+$$2 + 100 * 3 = 302 cc\;.$$
+The execution time has \emph{dramatically decreased}, w.r.t $502 cc$.
+
+\end{frame}
+
+
+\iffalse
+\begin{frame}[fragile]
+\Title{Moving Instructions After a Branch}
+Forwarding, branch in ID stage, no branch flushing
+\begin{itemize}
+\item Need to adjust branch offset
+
+\begin{verbatim}
+    ADD i,XZR,XZR
+    ADD sum,XZR,XZR
+    ADD s2,XZR,XZR
+    LDUR t,a[i]
+    ADD sum,sum,t
+    ADDI i,i,#1
+    ADD s2,s2,i
+    SUBI t,i,#100
+    CBNZ t,#-5
+    nexti
+\end{verbatim}
+\end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item Code has a load-use hazard.  nexti will also need to be NOP unless
+	we can move an instuction from in the loop to after the branch
+\item The following works
+\begin{verbatim}
+    ADD i,XZR,XZR
+    ADD sum,XZR,XZR
+    ADD s2,XZR,XZR
+    LDUR t,a[i]
+    ADDI i,i,#1
+    ADD sum,sum,t
+    SUBI t,i,#100
+    CBNZ i,#100,#-4
+    ADD s2,s2,i
+    nexti
+\end{verbatim}
+but note that the CBNZ now goes to -4 instead of -5
+\item Also note that the example on the previous slide you are stuck either with a load-use stall or with putting NOP after the branch.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+\fi
+
+% \begin{frame}[fragile]{Code Rearrangement Guidelines}
+% \vspace*{-.1in}
+% \begin{itemize}
+% 	\item Rearranged code should not affect ``behaviour''
+
+% 		Assembly instruction level
+
+% 		High level construct level
+
+% 	\item Guidelines:
+% 	\begin{itemize}
+% 		\item Don't swap lines of code with dependencies:
+			
+% 			\texttt{100: LDUR X1,[X2,\#200]}\\
+% 			\texttt{104: ADD X4,X1,X3}
+% 		\item Don't swap in or out of loops
+% \begin{verbatim}
+%     ADD i,X31,X31
+%     ADD sum,X31,X31
+%     LDUR t,a[i]
+%     ADD sum,sum,t
+%     ADDI i,i,#1
+%     SUBI t2,i,#100
+%     CBNZ t2,#-4
+%     nexti
+% \end{verbatim}
+% 	\end{itemize}
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item The question is, what component of behaviour are we not allowed to
+% 	affect?  Ie, just swapping two lines of assembly code DOES affect
+% 	behaviour (line 2 gets executed before line 1).  But we're more
+% 	concerned about different behavioural issues.  
+% \item First and foremost,
+% 	we should not affect the "final results" that the high level language
+% 	computes.  But even that can be vague: a busy wait loop such as
+% 	\texttt{for (i=0; i<1000; i++);} could be optimized out and replaced
+% 	with \texttt{i=1000;}.  However, supposed the programmer wanted a
+% 	delay?  Generally, though, we're not considering either issue here
+% 	(eg, deletion of useless code or timing behaviour intentions of the
+% 	programmer).
+
+% 	Note that you can NOT swap \texttt{LDUR} with \texttt{STUR}, since the first
+% 	might read/write to the memory location that the second writes/reads.
+% 	And we even though the two instructions might use different registers,
+% 	we can't tell if the register+offset of the one instruction gives the
+% 	same memory address as the register+offset of the other instruction.
+
+% \item Roughly speaking, our real interest is that the result of \texttt{STUR}
+% 	(or anything else that causes a
+% 	side effect relative to the CPU) is unchanged by code rearrangment.
+% \item In the code block, there is a load/use hazard.  We can't swap the
+% 	\texttt{LDUR} with the \texttt{ADD} above it since the \texttt{LDUR} is
+% 	at the start of a loop.  We could swap the two statements after the
+% 	\texttt{LDUR} since there's no dependency.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Code Rearrangement Steps}
+% \begin{itemize}
+% \item Spot the loops
+
+% 	Can't move code inside/outside loop
+% \item Spot dependencies
+
+% 	Forward and backward
+%       \item Spot stalls
+
+%         Load/use, branch data hazard
+% \item Rearrange to get rid of stalls
+
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% 	\item "Can't move code inside/outside loop" -- except for branch delay slot
+% 	\item Backward dependencies: If instruction 104 reads register X and instruction 108 writes to
+% 		register X1, then you can't swap them
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+%%%%%%%%% added from XBL for clarity and 
+
+%-----------------------------------------------------
+\begin{frame}[fragile]\frametitle{Code Rearrangement Guidelines}
+
+Objective: Rearranged code should not effect the ``behaviour" of the high level language. The final result that the high-level language computes is unchanged. 
+\begin{itemize}
+
+\item \hl{Do not swap LDUR with STUR.} The first might read the memory location the second writes, or write to where the second reads. Even if they use different registers, we cannot tell if register + offset is the same for both instructions.
+\item The \textbf{result of STUR} changes memory and must be unchanged by code rearrangement.
+\begin{itemize}
+    \item the base register must be the same as they would have been without rearrangement
+\end{itemize}
+\item The \textbf{contents of registers} at the end of execution must be the same as compared to what we would get on the single cycle computer, where there are no hazards to worry about.
+\item Do not swap lines of code with dependencies.
+\item Do not swap an instruction outside of a loop with one inside of a loop.
+\end{itemize}
+
+\end{frame}
+
+%-----------------------------------------------------
+\begin{frame}[fragile]\frametitle{Code Rearrangement Guidelines - Backward Dependencies}
+
+The following code block has dependencies and \textbf{cannot be rearranged}:
+\begin{verbatim}
+100: LDUR X1,[X2,#100] // writes to X1
+104: ADD X4,X1,X3      // reads X1, depends on LDUR
+\end{verbatim}
+A backward dependency also \textbf{cannot be rearranged}:
+\begin{verbatim}
+104: ADD X3, X2, X1   // reads X2
+108: SUB X2, X4, X6   // writes X2
+\end{verbatim}
+
+\end{frame}
+
+%-----------------------------------------------------
+\begin{frame}[fragile]\frametitle{Code Rearrangement Guidelines - Loops}
+
+
+The following code block has a loop. Instructions inside a loop \textbf{cannot be swapped} with instructions outside.
+\begin{verbatim}
+#1 ADD i,X31,X31
+#2 ADD sum,X31,X31 // outside of a loop
+#3 LDUR t,a[i]     // inside of a loop
+#4 ADD sum,sum,t
+#5 ADDI i,i,#1     // rearrange for load-use hazard
+#6 SUBI t2,i,#100
+#7 CBNZ t2,#-4
+\end{verbatim}
+\textbf{Do not} swap instruction \#2 and \#3.\\
+\textbf{Swap} \#4 and \#5.
+\end{frame}
+
+
+%-----------------------------------------------------
+\begin{frame}[fragile]\frametitle{Code Rearrangement Guidelines - Branch Delay Slots}
+
+If there is a delay for branching, the\textbf{ code can be rearranged}. Recall the example seen before.
+\begin{verbatim}
+ADD X4, X5, X6
+CBZ X1, 40
+ORR X7, X8, X9 //stall
+\end{verbatim}
+ADD can be moved to take up the stall clock cycle.
+\begin{verbatim}
+CBZ X1, 40
+ADD X4, X5, X6 // move ADD to after CBZ
+ORR X7, X8, X9
+\end{verbatim}
+\end{frame}
+
+%-----------------------------------------------------
+\begin{frame}[fragile]\frametitle{Code Rearrangement Steps}
+\begin{enumerate}
+
+\item Spot the loops. Do not swap code from inside to outside of loops.
+\textit{Except} for branch delay slots
+
+\item Spot forward and backward dependencies. Do not swap dependent code.
+
+\item Spot stalls, such as Load-use stall, branch data stall.
+
+\item Rearrange to get rid of stalls.
+\end{enumerate}
+\end{frame}
+
+%-----------------------------------------------------
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%
+
+
+
+\begin{frame}[fragile]
+\Title{Code Rearrangement Example}
+\begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+  title=Try this,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]  
+  Assume Branch in ID, Branch flushing, Branch data hazard stall
+\begin{verbatim}
+ADDI X4, XZR, #7
+LDUR X1, [X2,#20]
+STUR X1, [X3,#20]
+SUBI X4, X4, #-1
+CBNZ X4, #-3
+ADD X6, X7, X8
+\end{verbatim}
+
+Rearrange for best performance.
+\end{tcolorbox}
+\BNotes\ifnum\Notes=1
+Possibly write code on board and do three steps shown on previous slide.
+
+The example illustrates some details you need to get correct
+\begin{itemize}
+\item We want the same behavior (in terms
+		of contents of registers) at the end of execution as we
+		would get on the single cycle computer.
+\item The ``Branch data hazard stall" refers to having to stall when the
+	branch is in the ID stage if the instruction before it writes to a
+	register used by the branch.
+\item Solution:
+\begin{verbatim}
+ADDI X4,XZR,#7
+LDUR X1,[X2,#20]
+SUBI X4,X4,#-1
+STUR X1,[X3,#20]
+CBNZ X4,#-3
+ADD X6,X7,X8
+\end{verbatim}
+\item Note the following
+\begin{itemize}
+\item The lw/sw have a load-use hazard, 
+
+		We can't move the ADDI X4,XZR,\#7 to get rid of the lw/sw stall
+		because it is outside the loop.
+\item The ADDI X4,X4,\#-1 has a branch data hazard stall with the CBNZ
+\end{itemize}
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Solution - Code Rearrangement}
+
+\begin{multicols}{2}
+
+Original code:
+
+\begin{verbatim}
+ADDI X4, XZR, #7
+LDUR X1, [X2,#20]
+STUR X1, [X3,#20]
+SUBI X4, X4, #-1
+CBNZ X4, #-3
+ADD X6, X7, X8
+\end{verbatim}
+
+\columnbreak
+
+Rearranged code:
+
+\begin{verbatim}
+ADDI X4,XZR,#7
+LDUR X1,[X2,#20]
+SUBI X4,X4,#-1
+STUR X1,[X3,#20]
+CBNZ X4,#-3
+ADD X6,X7,X8
+\end{verbatim}
+    
+\end{multicols}
+
+
+    
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Exceptions}
+\begin{itemize}
+\item Interrupt: external event unexpectedly changing control flow 
+
+	I/O
+
+\item Exception: internal event unexpectedly changing control flow
+
+	Arithmetic overflow
+
+\item Some books use {\it interrupt} for both concepts;
+
+	this book used {\it exception} for both concepts
+
+\item OS will process exception
+
+To handle exception,
+\begin{itemize}
+	\item Save PC for interrupted instruction
+	\item Remember what caused exception
+\end{itemize}
+\end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item This material is in Section 4.9.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{What caused the exception}
+\begin{itemize}
+	\item Two general ways to note what caused the exception:
+	\begin{itemize}
+		\item {\it Cause register}: status register that holds
+			field noting cause of exception
+
+			OS checks cause register to process exception
+
+		\item {\it Vectored interrupts}: table of addresses,
+			one for each type of exception
+
+			When interrupt A occurs, branch to routine that
+			processes interrupt A
+
+			OS can determine exception type by looking up
+			address in table
+	\end{itemize}
+	\item Book uses cause registers, but notes it's really no different (hardware-wise) to use vectored interrupts
+\end{itemize}
+\BNotes\ifnum\Notes=1
+~
+\fi\ENotes
+\end{frame}
+
+
+\begin{frame}[fragile]
+\Title{Hardware for Exception Handling}
+	% \PHFigure{!}{5in}{3in}{ARMFigures/Fig0464-crop}{Figure 4.64}
+ {\includegraphics[width=0.9\textwidth]{05-pipelining/figures/exception-datapath-redbox.png}}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+	\item Note: upper arrow to =0 unit shouldn't be there.
+	\item New hardware:
+	\begin{itemize}
+		\item ELR --- address of affected instruction
+
+		\item ESR: A register used to record the cause of the
+			exception
+		\item New input to PC: address of exception handler
+		\item Not shown in figure: Overflow bit of ALU
+			is new input to Control unit
+	\end{itemize}
+	\item This handles exceptions as another form of control hazard.
+
+		Thus, must flush instructions following interrupted
+		instruction, 
+
+		and begin fetching instructions from
+		exception handler
+	\item New control signal, EX.Flush
+
+		Get rid of instruction ADD instruction
+		stage.
+	\item New control signal, ID.Flush, ORed with stall signal
+
+		Get rid of instruction after one in EX stage.
+	\item Existing IF.Flush signal gets rid of instruction two after one in EX stage
+	\item One gotcha: should exception instruction finish its
+		execution?  Ie, should it write its result back to
+		register file?  In this implementation, the result
+		is NOT written back; note the EX.flush signal clearing
+		the WB signal.
+		
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+
+\begin{frame}[fragile]
+\Title{Exception Example}
+Assume this code executes (addresses in hex)
+\begin{verbatim}
+40 SUB X11, X2, X4
+44 AND X12, X2, X5
+48 ORR X13, X2, X6
+4C ADD X1, X2, X1 // This is going to cause the exception
+50 SUB X15, X6, X7
+54 LDUR X16, [X7,#100]
+\end{verbatim}
+and exception handler code is (addresses in hex)
+\begin{verbatim}
+1C090000 STUR X25, [XZR,#1000]
+1C090004 STUR X26, [XZR,#1004]
+\end{verbatim}
+\BNotes\ifnum\Notes=1
+~
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+	\RFigureCR{!}{5in}{3in}{Figure 4.65}{ARMFigures/Fig0465-crop}{90}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item In the top half, go over all the things discussed three slides ago, pointing
+	out where the various lines go high, etc.  Then show where
+	the bubbles appear in the bottom half, and the new instruction
+	(for exception) appears in the bottom half.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Conclusion}
+ \underline{\textbf{Lecture Summary}}
+ \begin{itemize}
+ \item Code execution time 
+ \item Performance analysis of pipelined datapath
+\item Code Rearrangement
+\item Exception Handling
+
+
+
+\end{itemize}
+ % \end{itemize}
+ \underline{\textbf{Assigned Textbook Readings}}
+\begin{itemize}
+     \item \textbf{Read} Section 4.9 for exception handling
+     \end{itemize}
+    \underline{\textbf{Next Steps}}
+    \begin{itemize}
+     \item \textbf{Review} Pipelined datapath and forwarding unit. 
+\begin{itemize}
+    \item Start the exercises in A5
+\end{itemize}
+\item Next week, we will introduce cache to speedup the pipelined datapath even further
+\item \textbf{Attempt} questions in this week's tutorial. 
+    \item \textbf{Ask} questions in office hours or the next tutorial.
+ \end{itemize}
+
+\end{frame}

@@ -1,0 +1,1700 @@
+% \begin{Lecture}{ Pipelining - Overview}
+% \subtitle{Pipelining - Overview}
+
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Breaking Up The Datapath}
+% % The same idea apply to instruction execution.
+% Divide the datapath into 5 stages. Each instruction will use 5 clock cycles. Everything in one stage happens in parallel. 
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.8\textwidth]{figures/5-stage-datapath}}
+% \end{figure}
+
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Pipeline Instruction Execution}
+
+% The pipelined datapath has the following five stages:
+% \begin{enumerate}
+% \item \textbf{Instruction Fetch (IF)}
+
+% Fetch instruction from memory.
+% \item \textbf{Instruction Decode (ID)}
+
+% Read registers and decode instruction.
+% \item \textbf{Execute (EX)}
+
+% Execute the operation, or calculate an memory address.
+% \item \textbf{Memory (MEM)}
+
+% Access an operand in data memory (MEM).
+
+% \item \textbf{Write Back (WB)}
+
+% Write the result into a register (WB).
+% \end{enumerate}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Timing Assumptions}
+
+% We have the following assumptions for timing:
+% \begin{enumerate}
+% \item memory access 200 ps.
+% \item ALU operation 200 ps.
+% \item Register file read or write 100 ps.
+% \end{enumerate}
+
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Length of One Stage}
+% Each stage is 200 picoseconds, this is the shortest clock cycle length that still allows each stage to complete.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.9\textwidth]{figures/5-stage-datapath}}
+% \end{figure}
+
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Pipeline Instruction Execution}
+
+% We will consider the following instructions when discussing pipelining:
+% \begin{enumerate}
+% \item load and store register, \texttt{LDUR} and \texttt{STUR}.
+% \item \texttt{ADD},\texttt{SUB},\texttt{AND},\texttt{ORR}.
+% \item Compare and branch on zero \texttt{CBZ}. 
+% \end{enumerate}
+% \end{frame}
+
+
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Single Cycle Timing}
+
+% The time needed, in picoseconds, to execute instructions on a single cycle datapath are summarized below.
+
+% \begin{table}
+% \begin{center}
+% \begin{tabular}{c|ccccc|c}
+% \makecell{Instruction \\ class} & IF & ID & EX & MEM & WB & \makecell{Total Time \\ Duration (ps)}  \\ \hline
+% LDUR     & 200 & 100 & 200 & 200 & 100 & 800 \\ \hline
+% STUR     & 200 & 100 & 200 & 200 &  & 700 \\ \hline
+% \makecell{R-format (ADD, \\ SUB, AND, ORR)}     & 200 & 100 & 200 & & 100 & 600 \\ \hline
+% CBZ    & 200 & 100 & 200 &  &  & 500 \\ \hline
+% \end{tabular}
+% \end{center}
+% \end{table}
+
+% The single cycle design forces every instruction to take 800 ps.
+% \end{frame}
+
+%-----------------------------------------------------
+
+\begin{frame}\frametitle{Creating Stages for a Pipelined Datapath}
+\begin{itemize}
+    \item Divide the single cycle datapath into 5 stages
+    % , as suggested in the figure below.
+    \item  Allow an instruction to be in \textbf{only }one stage of the pipeline. 
+    
+    % {\tiny Each stage is 200ps, this is the shortest clock cycle length that still allows each stage to complete.}
+      \hl{\tiny Each stage is the shortest clock cycle length that still allows every stage to complete successfully.}
+    \item All logic elements in the same stage execute in parallel. 
+\end{itemize}
+\begin{figure}[H]
+\centering
+	{\includegraphics[width=0.7\textwidth]{05-pipelining/figures/5-stage-datapath.png}}
+\end{figure}
+
+\end{frame}
+
+% \begin{frame}[fragile]
+% \STitle{Pipelined Datapath: Simplified View}
+% \begin{itemize}
+% \item Use symbols to represent stages of pipeline
+
+% 	\PHFigure{!}{2.5in}{1in}{ARMFigures/Fig0427-crop}{Figure 4.27}
+
+% \item Shading indicates that an instruction in that stage is using the hardware components that exist in that stage
+% \item Shading on \textbf{right half} means \textbf{read} operation of RF or MEM, 
+% \item Shading on \textbf{left half} means \textbf{write} operation of RF or MEM 
+% % hardware used in first/second half of clock-cycle
+%  % \item But...\textbf{Hazards} exist
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item This is the first time we have seen the ``simplified datapath''
+% diagrams, and it's worth going over what it means.  
+% \item An important point
+%   here: neither of the illustrated instructions have a need to use
+%   memory, and so they would, in the multicycle control, execute in four
+%   clock cycles. But to have them bypass the memory stage in the
+%   pipelined version, while other instructions (loads and stores) didn't,
+%   would complicate the design and lead to more hazard cases to
+%   examine. It doesn't matter if a single instruction takes five cycles
+%   to complete instead of four, if the throughput remains steady at one
+%   new instruction launched per cycle.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+
+% \begin{frame}\frametitle{Executing Instructions on a Single Cycle Datapath}
+
+% Single cycle timing diagram for 3 LDUR instructions.
+
+% {\footnotesize
+% Assume: memory access and ALU operation 200ps and Register File read /write 100ps.}
+% \begin{figure}[H]
+% \centering
+% 	\includegraphics[scale=0.5]{05-pipelining/figures/scp.png}
+% \end{figure}
+% % Time between the first and fourth instruction is $3\times 800=2400$ ps.
+
+
+%  \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+%   title=Think About It,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+%   Is there a way to start executing the second LDUR instruction before the first LDUR instruction completes execution? 
+  
+%  \ifnum\Ans=1 {\color{red}Yes. Pipelining is a process that allows overlapping execution of instructions on a datapath with multiple stages. }\fi
+%   \end{tcolorbox}
+% \end{frame}
+
+% \begin{frame}\frametitle{Creating Stages for a Pipelined Datapath}
+% \begin{itemize}
+%     \item Divide the single cycle datapath into 5 stages, as suggested in the figure below.
+%     \item  Allow an instruction to be in \textbf{only }one stage of the pipeline. 
+    
+%     {\tiny Each stage is 200ps, this is the shortest clock cycle length that still allows each stage to complete.}
+%     \item All logic elements in the same stage execute in parallel. 
+% \end{itemize}
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.7\textwidth]{05-pipelining/figures/5-stage-datapath.png}}
+% \end{figure}
+
+% \end{frame}
+
+%-----------------------------------------------------
+% \begin{frame}\frametitle{Length of One Stage}
+% Each stage is 200 picoseconds, this is the shortest clock cycle length that still allows each stage to complete.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=0.9\textwidth]{figures/5-stage-datapath}}
+% \end{figure}
+
+% \end{frame}
+
+%-----------------------------------------------------
+% \begin{frame}\frametitle{Pipeline Instruction Execution}
+
+% The pipelined datapath has the following five stages:
+% \begin{enumerate}
+% \item \textbf{Instruction Fetch (IF)}
+
+% Fetch instruction from memory.
+% \item \textbf{Instruction Decode (ID)}
+
+% Read registers and decode instruction.
+% \item \textbf{Execute (EX)}
+
+% Execute the operation, or calculate an memory address.
+% \item \textbf{Memory (MEM)}
+
+% Access an operand in data memory (MEM).
+
+% \item \textbf{Write Back (WB)}
+
+% Write the result into a register (WB).
+% \end{enumerate}
+% \end{frame}
+
+%-----------------------------------------------------
+
+%-----------------------------------------------------
+\begin{frame}[fragile]
+\Title{Single Cycle vs Pipelined Datapath}
+\begin{itemize}
+\item Single Cycle Datapath:
+\includegraphics[scale=0.5]{05-pipelining/figures/scp.png}
+\item Apply pipelining to a 5-stage datapath:
+\includegraphics[scale=0.5]{05-pipelining/figures/pipelined.png}
+\end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item
+Remember that in the ``instruction decode'' step, the register
+operands are also fetched, and in the ``execution'' step, memory
+addresses are computed and branches are completed. These decisions,
+which make sense in the previous design, are going to complicate 
+pipelining.
+
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+
+
+%-----------------------------------------------------
+% \begin{frame}\frametitle{Pipeline Timing}
+
+% A pipelined datapath will use one clock cycle for each stage.
+
+% \begin{table}
+% \begin{center}
+% \begin{tabular}{c|ccccc}
+% \makecell{Instruction \\ class} & IF & ID & EX & MEM & WB \\ \hline
+% LDUR     & 200 & 100 & 200 & 200 & 100 \\ \hline
+% STUR     & 200 & 100 & 200 & 200 &   \\ \hline
+% \makecell{R-format (ADD, \\ SUB, AND, ORR)}     & 200 & 100 & 200 & & 100 \\ \hline
+% CBZ    & 200 & 100 & 200 &  &   \\ \hline
+% \end{tabular}
+% \end{center}
+% \end{table}
+
+% The pipelined execution clock cycle must have \textbf{worst-case} clock cycle of \textbf{200 ps}, even though some stages take only 100 ps.
+% \end{frame}
+%-----------------------------------------------------
+% \begin{frame}\frametitle{Executing Instructions With Pipeline}
+
+% Pipelined timing diagram for 3 LDUR instructions.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[scale=0.25]{figures/instruction-pipeline}}
+% \end{figure}
+% Time between the first and third instruction is $2\times 200=400$ ps.
+% Total execution time for these three instructions is $1000+400=1400$ps.
+% \end{frame}
+
+%-----------------------------------------------------
+
+
+
+% \begin{frame}[fragile]
+% \Title{Pipelining}
+% \begin{itemize}
+% \item Singlecycle computer execution:
+% \PHFigure{!}{2in}{1in}{ARMFigures/Fig0426a-crop}{Figure 4.26a}
+% \item Can apply pipelining to our five stages of fetch-execute
+
+% \PHFigure{!}{2in}{1in}{ARMFigures/Fig0426b-crop}{Figure 4.26b}
+
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item
+% Remember that in the ``instruction decode'' step, the register
+% operands are also fetched, and in the ``execution'' step, memory
+% addresses are computed and branches are completed. These decisions,
+% which make sense in the previous design, are going to complicate 
+% pipelining.
+
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% for comprehensive
+\newpage
+\begin{frame}[fragile]
+  \Title{Simple Performance Analysis}
+\iffalse
+\ifnum\slides=1{\vspace*{-.2in}}\fi
+    \PHFigure{!}{0.5in}{0.5in}{ARMFigures/Fig0425-crop}{Figure 4.25}
+\ifnum\slides=1{\vspace*{-.2in}}\fi
+    \else {\footnotesize\begin{center}
+    \begin{tabular}{l|c|c|c|c|c|c}
+                      &Instruction & Register & ALU       & Data   & Register & Total\\
+      Instruction Class & fetch     & read     & operation & access & write    & time\\
+      \hline
+      \hline
+          LDUR & 200 ps & 100 ps & 200 ps & 200 ps & 100 ps & 800 ps\\
+          STUR & 200 ps & 100 ps & 200 ps & 200 ps &        & 700 ps\\
+ R-Format & 200 ps & 100 ps & 200 ps &        & 100 ps & 600 ps\\
+          CBZ  & 200 ps & 100 ps & 200 ps &        &        & 500 ps\\
+ \hline
+      \end{tabular}\end{center}}
+    \fi
+
+  \begin{itemize}
+  \item Single cycle uses 800ps clock, each instruction execution takes 800ps %(instead of 800ps)
+  \item Pipelined uses 200ps clock, \textbf{but} each instruction execution takes 1000ps %(instead of 800ps)
+    
+  \item In this example, to execute 3 LDUR instructions
+
+    Single cycle takes $3\times800ps=2400ps$
+
+    Pipelined takes $7\times200ps=1400ps$: 1.7 times faster!
+  \item Pipelined closer to 4x faster if lots of instructions
+
+   \hl{ Pipelining improves throughput despite increasing response time of individual instructions}
+    
+  % \item But...Hazards exist
+\end{itemize}
+  
+  \BNotes\ifnum\Notes=1
+\begin{itemize}
+\item The ``But...'' is a lead in to hazards
+
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}\frametitle{Designing Instruction Sets for Pipelining}
+
+These factors help in implementing pipelining:
+\begin{itemize}
+\item All ARM instructions are same length - simplifying instruction
+fetch and decode
+\item Few instruction formats, source and destination fields in same place - so
+register operands can be fetched in parallel with instruction decoding
+\item Memory operands only in loads and stores - so only one \textbf{data }memory
+access per instruction, and address can be computed in execute stage
+
+ % \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+ %  colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+ %  title=Think About It,fonttitle=\bfseries,
+ %  boxed title style={size=small,colframe=red!50!black} ]
+ %  We will design a pipelined datapath that assume a perfect world. Then, we will modify the pipelined datapath for 
+ % %  Pipelined datapath could not be feasible if there was only one memory for instructions and data.
+  
+ % % \ifnum\Ans=1 {\color{red} While an instruction is being fetched from Instruction Memory in the IF stage, a different instruction can access Data Memory in the MEM stage.}\fi
+ %  \end{tcolorbox}
+
+\end{itemize}
+
+\end{frame}
+
+% % \begin{frame}[fragile]
+% % \STitle{Notation}
+% % \begin{itemize}
+% % \item Use symbols to represent stages of pipeline
+
+% % 	\PHFigure{!}{2.5in}{1in}{ARMFigures/Fig0427-crop}{Figure 4.27}
+
+% % \item Shading indicates that an instruction in that stage is using the hardware components that exist in that stage
+% % \item Half-shaded means hardware used in first/second half of clock-cycle
+% %  % \item But...\textbf{Hazards} exist
+% % \end{itemize}
+% % \BNotes\ifnum\Notes=1
+% % \begin{itemize}
+% % \item This is the first time we have seen the ``simplified datapath''
+% % diagrams, and it's worth going over what it means.  
+% % \item An important point
+% %   here: neither of the illustrated instructions have a need to use
+% %   memory, and so they would, in the multicycle control, execute in four
+% %   clock cycles. But to have them bypass the memory stage in the
+% %   pipelined version, while other instructions (loads and stores) didn't,
+% %   would complicate the design and lead to more hazard cases to
+% %   examine. It doesn't matter if a single instruction takes five cycles
+% %   to complete instead of four, if the throughput remains steady at one
+% %   new instruction launched per cycle.
+% % \end{itemize}
+% % \fi\ENotes
+% % \end{frame}
+
+
+% %-----------------------------------------------------
+% % \begin{frame}\frametitle{Designing Instruction Sets for Pipelining}
+% % \begin{itemize}
+
+% % \item Instructions are the same length. Easy to fetch and decode.
+% % \begin{itemize}
+% % \item Instructions sets where instructions have different length must translate into another instruction set with simpler instructions.
+% % \end{itemize}
+% % \item Use only a few instruction formats, such that many instructions have similar formats, such as where to find the registers.
+% % \item Memory operands only appear in load or store. The EX stage can also be used to calculate a memory address.
+
+% %   \item But...Hazards exist
+% % \end{itemize}
+
+% % \end{frame}
+
+
+% \begin{frame}[fragile]
+% \STitle{Overview of Hazards in Pipelined Datapath}
+% \begin{itemize}
+% \item Hazard: an event that blocks normal flow of execution of instructions through pipeline.
+% \item There are three types of hazards: structural, data and control.
+% \item Structural and design choices and modifications made to datapath to overcome some of these hazards. 
+% % \item \textbf{Structural} hazard example: with single instruction/data memory,
+% % instruction fetch cannot overlap with load/store
+
+% % {\bf Solution:} separate instruction and data memories
+% % \item \textbf{Data} hazard example: result of one instruction is needed by next
+% % instruction
+% % \item \textbf{Control} hazard example: conditional branch instruction may
+% % change sequence of instructions executed
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item To illustrate a data hazard, you can put up the previous slide and 
+% 	postulate a load instruction followed by an add which uses the loaded 
+% 	register as an operand. The register is written by the first 
+% 	instruction well after it is fetched by the second one.
+% \item Structural hazards usually require a major design change; we
+% 	won't see any and the above is just an example of what one might look
+% 	like.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+
+
+
+% %-----------------------------------------------------
+% % \begin{frame}\frametitle{Pipeline Hazards}
+% % A \textbf{hazard} is a situation where the next instruction cannot execute in the following clock cycle, because there is an event that blocks normal flow of instructions through pipeline
+% % \begin{itemize}
+% % \item Structural
+% % \item Data
+% % \item Control
+% % \end{itemize}
+
+% % \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Structural Hazard}
+% The hardware cannot support the combination of instructions we want to execute. Structural hazards usually require a major design change.
+
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[scale=0.5]{05-pipelining/figures/structure-hazard-ex.png}}
+% \end{figure}
+% % If we had single memory then in the same clock cycle we cannot fetch instruction and access data from memory. 
+
+%  \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=blue!5!white,colframe=blue!75!black,colbacktitle=blue!80!black,
+%   title=Think About It,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+%   % Pipelined datapath could not be feasible if there was only one memory for instructions and data.
+%   If we had single memory then in the same clock cycle we cannot fetch instruction and access data from memory. \\
+%  \ifnum\Ans=1 {\color{red} Structural solution: Two separate memories, Instruction and Data Memory.}\fi
+%   \end{tcolorbox}
+
+% \end{frame}
+% %-----------------------------------------------------
+
+
+% \begin{frame}[fragile]
+%   \STitle{Data Hazard}
+% Result of one instruction is needed by next instruction
+
+%   {\tt
+%   ADD {\color{cyan}X1},X2,X3\\
+%   SUB X4,{\color{cyan}X1},X5
+%   }
+  
+	
+% \begin{figure}[H]
+% \centering
+% % \Figure{!}{2in}{1.5in}{ARMFigures/dataHazardEx}
+% 	{\includegraphics[scale=0.2]{05-pipelining/figures/data-hazard.png}}
+% \end{figure}
+%         \begin{itemize}
+%           \item Write of first instruction occurs {\em after} read of second instruction
+%         \end{itemize}
+% \BNotes\ifnum\Notes=1
+
+% \begin{itemize}
+%   \item none so far
+%   \end{itemize}
+% \fi\ENotes
+%   \end{frame}
+
+
+% \begin{frame}[fragile]
+% \STitle{Overview on Resolving Data Hazards}
+	
+%  \begin{figure}[H]
+% \centering
+% 	{\includegraphics[scale=0.2]{05-pipelining/figures/forwarding-nopipelinereg.png}}
+%  % \Figure{!}{1in}{1in}{ARMFigures/dataHazardForward}
+% \end{figure}
+% \begin{itemize}
+% \item New value of {\tt X1} is not available from register file in time
+
+%   Result to be written to {\tt X1} is computed in CC3 (clock cycle 3)
+% \item Solution: \hl{\textbf{forwarding}} -- take value to be written to {\tt X1} \\
+%   {\em before} it is written to register file
+%   \item Doesn't handle all data hazards
+  
+% % {\tiny  One example is the ``load-use" data hazard.
+% %   \begin{verbatim}
+% % LDUR X1, [X3, #100]
+% % ADD X4, X1, X7 // X1 needs LDUR to finish
+% % \end{verbatim}
+% % \texttt{X1} is retrieved in stage 4 MEM. This is the earliest time when LDUR can supply \texttt{X1} to the next instruction. }
+  
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+
+% \begin{itemize}
+%   \item The last comment refers to load-use hazards, which we'll cover later
+%   \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \STitle{Load-use Hazards}
+% A data hazard due to a \textbf{LDUR} instruction.
+
+% The data read from Data Memory is not written to Register File in time for the next instruction. 
+%  \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+%   Can forwarding overcome the data hazard here:
+%   \begin{verbatim}
+% LDUR X1, [X3, #100]
+% ADD X4, X1, X7 // X1 needs LDUR to finish
+% \end{verbatim}
+% \texttt{X1} is retrieved in stage 4 MEM. This is the earliest time when LDUR can supply updated value of \texttt{X1} to the next instruction.
+%   \end{tcolorbox}
+% \end{frame}
+% \ifnum\Ans=1{\color{red}
+% \begin{frame}[fragile]
+% \STitle{Solution: Load-use Hazards}
+% No forwarding \textbf{cannot} overcome the data hazard in the code segment:
+%   \begin{verbatim}
+% LDUR X1, [X3, #100]
+% ADD X4, X1, X7 // X1 needs LDUR to finish
+% \end{verbatim}
+% \begin{itemize}
+%     \item Either delay (stall) execution of {\tt ADD} instruction
+%     \item Or Rearrange code
+% \end{itemize}
+  
+  
+% \end{frame}
+% }\fi
+%   \begin{frame}[fragile]
+%   \STitle{Data Hazards and Structural Design}
+% \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+%   title=Try this,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=red!50!black} ]
+% Consider the following code:
+
+%   {\tt
+%   ADD {\color{cyan}X1},X2,X3\\
+%   ADD X6, X18, X10\\
+%   SUB X10, X11, X2\\
+%   SUB X4,{\color{cyan}X1},X5\\
+%   }
+%   Are there any data hazards in the above code segment?
+%   \end{tcolorbox}
+	
+% \BNotes\ifnum\Notes=1
+
+% \begin{itemize}
+%   \item none so far
+%   \end{itemize}
+% \fi\ENotes
+%   \end{frame}
+% \ifnum\Ans=1{\color{red}
+%    \begin{frame}[fragile]
+%   \STitle{Solution: Data Hazards and Structural Design}
+% There are no data hazards in the code segment below: \\
+% {\tt
+%   ADD {\color{cyan}X1},X2,X3\\
+%   ADD X6, X18, X10\\
+%   SUB X10, X11, X2\\
+%   SUB X4,{\color{cyan}X1},X5\\
+%   }
+%   Our structural design allowed writes (updates) to be read in the same clock cycle. 
+  
+%   One design principle: write in first half, read in second half of clock cycle.  
+%   % \includegraphics[scale=0.5]{05-pipelining/figures/solutionA.png}
+	
+% \BNotes\ifnum\Notes=1
+
+% \begin{itemize}
+%   \item none so far
+%   \end{itemize}
+% \fi\ENotes
+%   \end{frame}
+% }\fi
+
+% % % \iffalse
+% % \begin{frame}[fragile]
+% % \Title{Forwarding With Load-Use Hazard}
+% % 	\Figure{!}{4in}{2.5in}{PHALL/F0609}
+% % \begin{itemize}
+% % \item Stall is necessary with load-use hazard
+% % \end{itemize}
+% % \BNotes\ifnum\Notes=1
+% % \begin{itemize}
+% % \item Go over the reason that this is a hazard, and why just
+% % forwarding won't work. This requires finding out where the contents of
+% % {\tt \$s0} come from.
+% % \item
+% % This example shows that we can't achieve throughput of one instruction 
+% % per cycle. Thus evaluating performance becomes more complicated.
+% % \end{itemize}
+% % \fi\ENotes
+% % \end{frame}
+% % \fi
+
+  
+
+%   \begin{frame}[fragile]
+%   \STitle{Control Hazards}
+
+%   Conditional branch instructions may change sequence of instructions executed
+
+% 	\PHFigure{!}{4in}{3in}{05-pipelining/figures/control-hazard-no-pipelinereg}{Figure 4.60}
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item The point being that if we take the branch at line 40, then we load instructions 44,48,52 before we actually take the branch.  The goal is for the pipelined code to execute as if it were run on the single cycle datapath.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% %   \begin{frame}[fragile]
+% %   \STitle{Data Hazards and Structural Design}
+% % \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+% %   colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+% %   title=Try this,fonttitle=\bfseries,
+% %   boxed title style={size=small,colframe=red!50!black} ]
+% % Consider the following code:
+
+% %   {\tt
+% %   ADD {\color{cyan}X1},X2,X3\\
+% %   ADD X6, X18, X10\\
+% %   SUB X10, X11, X2\\
+% %   SUB X4,{\color{cyan}X1},X5\\
+% %   }
+% %   Are there any data hazards in the above code segment?
+% %   \end{tcolorbox}
+	
+% % \BNotes\ifnum\Notes=1
+
+% % \begin{itemize}
+% %   \item none so far
+% %   \end{itemize}
+% % \fi\ENotes
+% %   \end{frame}
+% % \ifnum\Ans=1{\color{red}
+% %    \begin{frame}[fragile]
+% %   \STitle{Solution: Data Hazards and Structural Design}
+% % There are no data hazards in the code segment \\
+% % {\tt
+% %   ADD {\color{cyan}X1},X2,X3\\
+% %   ADD X6, X18, X10\\
+% %   SUB X10, X11, X2\\
+% %   SUB X4,{\color{cyan}X1},X5\\
+% %   }
+% %   \includegraphics[scale=0.5]{05-pipelining/figures/solutionA.png}
+	
+% % \BNotes\ifnum\Notes=1
+
+% % \begin{itemize}
+% %   \item none so far
+% %   \end{itemize}
+% % \fi\ENotes
+% %   \end{frame}
+% % }\fi
+% % \begin{frame}[fragile]
+% % \STitle{Overview on Resolving Data Hazards}
+	
+% %  \begin{figure}[H]
+% % \centering
+% % 	{\includegraphics[scale=0.2]{05-pipelining/figures/forwarding-nopipelinereg.png}}
+% %  % \Figure{!}{1in}{1in}{ARMFigures/dataHazardForward}
+% % \end{figure}
+% % \begin{itemize}
+% % \item New value of {\tt X1} is not available from register file in time
+
+% %   Result to be written to {\tt X1} is computed in CC3 (clock cycle 3)
+% % \item Solution: \hl{\textbf{forwarding}} -- take value to be written to {\tt X1} \\
+% %   {\em before} it is written to register file
+% %   \item Doesn't handle all data hazards
+  
+% % {\tiny  One example is the ``load-use" data hazard.
+% %   \begin{verbatim}
+% % LDUR X1, [X3, #100]
+% % ADD X4, X1, X7 // X1 needs LDUR to finish
+% % \end{verbatim}
+% % \texttt{X1} is retrieved in stage 4 MEM. This is the earliest time when LDUR can supply \texttt{X1} to the next instruction. }
+  
+% % \end{itemize}
+% % \BNotes\ifnum\Notes=1
+
+% % \begin{itemize}
+% %   \item The last comment refers to load-use hazards, which we'll cover later
+% %   \end{itemize}
+% % \fi\ENotes
+% % \end{frame}
+
+% % \iffalse
+% % \begin{frame}[fragile]
+% % \Title{Forwarding With Load-Use Hazard}
+% % 	\Figure{!}{4in}{2.5in}{PHALL/F0609}
+% % \begin{itemize}
+% % \item Stall is necessary with load-use hazard
+% % \end{itemize}
+% % \BNotes\ifnum\Notes=1
+% % \begin{itemize}
+% % \item Go over the reason that this is a hazard, and why just
+% % forwarding won't work. This requires finding out where the contents of
+% % {\tt \$s0} come from.
+% % \item
+% % This example shows that we can't achieve throughput of one instruction 
+% % per cycle. Thus evaluating performance becomes more complicated.
+% % \end{itemize}
+% % \fi\ENotes
+% % \end{frame}
+% % \fi
+
+% % \begin{frame}[fragile]
+% %   \STitle{Control Hazards}
+% % 	\PHFigure{!}{4in}{3in}{ARMFigures/Fig0460}{Figure 4.60}
+
+% % \BNotes\ifnum\Notes=1
+% % \begin{itemize}
+% % \item The point being that if we take the branch at line 40, then we load instructions 44,48,52 before we actually take the branch.  The goal is for the pipelined code to execute as if it were run on the single cycle datapath.
+% % \end{itemize}
+% % \fi\ENotes
+% % \end{frame}
+
+% %-----------------------------------------------------
+% % \begin{frame}[fragile]\frametitle{Data Hazard Example 2}
+% % \begin{verbatim}
+% % LDUR X1, [X3, #100]
+% % ADD X4, X1, X7 // X1 needs LDUR to finish
+% % \end{verbatim}
+% % \texttt{X1} is retrieve in stage 4 MEM. This is the earliest time when LDUR can supply \texttt{X1} to the next instruction. 
+% % \end{frame}
+% % %-----------------------------------------------------
+
+% % %-----------------------------------------------------
+% % \begin{frame}\frametitle{Load Use Data Hazard}
+% % Forwarding does not prevent all pipeine stalls. One example is the ``load-use" data hazard.
+% % \begin{itemize}
+% % \item Data needed by next instruction is available from load after stage 4, MEM.
+% % \item This is too late to forward to the next instruction
+% % \end{itemize} 
+% % \end{frame}
+% % %-----------------------------------------------------
+% % \begin{frame}[fragile]\frametitle{Load Use Data Hazard}
+% % \begin{verbatim}
+% % LDUR X1, [X2, #0] //X1 available at stage 4.
+% % SUB X4, X1, X5	  // Too late to forward
+% % \end{verbatim}
+% % SUB must stall for one stage. Use ``bubbles'' to show stalling.
+% % \begin{figure}[H]
+% % \centering
+% % 	{\includegraphics[scale=0.15]{figures/forward-and-stall}}
+% % \end{figure}
+% % Can use hardware to detect this stall, or use software to reorder instructions.
+% % \end{frame}
+
+% % %-----------------------------------------------------
+% % \begin{frame}[fragile]\frametitle{Reordering Instruction Example}
+
+% % Consider the following high level code:
+% % \begin{verbatim}
+% % a = b + e;
+% % c = b + f;
+% % \end{verbatim}
+% % The following assembly code implements the above high level code:
+% % \begin{verbatim}
+% % LDUR X1, [X0, #0]  // load b
+% % LDUR X2, [X0, #8]  // Load e
+% % ADD  X3, X1, X2    // ** stall one cc then forward X2
+% % STUR X3, [X0, #24] // store a= b + e
+% % LDUR X4, [X0, #16] // load f
+% % ADD  X5, X1, X4    // ** stall one cc then forward X4
+% % STUR X5, [X0, #32] // store c= b + f
+% % \end{verbatim}
+% % The above code stalls for \textbf{two} clock cycles, one after each LDUR before forwarding. For other instructions, forwarding does not require stalling.
+
+
+% % \end{frame}
+% % %-----------------------------------------------------
+% % \begin{frame}[fragile]\frametitle{Reordering Instruction Example (cont.)}
+
+% % Move the third LDUR instruction.
+% % \begin{verbatim}
+% % LDUR X1, [X0, #0]  // load b
+% % LDUR X2, [X0, #8]  // Load e
+% % LDUR X4, [X0, #16] // ** load f moved here
+% % ADD  X3, X1, X2    // ** one cc has passed, forward X2 NOW
+% % STUR X3, [X0, #24] // store a= b + e
+% % ADD  X5, X1, X4    // 
+% % STUR X5, [X0, #32] // store c=b+f
+% % \end{verbatim}
+% % The above code does not have to stall for 2 clock cycles to wait for forwarding after LDUR.
+
+
+% % \end{frame}
+% % %-----------------------------------------------------
+% % \begin{frame}\frametitle{Designing To Make Forwarding Easy}
+% % Forwarding is more difficult if:
+% % \begin{itemize}
+% % \item The instruction has to forward more than one result.
+% % \item The instruction has to write the result early.
+% % \end{itemize}
+% % ARM (LEG) was designed to make forwarding easier.
+% % \begin{itemize}
+% % \item Instructions write at most one result.
+% % \item Instructions write the result in the last stage of the pipeline. This makes bypassing the register file easier.
+% % \end{itemize}
+% % \end{frame}
+
+% % %-----------------------------------------------------
+% % \begin{frame}\frametitle{Control Hazards}
+
+% % The instruction that was fetched is not the one that is needed.
+
+% % \begin{itemize}
+% % \item The conditional branch instruction must begin fetching the instruction following the branch on the following clock cycle.
+
+% % \item However, the pipeline cannot know what the next instruction should be.
+% % \end{itemize}
+% % \end{frame}
+
+% % %-----------------------------------------------------
+% % \begin{frame}\frametitle{Control Hazards}
+% % Three solutions to control hazards:
+% % \begin{itemize}
+% % \item Stall
+% % \item Predict
+% % \item Delay decision
+% % \end{itemize}
+% % \end{frame}
+% % %-----------------------------------------------------
+% % \begin{frame}\frametitle{Control Hazard: Stall}
+% % Suppose the hardware can test the register, determine the branch target address and update the PC in the second stage ID. 
+% % \begin{figure}[H]
+% % \centering
+% % 	{\includegraphics[scale=0.2]{figures/cbz-control-hazard}}
+% % \end{figure}
+% % The instruction to be executed if the branch is not taken stalls for one clock cycle.
+
+% % \end{frame}
+
+% % %-----------------------------------------------------
+% % \begin{frame}\frametitle{Control Hazard: Branch Prediction}
+% % If we cannot resolve the branch in the second stage, the pipeline has an even larger slow down.
+
+% % \hfill\break
+% % Another solution is the pipeline \textbf{predicts} the conditional branch is \textbf{not} taken.
+% % \begin{itemize}
+% % \item If the pipeline is correct, it proceeds at full speed.
+% % \item If the pipeline is incorrect, it stalls.
+% % \end{itemize}
+% % The pipeline can also predict some conditional branches are taken, while others are not. For example, branching back to an earlier address is usually taken.
+% % \hfill\break
+
+% % Dynamic prediction uses recent past behaviour to predict branching.
+% % \end{frame}
+
+% % %-----------------------------------------------------
+% % \begin{frame}[fragile]\frametitle{Control Hazard: Delayed Decision}
+% % Delayed decision rearranges the code to move an instruction not affect by the branch to hide the branch delay. The rearrangement is done by the assembler, hidden from the programmer.
+% % \begin{verbatim}
+% % ADD X4, X5, X6
+% % CBZ X1, 40
+% % ORR X7, X8, X9 //stall
+% % \end{verbatim}
+% % \begin{verbatim}
+% % CBZ X1, 40
+% % ADD X4, X5, X6 // move ADD to after CBZ
+% % ORR X7, X8, X9
+% % \end{verbatim} 
+% % \end{frame}
+
+
+
+% % \begin{frame}[fragile]
+% %   \STitle{Control Hazards}
+% % 	\PHFigure{!}{4in}{3in}{ARMFigures/Fig0460}{Figure 4.60}
+
+% % \BNotes\ifnum\Notes=1
+% % \begin{itemize}
+% % \item The point being that if we take the branch at line 40, then we load instructions 44,48,52 before we actually take the branch.  The goal is for the pipelined code to execute as if it were run on the single cycle datapath.
+% % \end{itemize}
+% % \fi\ENotes
+% % \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Overview on Resolving Control Hazards}
+% \begin{itemize}
+% \item Can't decide whether to branch or not until instruction has been
+%   read from memory.
+% \item First solution: \hl{\textbf{stall}}
+
+% Assume we have the hardware to test the register, determine the branch target address and update the PC in the second stage ID
+
+% 	\PHFigure{!}{3in}{1in}{05-pipelining/figures/resolving-ctrl-hazard-ldur}{Figure 4.30}
+
+
+%     \begin{itemize}
+%     \item Branch Stalling: adds one additional clock cycle to all branches
+%       \end{itemize}
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item The idea (which isn't quite correct) that we cn figure out whether or
+%   not we take the branch (or rather, what the correct next address should be)
+%   during the Instruction-Decode/Register-Fetch stage, and we delay loading
+%   the PC until we've made that decision.
+
+%   That's what the figure shows, but we can't really do this, since the
+%   conditional branch requires reading a register from the register file,
+%   and we'd have to wait an additional clock cycle for that to be read.
+% \item
+% Unconditional stalling means that every branch instruction adds two
+% clock cycles (or more if the pipeline is longer and the ambiguity
+% cannot be resolved in one clock cycle), which is usually unacceptable.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% % \iffalse
+% % \begin{frame}[fragile]
+% % \Title{Better Solutions}
+% % \begin{itemize}
+% % \item Assume branch failure, stall only on success
+
+% % 	\Figure{!}{3.75in}{4in}{PHALL/F0605}
+% % \item Even better solution: dynamic prediction (based on past history)
+% % \item Another approach: delayed decision (always execute next
+% % instruction after branch)
+% % \end{itemize}
+% % \BNotes\ifnum\Notes=1
+% % \begin{itemize}
+% % \item
+% % A variety of branch predition methods have been proposed; the more
+% % complicated ones start to add hardware overhead.
+
+% % \item
+% % Delayed prediction is what is actually used by the real MIPS
+% % architecture; the compiler moves instructions around to try to fill
+% % that slot just after the branch, and typically can fill about half of
+% % them. 
+
+% % \item In the example, since the {\tt add} and {\tt beq} are independent,
+% % we could swap the {\tt beq} first and the {\tt add} instructions.
+% % This is hidden from the assembly programmer.
+
+% % \end{itemize}
+% % \fi\ENotes
+% % \end{frame}
+% % \fi
+
+% \begin{frame}[fragile]
+%   \STitle{Resolving Control Hazards - Other Alternatives}
+%   \begin{itemize}
+  
+%   \item Second solution: \textbf{Branch prediction}
+  
+%   guess whether or not you'll take the branch,
+%     load that address, and abort instruction if wrong.
+%   \item Third Solution: \textbf{Delayed Decision}: Always execute the instruction after the branch
+%     \begin{itemize}
+%     \item Use code re-arrangement to move instructions before branch to
+%       delay slot
+%     %   \item  The rearrangement is done by the assembler, hidden from the programmer
+%     % \item Used by MIPS architecture
+%         \end{itemize}
+%     \begin{verbatim}
+% ADD X4, X5, X6
+% CBZ X1, 40
+% ORR X7, X8, X9 //stall
+% \end{verbatim}
+% Rearranged to use branch delay slot
+% \begin{verbatim}
+% CBZ X1, 40
+% ADD X4, X5, X6 // move ADD to after CBZ
+% ORR X7, X8, X9
+% \end{verbatim} 
+
+%   \end{itemize}
+
+%     % {\tiny
+% % \begin{verbatim}
+% % ADD X4, X5, X6
+% % CBZ X1, 40
+% % ORR X7, X8, X9 //stall
+% % \end{verbatim}
+% % \begin{verbatim}
+% % CBZ X1, 40
+% % ADD X4, X5, X6 // move ADD to after CBZ
+% % ORR X7, X8, X9
+% % \end{verbatim} 
+% % }
+%   \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% 	\item We'll see more of the first two later
+% 	\item The comment about MIPS is just a side note
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+
+% \begin{frame}[fragile]
+% \Title{Review of Single-Cycle Datapath}
+% {\includegraphics[scale=0.2]{05-pipelining/figures/hazards-in-datapath.png}}
+%  % \PHFigure{!}{5in}{2.5in}{ARMFigures/Fig0432-crop}{Figure 4.32}
+ 
+% Flow is left to right, except for PC update and register writeback (blue)
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% 	\item PC update leads to control hazard
+% 	\item Register writeback leads to data hazard
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+\begin{frame}[fragile]
+\STitle{Pipelined Version of Datapath}
+	\PHFigure{!}{4in}{2in}{ARMFigures/Fig0440blue-crop}{Modified Figure 4.40}
+\begin{itemize}
+\item Pipeline registers (cyan) hold all necessary intermediate values
+\end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item The goal is the store the partially executed command in a set of the
+  pipeline registers in one clock cycle; then use this information to
+  continue execution of the instruction in the next clock cycle.
+
+\item A trace of this is just the multicycle computer.
+  The book does a trace like the multicycle computer, but on a version of the datapath that is erroneous.
+\item On a later slide, you'll do an example of five instructions using the datapath simultaneously
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+
+% \begin{frame}\frametitle{Pipeline Hazards}
+
+
+% There are two exceptions to left to right. In WB, data moves back to the register file. In MEM, the branch target address goes back to update the PC. These right to left flows may have hazards.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[scale=0.2]{05-pipelining/figures/hazards-in-datapath.png}}
+% \end{figure}
+
+
+% \end{frame}
+
+
+
+\iftrue
+\begin{frame}[fragile]
+	\STitle{Multicycle Execution}
+	\begin{itemize}
+		\item Can use this datapath to execute one instruction			over multiple clock cycles
+		\item Pipeline registers store intermediate values between
+			clock cycles
+		\item At each clock cycle, only part of pipelined datapath is used for instruction execution.
+	\end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+  \item The next slides demonstrate this
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+
+\begin{frame}[fragile]
+  \STitle{LDUR: IF}
+	\PHFigure{!}{4in}{2.0in}{ARMFigures/Fig0440LDURIF-crop}{Modified Figure 4.40}
+
+ 
+  \begin{itemize}
+  % \item Shading indicates that an instruction in that stage is using the hardware components that exist in that stage
+
+\item Shading on \textbf{left half}  $\rightarrow$ \textbf{write} operation of storage (Registers, RF, Memory) 
+% \item  \textbf{right half} $\rightarrow$ \textbf{read} operation of storage (Registers, RF, Memory) 
+% hardware used in first/second half of clock-cycle
+  \item In the first clock cycle, we read the instruction and    update the PC
+  \end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+  \item IF
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+  \STitle{LDUR: ID}
+  \PHFigure{!}{4in}{2.0in}{ARMFigures/Fig0440LDURID-crop}{Modified Figure 4.40}
+  \begin{itemize}
+  % \item Shading indicates that an instruction in that stage is using the hardware components that exist in that stage
+
+% \item Shading on \textbf{left half}  $\rightarrow$ \textbf{write} operation of storage (Registers, RF, Memory) 
+\item  Shading on \textbf{right half} $\rightarrow$ \textbf{read} operation of storage 
+% (Registers, RF, Memory) 
+% hardware used in first/second half of clock-cycle
+  \item In the second clock cycle, we read the register file and
+    sign extend the constant
+    \item Note the destination register ({\tt Rd}) being copied to pipeline registers
+  \end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+  \item ID
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+  \STitle{LDUR: EX}
+	\PHFigure{!}{4in}{2.0in}{ARMFigures/Fig0440LDUREX-crop}{Modified Figure 4.40}
+        \begin{itemize}
+          \item In the third clock cycle, we compute the memory address
+        \end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+  \item EX
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+  \STitle{LDUR: MEM}
+	\PHFigure{!}{4in}{2.0in}{ARMFigures/Fig0440LDURMEM-crop}{Modified Figure 4.40}
+        \begin{itemize}
+          \item In the fourth clock cycle, we read from memory
+        \end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+  \item MEM
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+  \STitle{LDUR: WB}
+	\PHFigure{!}{4in}{2.0in}{ARMFigures/Fig0440LDURWB-crop}{Modified Figure 4.40}
+        \begin{itemize}
+        \item In the fifth clock cycle, we write the value from memory
+          to the write register in register file, passed through the MEM/WB pipeline register.
+        \end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+  \item WB
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Revisit: Performance}
+% \begin{itemize}
+%   \item Single cycle computer has 800ps clock
+%   \item Multicycle clock must be speed of {\em slowest} component: 200ps
+%   \item Each instruction takes 5 clock cycles
+
+%     Instructions use every stage, even some stages not needed
+
+%   \item Time per instruction: 5$\times$200ps = 1000ps
+
+%     \hl{Slower than single cycle!}
+%   % \item Smarter control: 4 cc for 800ps.\vspace*{.2in}
+%   \item Better idea: execute multiple instructions simultaneously
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item The ``instructions use every stage comment'' is not how a real
+%   multicycle computer works.
+% \item To figure out how long smarter control takes,
+%   have to figure out ``mix of instructions executed''.
+
+% Experiments show that {\tt gcc} (GNU C compiler) uses on average
+% 22\% loads, 11\% stores, 49\% R-format, 16\% branches, 2\% jumps
+
+% The 4cc comes from a slightly different data path where jumps take 3cc,
+% and branches also only take 3 cc (by moving the branch hardware forward
+% one stage).  The details don't matter too much for our purposes, since
+% (a) it's still slower than single cycle and (b) we really care about the
+% simpler control (i.e., sequencing through the 5 states for all instructions)
+% since that's what the pipelined computer will use.
+
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+\begin{frame}[fragile]
+\STitle{Pipelined Datapath: Multiple Instructions Executing}
+	\PHFigure{!}{3.5in}{1.5in}{ARMFigures/Fig0440blue-crop}{Modified Figure 4.40}
+	\begin{itemize}
+		\item In pipelining, multiple instructions share datapath
+
+		\item Each set of pipeline registers contains info for one instruction
+
+			% Fifth instruction is read from instruction memory
+		\item Five instructions execute simultaneously
+  
+  Fifth instruction is read from instruction memory
+
+			\hl{\textbf{Each instruction at a different stage in the pipeline}}
+	\end{itemize}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item You'll do an example on next slide
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+% for comprehensive
+\newpage
+\begin{frame}\frametitle{Pipelined Datapath with Control Signals}
+Notice: each control line is associated with a component active in only one
+stage
+\begin{figure}[H]
+\centering
+	{\includegraphics[width=1\textwidth]{05-pipelining/figures/pipelined-datapath-control.png}}
+\end{figure}
+
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Pipelined Control}
+\begin{itemize}
+\item First, we ignore hazards
+\item No need for control signals for PC and new pipeline registers
+% \item Each control line is associated with a component active in only one stage
+\item We need to extend pipeline registers to pass control signals 
+to the stage where they are used
+	\PHFigure{!}{2.5in}{1.7in}{ARMFigures/Fig0449-crop}{Figure 4.49}
+
+\end{itemize}
+\BNotes\ifnum\Notes=1
+Go over the facts that control signals can be generated in the
+instruction decode stage, but need to be used in the execute, memory
+access, and register writeback stages.
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Pipelined Datapath and Control}
+	\PHFigure{!}{4in}{3in}{ARMFigures/Fig0450-crop}{Figure 4.50}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item This is Figure 4.50, the full version of the datapath with the 
+	control signals pipelined as well. 
+\item Trace through where the WB, M, and 
+	EX parts of the registers originate and terminate; each of these may 
+	have more than one line in it. Emphasize that this version still does 
+	not take into account hazards. It will work fine for a sequence of 
+	completely independent instructions. 
+\item If you wish you can trace 
+	through an instruction or even a sequence 
+	of two or three.
+\item Also, in Figures 4.37, 4.39, there are two
+	images of the pipeline.  In the top image of each of these figures,
+	the MUX coming out of data memory has the 0,1 inputs swapped; they
+	are correctly labeled in the bottom image.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+  \STitle{Trace Pipelined Datapath}\bigskip
+  \PHFigure{!}{4in}{1.45in}{ARMFigures/Fig0450-crop}{Figure 4.50}
+  \vfill
+\SizeC
+ \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=red!5!white,colframe=red!75!black,colbacktitle=red!80!black,
+  title=Try this,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=red!50!black} ]
+  {\footnotesize
+Trace the following instructions through the pipelined datapath
+
+\begin{verbatim}
+100: ADD X1,X2,X3          112: CBZ X11, #20
+104: SUB X4,X5,X6          116: STUR X9, [X10, #0] 
+108: LDUR X7, [X8, #0] 
+\end{verbatim}
+}
+\end{tcolorbox}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item Trace the instructions traveling through the pipeline, starting with ADD in IF; then in the next clock cycle, ADD in ID and SUB in IF; then in the third clock cycle, ADD in EX, SUB in ID, and LDUR in IF; etc.
+  \item Either print and use DocCam, using different coloured pens for each instruction (or possibly, for each clock cycle) or with small pieces of paper with the name of each instruction, moving them each clock cycle, or do this digitally (eg, Okular would let you make text boxes that you could move for the instructions).
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+
+\begin{frame}[fragile]
+  \STitle{Solution: Trace Pipelined Datapath}\bigskip
+  \PHFigure{!}{4in}{2.7in}{ARMFigures/Fig0450-crop}{Figure 4.50}
+  \vfill
+\SizeC
+ 
+% Trace the following instructions through the pipelined datapath
+
+% \begin{verbatim}
+% 100: ADD X1,X2,X3          112: CBZ X11, #20
+% 104: SUB X4,X5,X6          116: STUR X9, [X10, #0] 
+% 108: LDUR X7, [X8, #0] 
+% \end{verbatim}
+\BNotes\ifnum\Notes=1
+\begin{itemize}
+\item Trace the instructions traveling through the pipeline, starting with ADD in IF; then in the next clock cycle, ADD in ID and SUB in IF; then in the third clock cycle, ADD in EX, SUB in ID, and LDUR in IF; etc.
+  \item Either print and use DocCam, using different coloured pens for each instruction (or possibly, for each clock cycle) or with small pieces of paper with the name of each instruction, moving them each clock cycle, or do this digitally (eg, Okular would let you make text boxes that you could move for the instructions).
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Conclusion}
+ \underline{\textbf{Lecture Summary}}
+ \begin{itemize}
+ \item Increase parallelism by overlapping execution of multiple instructions 
+\item Design of the Pipelined datapath
+% and control
+% \item Dealing with data hazards via
+% forwarding, stalling instructions, and branch hazards. Students can
+% skim the sections on superscalar, and dynamic pipelining;
+% those with a keen interest can look at the PowerPC/Pentium section.
+\item  The intermediate registers between stages store the information coming out of one and going into the next stage in the next clock cycle.
+% Some of
+% these already exist. For instance, the instruction fetch hardware will
+% put the instruction into the IR. But the decode step has to put
+% information from the instruction, like the field values, into
+% registers, because the IR is going to be overwritten in the next clock
+% cycle with the next instruction.
+% \item Instructions are not independent
+% (can interfere with each other). We have to deal with such
+% interference, though first we do the design as if it doesn't happen,
+% then add the extra hardware required.
+ % \item 
+\end{itemize}
+ % \end{itemize}
+ \underline{\textbf{Assigned Textbook Readings}}
+\begin{itemize}
+     \item \textbf{Read} Section 4.5--4.6 %4.9
+     \end{itemize}
+    \underline{\textbf{Next Steps}}
+    \begin{itemize}
+     \item \textbf{Review} logic behind the Pipelined datapath and control unit. 
+\begin{itemize}
+    \item Start thinking about problems or hazards of this pipelined datapath
+\end{itemize}
+\item \textbf{Attempt} questions in tutorial to make sure you understand the datapath. 
+    \item \textbf{Ask} questions in office hours or the next tutorial.
+ \end{itemize}
+
+\end{frame}
+
+\fi
+
+% \begin{frame}[fragile]
+% \STitle{Pipelined Datapath: Multiple Instructions Executing}
+% 	\PHFigure{!}{3.5in}{1.5in}{ARMFigures/Fig0440blue-crop}{Modified Figure 4.40}
+% 	\begin{itemize}
+% 		\item In pipelining, multiple instructions share datapath
+
+% 		\item Each set of pipeline registers contains info for one instruction
+
+% 			Fifth instruction read from instruction memory
+% 		\item Five instructions execute simultaneously
+
+% 			\hl{\textbf{Each instruction at different stage in pipeline}}
+% 	\end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item You'll do an example on next slide
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+%   \STitle{Trace of Five Instructions}\bigskip
+%   \PHFigure{!}{4in}{2.0in}{ARMFigures/Fig0440base-crop}{Modified Figure 4.40}
+%   \vfill
+% \SizeC
+% \begin{verbatim}
+% 100: ADD X1,X2,X3   108: LDUR X7, [X8, #0]  116: CBZ X11, #20
+% 104: SUB X4,X5,X6   112: STUR X9, [X10, #0] 
+% \end{verbatim}
+
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item Trace the instructions traveling through the pipeline, starting with ADD in IF; then in the next clock cycle, ADD in ID and SUB in IF; then in the third clock cycle, ADD in EX, SUB in ID, and LDUR in IF; etc.
+%   \item Either print and use DocCam, using different coloured pens for each instruction (or possibly, for each clock cycle) or with small pieces of paper with the name of each instruction, moving them each clock cycle, or do this digitally (eg, Okular would let you make text boxes that you could move for the instructions).
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}\frametitle{Tracing More Than One Instruction}
+% These instructions move through the pipeline stages as shown below.
+
+% \begin{center}
+% \begin{tabular}{c|c|c|c|c|c}
+%      & IF & ID & EX & MEM & WB \\ \hline
+% CC 1 & ADD & & & & \\ \hline
+% CC 2 & SUB & ADD & & & \\ \hline
+% CC 3 & LDUR & SUB & ADD & & \\ \hline
+% CC 4 & STUR & LDUR & SUB & ADD & \\ \hline
+% CC 5 & CBZ & STUR & LDUR & SUB & ADD \\ \hline
+% CC 6 & & CBZ & STUR & LDUR & SUB \\ \hline
+% CC 7 & & & CBZ & STUR & LDUR \\ \hline
+% CC 8 & & & & CBZ & STUR \\ \hline
+% CC 9 & & & & & CBZ \\ \hline
+% \end{tabular}
+% \end{center}
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Pipeline Diagram: Multiple Clock Cycle}
+
+% The \emph{multiple clock cycle pipeline diagram} shows time advancing left to right, instructions advance from top to bottom.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=1\textwidth]{figures/pipeline-symbol-ldur-ex}}
+% \end{figure}
+
+
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Pipeline Diagram: Multiple Clock Cycle}
+
+% Another example of a multiple clock cycle pipeline diagram. Note in CC 5, the register file is being read from and written to.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[scale=0.2]{figures/multi-cycle-pipeline-diagram-cc5}}
+% \end{figure}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Pipeline Diagram: Multiple Clock Cycle}
+
+% Another kind of multiple clock cycle pipeline diagram shows the names of the stages.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=1\textwidth]{figures/multi-cycle-pipeline-diagram2}}
+% \end{figure}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Pipeline Diagram: Single Clock Cycle}
+
+% A Single cycle pipeline diagram shows the usage of the datapath by each instruction at a particular clock cycle. Earlier instructions are further ahead in the pipeline. Below is clock cycle 5 of the code on the previous slide.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=1\textwidth]{figures/single-cycle-pipeline-diagram}}
+% \end{figure}
+
+% \end{frame}
+
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Pipelined Datapath with Control Signals}
+% The following datapath shows the control signals. Note that in each stage, only the controls associated with that stage's components are active.
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[width=1\textwidth]{figures/pipelined-datapath-control}}
+% \end{figure}
+
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Control Signals For Each Pipeline Stage}
+% We can group the control signals by the pipeline stage that needs them:
+% \begin{itemize}
+% \item IF
+% \begin{itemize}
+% \item The signal to read instruction memory and write PC are always asserted. There is nothing special to control in this stage.
+% \end{itemize}
+
+% \item ID
+% \begin{itemize}
+% \item Reg2Loc
+% \end{itemize}
+
+
+% \item EX
+% \begin{itemize}
+% \item ALUOp
+% \item ALUSrc
+% \end{itemize}
+
+
+% \item MEM
+% \begin{itemize}
+% \item Branch (and PCSrc)
+% \item MemRead
+% \item MemWrite
+% \end{itemize}
+
+% \item WB
+% \begin{itemize}
+% \item MemtoReg
+% \item RegWrite
+% \end{itemize}
+
+
+% \end{itemize}
+% \end{frame}
+
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Control Signals For Each Pipeline Stage}
+% \begin{itemize}
+% \item There is no write signal for PC.
+
+% \item There are no write signals for the pipeline registers.
+% \end{itemize}
+% These registers are always written to at the end of the clock cycle.
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Reg2Loc for The Pipelined Datapath}
+% In the ID stage, the main control is still decoding and does not yet have the Reg2Loc signal.
+
+% \hfill\break
+
+% We need to get Reg2Loc from the opcode instead.
+% \end{frame}
+% %-----------------------------------------------------
+% \begin{frame}\frametitle{Reg2Loc for The Pipelined Datapath}
+% Recall from the main control's truth table that the input opcode's bit 28 is 0 for R-format and 1 otherwise. Therefore, bit 28 can be used to set the output Reg2Loc bit. 
+% \begin{figure}[H]
+% \centering
+% 	{\includegraphics[scale=0.15]{figures/main-control-truth-table}} \\
+% 	{\includegraphics[scale=0.15]{figures/main-control-truth-table-bit28-Reg2Loc}}
+% \end{figure}
+% \end{frame}
+
+% %-----------------------------------------------------
+
+
+
+% \begin{frame}[fragile]
+%   \STitle{Pipelined datapath with control signals}
+% 	\PHFigure{!}{4in}{2.6in}{ARMFigures/Fig0446-crop}{Figure 4.46}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item Point out control signals; use this slide if you want to do
+%   an additional example
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \STitle{Pipelined Control}
+% \begin{itemize}
+% \item First, we ignore hazards
+% \item No need for control signals for PC and new pipeline registers
+% \item Each control line is associated with a component active in only 
+% one stage
+% \item We need to extend pipeline registers to pass control signals 
+% to the stage where they are used
+% 	\PHFigure{!}{2.5in}{1.7in}{ARMFigures/Fig0449-crop}{Figure 4.49}
+
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% Go over the facts that control signals can be generated in the
+% instruction decode stage, but need to be used in the execute, memory
+% access, and register writeback stages.
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% 	\PHFigure{!}{4in}{3in}{ARMFigures/Fig0450-crop}{Figure 4.50}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item This is Figure 4.50, the full version of the datapath with the 
+% 	control signals pipelined as well. 
+% \item Trace through where the WB, M, and 
+% 	EX parts of the registers originate and terminate; each of these may 
+% 	have more than one line in it. Emphasize that this version still does 
+% 	not take into account hazards. It will work fine for a sequence of 
+% 	completely independent instructions. 
+% \item If you wish you can trace 
+% 	through an instruction or even a sequence 
+% 	of two or three.
+% \item Also, in Figures 4.37, 4.39, there are two
+% 	images of the pipeline.  In the top image of each of these figures,
+% 	the MUX coming out of data memory has the 0,1 inputs swapped; they
+% 	are correctly labeled in the bottom image.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+
+% \begin{frame}[fragile]
+% \STitle{Conclusion}
+%  \underline{\textbf{Lecture Summary}}
+%  \begin{itemize}
+%  \item Increase parallelism by overlapping execution of multiple instructions 
+% \item Design of the pipelined datapath and control
+% % \item Dealing with data hazards via
+% % forwarding, stalling instructions, and branch hazards. Students can
+% % skim the sections on superscalar, and dynamic pipelining;
+% % those with a keen interest can look at the PowerPC/Pentium section.
+% \item  The intermediate registers between stages store the information coming out of one and going into the next stage in the next clock cycle.
+% % Some of
+% % these already exist. For instance, the instruction fetch hardware will
+% % put the instruction into the IR. But the decode step has to put
+% % information from the instruction, like the field values, into
+% % registers, because the IR is going to be overwritten in the next clock
+% % cycle with the next instruction.
+% \item Instructions are not independent
+% (can interfere with each other). We have to deal with such
+% interference, though first we do the design as if it doesn't happen,
+% then add the extra hardware required.
+%  % \item 
+% \end{itemize}
+%  % \end{itemize}
+%  \underline{\textbf{Assigned Readings}}
+% \begin{itemize}
+%      \item \textbf{Read} Section 4.5--4.9
+%      \end{itemize}
+%     \underline{\textbf{Next Steps}}
+%     \begin{itemize}
+%      \item \textbf{Review} logic behind the Pipelined datapath and control unit. 
+% \begin{itemize}
+%     \item Start thinking about the exercises in A5
+% \end{itemize}
+% \item \textbf{Attempt} questions in next week's tutorial. 
+%     \item \textbf{Ask} questions in office hours or the next tutorial.
+%  \end{itemize}
+
+% \end{frame}
+
+
+% \begin{frame}[fragile]
+% \Title{Pipelining - Overview}
+% \begin{itemize}
+% \item Readings: Chapter 4, sections 4.5--4.6
+% \item The single cycle processor uses one clock cycle for each instruction.
+% \item Idea: increase parallelism by overlapping execution of multiple
+% instructions 
+% % \item Analogy: laundry (wash/dry/fold/put-away)
+% % \item Analogy: industrial assembly line
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% \begin{itemize}
+% \item
+% The readings cover the basic idea of pipelining, design of the
+% datapath, design of the control, dealing with data hazards via
+% forwarding, stalling instructions, and branch hazards. Students can
+% skim the sections on superscalar, and dynamic pipelining;
+% those with a keen interest can look at the PowerPC/Pentium section.
+% \item    
+% The intermediate registers between stages store the information coming
+% out of one and going into the other at the next clock cycle. Some of
+% these already exist. For instance, the instruction fetch hardware will
+% put the instruction into the IR. But the decode step has to put
+% information from the instruction, like the field values, into
+% registers, because the IR is going to be overwritten in the next clock
+% cycle with the next instruction.
+% \item Where the analogies break down: instructions are not independent
+% (can interfere with each other). We have to deal with such
+% interference, though first we do the design as if it doesn't happen,
+% then add the extra hardware required.
+
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+
+% \end{Lecture}

@@ -1,0 +1,3 @@
+<answer>No</answer>
+
+The report does not provide a quantifiable numerical measurement for every functional requirement. For example, the requirement "Measures body temperature in the range of 35.6 to 40.6 degrees Celsius and warns user of high body temperature" does not specify the acceptable range for a high body temperature warning. It only states "high body temperature," which is not a quantifiable numerical measurement.

@@ -1,0 +1,11 @@
+<answer>yes</answer>
+
+The report includes three clearly stated scientific and mathematical principles:
+
+1. The first principle is the use of **standard deviation**, which indicates how data is dispersed around the mean. The report states, "The project will make use of mathematical principles through the calculation of standard deviation, which indicates how data is dispersed around the mean [18]." 
+
+2. The second principle is **solving systems of linear equations**: "Additionally, the project will use mathematical principles involved in solving systems of linear equations... By modeling body temperature trends with linear equations, we can predict when the user's body temperature will reach an unsafe level..."
+
+3. The third principle is the use of **inequality functions**: "The final mathematical principle this project would make use of is inequality. Inequality functions can be given such as: $x < 5, x > 5 [20]$." 
+
+All three principles are explicitly stated in the report, thereby meeting the standard.

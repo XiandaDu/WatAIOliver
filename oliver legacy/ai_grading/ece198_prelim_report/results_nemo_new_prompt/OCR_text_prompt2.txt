@@ -1,0 +1,13 @@
+<answer>Yes</answer>
+
+The report clearly defines the problem experienced by the customer (farm workers) as heat stress, which includes heat stroke, heat exhaustion, heat cramps, and sunburn. This is evident in the following statements:
+
+- "As global temperatures continue to reach new highs in 2023, farm workers across Canada are at increasing risk of suffering from heat stress [1], [2]."
+- "Symptoms of heat stroke can include... Other aspects of heat stress include... Sunburn is also a common ailment for those who are exposed to excess UV radiation, causing inflammation of the skin [6]. As conditions related to heat stress, farm workers face these problems as well [7]."
+
+The report also backs up this definition with two citations that directly reference the defined problem:
+
+- [1] CTVNewsWindsor. "Organization calls on Ontario government to enact emergency measures addressing heat stress in farm worker community." windsor.ctvnews.ca.
+- [2] G. Luyties, "Farm workers at increasing risk of heat-related illnesses as B.C. summers get hotter." vancouver.sun.com.
+
+These citations provide evidence from external sources to support the defined problem, making the statement clear and well-supported.
