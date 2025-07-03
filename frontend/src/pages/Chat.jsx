@@ -8,6 +8,7 @@ import { MessageList } from "@/components/ui/message-list"
 import { PromptSuggestions } from "@/components/ui/prompt-suggestions"
 import { CustomSelect } from "@/components/ui/custom-select"
 import { Sidebar } from "@/components/Sidebar"
+import { marked } from "marked"
 
 export default function ChatPage() {
   const [messages, setMessages] = useState([])
@@ -233,7 +234,11 @@ export default function ChatPage() {
                                 : "bg-gray-100 text-gray-900"
                             }`}
                           >
-                            {message.content}
+                            {message.role === "assistant" ? (
+                              <div dangerouslySetInnerHTML={{ __html: marked.parse(message.content) }} />
+                            ) : (
+                              <span>{message.content}</span>
+                            )}
                           </div>
                         </div>
                       ))}
