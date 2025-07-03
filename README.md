@@ -1,5 +1,7 @@
 # WatAIOliver
 
+**Note:** A FastAPI backend is being added in the `backend/` folder. The chat logic from Oliver-Legacy is being migrated here to support real Qwen model chat functionality.
+
 This is the **Oliver** repo for **WatAI** — an LLM-based RAG (Retrieval-Augmented Generation) project.
 
 Oliver is an intelligent assistant who helps instructors and students interact with course materials through conversational AI. This is a new implementation based on the legacy Oliver project.
@@ -99,4 +101,4 @@ Once you decide on an approach, post it in the Discord channel.
 
 **Collaboration**: The initial analyses between Backend and ML Engineers will overlap but with different focus areas.
 
-# Let’s build an awesome new Oliver together!
+# Let's build an awesome new Oliver together!

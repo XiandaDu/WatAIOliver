@@ -50,18 +50,31 @@ export default function ChatPage() {
     setIsLoading(true)
     setIsTyping(true)
 
-    // Simulate AI response
-    setTimeout(() => {
+    try {
+      const res = await fetch("http://localhost:8000/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: input })
+      })
+      const data = await res.json()
       const assistantMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "This is a template response. The actual AI integration will be implemented later.",
+        content: data.result || "No result returned",
         createdAt: new Date()
       }
       setMessages(prev => [...prev, assistantMessage])
+    } catch (err) {
+      setMessages(prev => [...prev, {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: "Error: Could not get response from backend.",
+        createdAt: new Date()
+      }])
+    } finally {
       setIsLoading(false)
       setIsTyping(false)
-    }, 1000)
+    }
   }
 
   const append = (message) => {
