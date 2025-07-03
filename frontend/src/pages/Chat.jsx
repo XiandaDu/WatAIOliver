@@ -17,11 +17,10 @@ export default function ChatPage() {
   const [selectedConversation, setSelectedConversation] = useState(null)
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
-  const [selectedModel, setSelectedModel] = useState("Model 1")
+  const [selectedModel, setSelectedModel] = useState("qwen")
   const modelOptions = [
-    { label: "Model 1", value: "model-1" },
-    { label: "Model 2", value: "model-2" },
-    { label: "Model 3", value: "model-3" },
+    { label: "Qwen 3", value: "qwen" },
+    { label: "Model 2", value: "model-2" }
   ]
 
   const scrollToBottom = () => {
@@ -77,29 +76,41 @@ export default function ChatPage() {
     }
   }
 
-  const append = (message) => {
+  const append = async (message) => {
     const userMessage = {
       id: Date.now().toString(),
       role: "user",
       content: message.content,
       createdAt: new Date()
     }
-    
     setMessages(prev => [...prev, userMessage])
     setIsLoading(true)
     setIsTyping(true)
-
-    setTimeout(() => {
+    try {
+      const res = await fetch("http://localhost:8000/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: message.content })
+      })
+      const data = await res.json()
       const assistantMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "This is a template response. The actual AI integration will be implemented later.",
+        content: data.result || "No result returned",
         createdAt: new Date()
       }
       setMessages(prev => [...prev, assistantMessage])
+    } catch (err) {
+      setMessages(prev => [...prev, {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: "Error: Could not get response from backend.",
+        createdAt: new Date()
+      }])
+    } finally {
       setIsLoading(false)
       setIsTyping(false)
-    }, 1000)
+    }
   }
 
   const stop = () => {
