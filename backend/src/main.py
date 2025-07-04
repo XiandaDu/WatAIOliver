@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from .api import register_routes
+from src.api import register_routes
 from starlette.middleware.sessions import SessionMiddleware
 
 app = FastAPI()

@@ -1,4 +1,4 @@
-from supabaseClient import supabase
+from src.supabaseClient import supabase
 from datetime import datetime, timezone
 import uuid
 

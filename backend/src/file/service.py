@@ -1,9 +1,13 @@
 from fastapi import Depends, FastAPI, Request, UploadFile, File, Form, Query, HTTPException, status
 from .models import FileUpload, FileCreate, FileUpdate, FileResponse, FileListResponse
+# from .CRUD import (
+#     create_file, get_file, get_files_by_user, get_files_by_course, get_all_files,
+#     update_file, delete_file, search_files, get_file_count, get_file_count_by_course,
+#     get_files_by_type, get_files_by_size_range
+# )
 from .CRUD import (
-    create_file, get_file, get_files_by_user, get_files_by_course, get_all_files,
-    update_file, delete_file, search_files, get_file_count, get_file_count_by_course,
-    get_files_by_type, get_files_by_size_range
+    create_file,
+    update_file, delete_file
 )
 from typing import List, Optional, Dict, Any
 import pymupdf4llm

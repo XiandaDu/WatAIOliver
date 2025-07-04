@@ -1,4 +1,4 @@
-from supabase_client import supabase
+from src.supabaseClient import supabase
 
 # CREATE
 def create_file(user_id, file_name, file_type, file_size, file_path, description=None, course_id=None):

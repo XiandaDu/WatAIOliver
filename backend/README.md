@@ -13,9 +13,8 @@ pip install -r requirements.txt
 Navigate to the project root and start the FastAPI server with hot-reloading enabled:
 
 ```bash
-cd backend
-uvicorn app.main:app --reload
+uvicorn src.main:app --reload
 ```
 
 The API will be available at: [http://localhost:8000](http://localhost:8000)
-You may run [http://localhost:8000/test](http://localhost:8000/test) to test it. 
+You may run [http://localhost:8000/docs](http://localhost:8000/docs) to see fastapi generated documentations. 
