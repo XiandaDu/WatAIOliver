@@ -190,11 +190,8 @@ export function Sidebar({
                           style={{ textAlign: 'left' }}
                         >
                           <div className="flex flex-col items-start gap-0.5 w-full pr-12">
-                            <span className="font-medium leading-tight truncate w-full max-w-[180px]">
+                            <span className="font-medium leading-tight truncate w-full max-w-[155px]">
                               {conversation.title || 'Untitled Conversation'}
-                            </span>
-                            <span className="text-sm text-muted-foreground truncate w-full max-w-[180px]">
-                              {conversation.lastMessage || 'No messages yet'}
                             </span>
                             <span className="text-xs text-muted-foreground mt-0.5">
                               {formatTimestamp(conversation.updated_at || conversation.created_at)}
