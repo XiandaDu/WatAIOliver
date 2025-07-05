@@ -2,7 +2,7 @@ from .CRUD import (
     create_document, get_documents, get_document,
     update_document, delete_document
 )
-from .models import DocumentCreate, DocumentUpdate, DocumentResponse
+from .model import DocumentCreate, DocumentUpdate, DocumentResponse
 
 def create_document_service(doc_data: DocumentCreate):
     return create_document(

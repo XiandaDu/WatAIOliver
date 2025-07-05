@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
-from documents.models import DocumentCreate, DocumentUpdate, DocumentResponse
-from documents.service import (
+from .model import DocumentCreate, DocumentUpdate, DocumentResponse
+from src.documents.service import (
     create_document_service, get_documents_service, get_document_service,
     update_document_service, delete_document_service
 )

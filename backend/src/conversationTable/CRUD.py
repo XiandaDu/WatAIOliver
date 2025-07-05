@@ -4,12 +4,13 @@ import uuid
 
 # CREATE
 def create_conversation(conversation_id, title, user_id):
+    now = datetime.now(timezone.utc).isoformat()
     data = {
         "conversation_id": conversation_id or str(uuid.uuid4()),
         "title": title,
         "user_id": user_id,
-        "created_at": datetime.now(timezone.utc),
-        "updated_at": datetime.now(timezone.utc),
+        "created_at": now,
+        "updated_at": now,
     }
     response = supabase.table("conversations").insert(data).execute()
     return response.data
@@ -21,9 +22,10 @@ def get_conversations(user_id):
 
 # UPDATE (update title by conversation_id)
 def update_conversation(conversation_id, new_title):
+    now = datetime.now(timezone.utc).isoformat()
     data = {
         "title": new_title,
-        "updated_at": datetime.now(timezone.utc)
+        "updated_at": now
     }
     response = supabase.table("conversations").update(data).eq("conversation_id", conversation_id).execute()
     return response.data

@@ -4,8 +4,8 @@ from .CRUD import (
 )
 from .models import MessageCreate, MessageUpdate
 
-async def create_message_service(msg_data: MessageCreate):
-    return await create_message(
+def create_message_service(msg_data: MessageCreate):
+    return create_message(
         msg_data.message_id,
         msg_data.user_id,
         msg_data.content,
@@ -13,14 +13,14 @@ async def create_message_service(msg_data: MessageCreate):
         msg_data.conversation_id
     )
 
-async def get_messages_service(conversation_id):
-    return await get_messages(conversation_id)
+def get_messages_service(conversation_id):
+    return get_messages(conversation_id)
 
-async def get_message_service(message_id):
-    return await get_message(message_id)
+def get_message_service(message_id):
+    return get_message(message_id)
 
-async def update_message_service(message_id, msg_data: MessageUpdate):
-    return await update_message(message_id, **msg_data.dict(exclude_unset=True))
+def update_message_service(message_id, msg_data: MessageUpdate):
+    return update_message(message_id, **msg_data.dict(exclude_unset=True))
 
-async def delete_message_service(message_id):
-    return await delete_message(message_id)
+def delete_message_service(message_id):
+    return delete_message(message_id)

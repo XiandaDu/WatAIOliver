@@ -7,6 +7,7 @@ from .service import (
     delete_conversation_service,
 )
 from typing import List
+from fastapi.encoders import jsonable_encoder
 
 router = APIRouter(
     prefix="/conversations",
@@ -14,11 +15,14 @@ router = APIRouter(
 )
 
 @router.post("/", response_model=ConversationResponse)
-def api_create_conversation(convo: ConversationCreate):
-    return create_conversation_service(convo)
+async def create_conversation_api(conversation: ConversationCreate):
+    data = create_conversation_service(conversation) 
+    if data:
+        return data
+    raise HTTPException(status_code=400, detail="Conversation not created")
 
 @router.get("/{user_id}", response_model=List[ConversationResponse])
-def api_get_conversations(user_id: str):
+async def api_get_conversations(user_id: str):
     return get_conversations_service(user_id)
 
 @router.put("/{conversation_id}", response_model=ConversationResponse)
