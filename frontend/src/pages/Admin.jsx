@@ -56,7 +56,7 @@ export default function AdminPage() {
   }
 
   const handleExportLog = (id) => {
-    console.log(`View Log clicked for id: ${id}`)
+    navigate('/admin/logs');
   }
 
   const handleQandA = (id) => {
