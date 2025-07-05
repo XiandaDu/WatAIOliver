@@ -69,15 +69,52 @@ Simple RAG system using `gemini-embedding-001` with 512D vectors.
    SUPABASE_SERVICE_KEY=your-service-key
    ```
 
-### Step 4: Install & Test
+### Step 4: Install & Run
+
+#### Option A: Automated Setup (Recommended)
 ```bash
+# Make sure you're in the rag_system directory
+cd machine_learning/rag_system
+
+# For macOS/Linux:
+./setup.sh
+
+# For Windows:
+setup.bat
+```
+
+#### Option B: Manual Setup
+```bash
+# Create and activate virtual environment
+python3 -m venv venv
+
+# Activate virtual environment (choose your OS)
+source venv/bin/activate        # macOS/Linux
+# OR
+venv\Scripts\activate.bat       # Windows
+
 # Install dependencies
+pip install --upgrade pip
 pip install -r requirements.txt
 
 # Test it works
 cd ../tests
 python test_rag.py
 ```
+
+### Step 5: Start the Server
+```bash
+# Option A: Using the start script
+python start_server.py
+
+# Option B: Using uvicorn directly
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Access your server:**
+- **API Server:** http://localhost:8000
+- **API Documentation:** http://localhost:8000/docs
+- **Health Check:** http://localhost:8000/health
 
 ## ✅ Success Output
 You should see:

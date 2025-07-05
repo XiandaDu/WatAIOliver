@@ -1,18 +1,45 @@
+# Core FastAPI and web framework dependencies
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
 pydantic>=2.0.0
 pydantic-settings>=2.0.0
 
+# LangChain ecosystem for RAG
 langchain>=0.1.0
 langchain-community>=0.0.20
 langchain-text-splitters>=0.0.1
+langchain-google-genai>=0.0.11
 
+# Google AI and Cloud dependencies
 google-genai>=0.1.0
+google-auth>=2.40.0
+google-cloud-core>=2.4.0
+googleapis-common-protos>=1.70.0
+
+# Database and vector storage
 supabase>=2.0.0
 vecs>=0.4.0
+sqlalchemy>=2.0.0
 
+# Document processing
 PyPDF2>=3.0.1
 python-docx>=0.8.11
-python-dotenv>=1.0.0
 unstructured>=0.10.0
+python-multipart>=0.0.20
+
+# ML and data processing
 numpy>=1.24.0
+torch>=2.0.0
+transformers>=4.40.0
+
+# Environment and configuration
+python-dotenv>=1.0.0
+pydantic-settings>=2.0.0
+
+# HTTP and async
+httpx>=0.28.0
+aiofiles>=24.0.0
+
+# Testing (optional but recommended)
+pytest>=7.0.0
+pytest-asyncio>=0.23.0

@@ -1,21 +1,59 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+import logging
+from typing import Optional
 
-from .config import get_settings
-from ..services.rag_service import RAGService
+from app.config import get_settings
+from services.rag_service import RAGService
 
 app = FastAPI(title="RAG Backend")
-_rag_service: RAGService | None = None
+_rag_service: Optional[RAGService] = None
+_initialization_error: Optional[str] = None
 
 def get_rag_service() -> RAGService:
-    global _rag_service
-    if _rag_service is None:
-        _rag_service = RAGService(get_settings())
+    global _rag_service, _initialization_error
+    if _rag_service is None and _initialization_error is None:
+        try:
+            _rag_service = RAGService(get_settings())
+        except Exception as e:
+            _initialization_error = f"RAG service initialization failed: {str(e)}"
+            logging.error(_initialization_error)
+    
+    if _initialization_error:
+        raise HTTPException(
+            status_code=503, 
+            detail=f"RAG service unavailable: {_initialization_error}. Please check your Supabase configuration."
+        )
+    
     return _rag_service
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "message": "FastAPI server is running"}
+
+@app.get("/health/full")
+def health_full():
+    """Detailed health check including RAG service status"""
+    try:
+        rag_service = get_rag_service()
+        return {
+            "status": "ok",
+            "services": {
+                "fastapi": "running",
+                "rag_service": "ready",
+                "database": "connected"
+            }
+        }
+    except HTTPException as e:
+        return {
+            "status": "partial",
+            "services": {
+                "fastapi": "running",
+                "rag_service": "unavailable",
+                "database": "not configured"
+            },
+            "error": e.detail
+        }
 
 class DocumentIn(BaseModel):
     course_id: str
