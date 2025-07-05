@@ -1,0 +1,1132 @@
+\begin{frame}[fragile]
+\STitle{Computer Architecture and its Organization}
+\begin{itemize}
+	\item Course objective: Learn organization of modern Reduced Instruction Set Computer (RISC) architecture 
+  \item  Computer architecture is defined by computer organization and an Instruction Set Architecture (ISA)
+  \item From a programmers perspective, the ISA  defines the functional behaviour 
+                of the computer in the form of a set of instructions. 
+		\begin{itemize}
+                \item Instructions that the computer can execute
+                 \item An instruction is a basic command	e.g. \texttt{ADD r1,r2,r3}, that could represent the mathematical equation \texttt{r1=r2+r3}
+		\end{itemize}
+	\item \hl{Computer organization - realization of ISA} 
+\begin{itemize}
+    \item Conceptual implementation of functional units,
+    \item Controlling interactions and exchanging information amongst the functional units.  
+\end{itemize}	
+
+\end{itemize}
+\end{frame}
+
+\BNotes\ifnum\Notes=1
+\begin{frame}[fragile]
+Instructor's Notes:
+
+\begin{itemize}
+    \item A little history about the course:
+    \begin{itemize}
+        \item It started out as a third-year course in digital design (wires and gates up to
+very simple CPUs). 
+    \item It was moved to second year when room was created
+for more than one CS course per term, and gradually more architecture
+was added to the course. 
+    \item The latest revision firmly tips the balance
+	in favour of architecture, with a new textbook and completely revised
+	lecture notes.
+    \end{itemize}
+    \item An instruction is very basic, including arithmetic commands
+	like \texttt{add r1,r2,r3}, which does r1=r2+r3;
+	 also jump/branch commands, and commands to access memory.
+    \item The physical implementation is (for the add command): where are
+    	r1,r2,r3 stored?  How do we get data out of r2 and r3, add them, and
+	then store the result back in r1?  Those are the details we'll be
+	studying in this course.  And by details, we mean transistors (but
+	more at the gate level) and wires that connect things.
+    \item Then in 2019, we switched from MIPS to ARM/LEG.
+\end{itemize}
+\end{frame}
+\fi\ENotes
+
+\begin{frame}[fragile]
+    \STitle{Where does CS251 Fit in Computer Science?}
+    \begin{multicols}{2}
+\PHFigure{!}{5in}{3in}{ARMFigures/Fig0104-crop}{Figure 1.4}
+        \columnbreak
+        {\footnotesize
+        Given a basic RISC instruction, e.g. \texttt{ADD X10, X0, X10}, should be able to answer the following questions: 
+    \begin{itemize}
+        \item 	\textbf{What} are the functional components needed for implementing \texttt{ADD}?
+        \item \textbf{Where} are X0 and X10 stored?
+        \item \textbf{How} do we get data out of X0 and X10, add it, and
+	then store the result into X10?
+     \end{itemize}
+ With detailed discussion on the:
+ \begin{itemize}
+     \item transistors and gate level-logic to implement desired functionality and 
+     \item organization of the interactions between the functional components to build a processor in a computer.
+ \end{itemize}
+ }
+    \end{multicols}
+    
+\end{frame}
+
+% \begin{frame}[fragile]
+% \STitle{CS251 Computer Organization and Design}
+% Given a basic instruction from the ISA of a modern computer based on Reduced Instruction Set Computer (RISC) architecture, such as,
+%         \begin{center}
+%             \texttt{ADD X10, X8, X1}
+%         \end{center}
+% You should be able to answer the following questions: 
+%     \begin{itemize}
+%         \item 	What is the physical implementation for the \texttt{ADD} instruction?
+%         \item Where are  X1, X8, and X10 stored?
+%         \item How do we get data out of X8 and X1, add it, and
+% 	then store the result into X10?
+
+%      \end{itemize}
+%  With detailed discussion on the:
+%  \begin{itemize}
+%      \item transistors and gate level-logic to implement desired functionality 
+%      \item organization of the interactions between the functional components to build a processor in a computer.
+%  \end{itemize}
+
+% \end{frame}
+
+% for comprehensive notes
+\vspace{1cm}
+
+\begin{frame}[fragile]
+\STitle{Why CS251?}
+% Why we teach this course:
+\begin{itemize}
+    \item Conceptual understanding of what's inside the processor of a computer
+    \item Architecture issues influence programming
+    \begin{itemize}
+    \item Example: Small code changes, big performance differences
+    \item Assume a 2 dimensional array, matrix, is stored in memory row-by-row
+ \item \textbf{Understand} \hl{\textbf{why}} row-by-row is \hl{\textbf{faster}} than column-by-column
+   \end{itemize}
+\end{itemize}
+\begin{multicols}{2}
+{\footnotesize
+\underline{elements accessed row-by-row}
+\bigskip
+\begin{verbatim}
+#include<stdio.h> 
+#define NR 10000 
+#define NC 10000 
+
+int a[NR][NC]; 
+
+void main() { 
+  int i,j; 
+  for (i=0;i<NR;i++){ 
+    for (j=0;j<NC;j++){ 
+      a[i][j]=32767; } } }
+\end{verbatim}
+
+\columnbreak
+\underline{elements accessed column-by-column}
+
+\begin{verbatim}
+#include<stdio.h> 
+#define NR 10000 
+#define NC 10000 
+
+int a[NR][NC]; 
+
+void main() { 
+  int i,j; 
+  for (i=0;i<NR;i++){ 
+    for (j=0;j<NC;j++){ 
+      a[j][i]=32767; } } }
+\end{verbatim}
+
+}
+\end{multicols}
+
+
+
+\BNotes\ifnum\Notes=1
+ZHK notes
+\begin{itemize}
+\item 
+    \item understand whats inside a computer and realize that the architecture and its organization can influence the outcomes of an executable program
+    \item that influence can impact performance, speed etc and may limit improvements in performance
+\item therefore, this understanding is needed for concepts in 240, 350, 343, 370 , etc. 
+\end{itemize}
+Instructor's Notes:
+\begin{itemize}
+\item The first bullet is because we feel it is important that
+	as computer scientists that students know something about
+	what goes on inside a computer.  But as noted in the third
+	bullet, there's more than that.
+\item The second bullet will be expanded on after the introduction.
+\item The third bullet is a lead-in to the next slide.
+\end{itemize}
+More instructor notes:
+\begin{itemize}
+\item If the last line of code is switched from row-by-row to column by
+	column, you get the performance drop indicated.  The point is:
+	just by switching the indices, performance drops by a factor of
+	16 even though the code still computes the same thing.
+
+\item This is a read-on-write caching issue.  You don't need to tell them why this is
+	slow right now.  Instead, note that it is a hardware issue (sort
+	of), and by understanding the hardware, they can avoid/fix issues
+	such as these.
+
+\item At the end of the term, this example appears again and you can 
+	explain it at that point.
+\end{itemize}
+
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Course outline}
+% \begin{columns}
+% \column{0.5\textwidth}
+\begin{enumerate}
+	\item {\small Introduction to course outline}
+ \begin{itemize}
+     \item {\footnotesize ARM: the ISA used in this course}
+     % \item  performance factors and measurements
+ \end{itemize}
+ \item {\small Digital logic design }
+ \begin{itemize}
+  \item {\footnotesize combinational and sequential logic}
+\end{itemize}
+	\item {\small Data representation \& manipulation}
+ \begin{itemize}
+  \item {\footnotesize fixed and floating points numbers}
+ \end{itemize}
+ \item {\small Single-cycle processor, designing}
+  \begin{itemize}
+  \item {\footnotesize a datapath and a control unit}
+ \end{itemize}
+ \item {\small Pipelining the datapath}
+ \begin{itemize}
+ \item {\small Hazards}
+ \begin{itemize}
+     \item {\footnotesize Structural,}
+     \item {\footnotesize Data and }
+     \item {\footnotesize Control}
+ \end{itemize}
+     \item {\footnotesize Exception handling}
+ \end{itemize}
+% \end{enumerate}
+% \column{0.5\textwidth}
+% \begin{enumerate} 
+ % \item {\small Hazards}
+ % \begin{itemize}
+ %     \item {\footnotesize Structural, data and }
+ %     \item {\footnotesize Control hazards }
+ % \end{itemize}
+ %and hazards
+	\item {\small Memory hierarchies}
+ \begin{itemize}
+     \item {\footnotesize Cache and Virtual Memory }
+ \end{itemize}
+ %({\bf caches} and virtual memory) \bigskip
+	\item {\small Input/Output Devices}
+ \begin{itemize}
+     \item {\footnotesize Hard Disk Drives (HDD) and}
+     \item {\footnotesize Solid State Drives (SSD)}
+ \end{itemize}
+	% \item Multiprocessor systems
+%	\item case studies: VAX, SPARC, Pentium
+\end{enumerate}
+
+\tikz[remember picture, overlay] {\node[anchor=north east, outer sep=5pt] at (current page.north east) {
+\begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=yellow!5!white,colframe=yellow!75!black,colbacktitle=yellow!80!black,
+  title=Learning Outcomes,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=yellow!50!black},
+  left*=62mm, left skip=62mm, bottom=1mm, right skip=2mm]
+{\tiny
+    \begin{tabular}{l}
+        % \textbf{Design} simple combinational hardware at the logic \\
+        % gate level \\
+        % \textbf{Design} sequential hardware to implement simple \\ 
+        % algorithms \\
+        % \textbf{Use} digital logic to  implement computations, such as \\
+        % addition, multiplication, and data-path control for \\
+        % processors. \\
+        \textbf{Design} simple combinational and sequential hardware\\ at the logic gate level in order to \\\textbf{Implement} %simple algorithms and computations, \\such as addition, multiplication, and \\
+     data-path and control unit for processors.\\
+        \textbf{Describe} number systems used by computer hardware,\\
+        including IEEE floating point and two's complement. \\
+        \textbf{Explain} the limits of the binary representations, \\
+        including rounding error and overflow conditions. \\
+        \textbf{Analyze} how machine language is executed by\\ 
+        hardware, and \\
+        \textbf{Describe} a simple pipelined processor 
+        architecture for \\executing a RISC machine language. \\
+        \textbf{Explain} basic cache and virtual-memory architectures, \\
+        and how they can impact performance.
+    \end{tabular}
+}
+  \end{tcolorbox}
+}}
+% \end{columns}
+% https://tex.stackexchange.com/questions/553148/add-logo-to-bottom-right-corner-of-a-plain-frame-which-already-has-an-image
+\tikz[remember picture, overlay] {\node[anchor=south east, outer sep=7pt] at (current page.south east) {\includegraphics[width=57mm]{Figs/org}}}
+
+\end{frame}
+\BNotes\ifnum\Notes=1
+\begin{frame}[fragile]
+Instructor's Notes:
+\begin{itemize}
+\item Performance: What makes one design better than another? Speed?
+	Amount of work it can do? How to measure this?
+\item Digital logic design: low-level components and how to build with them
+\item Data representation: unsigned and signed binary integers,
+	floating-point numbers (analogous to ``scientific notation'')
+\item Data manipulations: addition, subtraction, multiplication (we
+	will skip division), logical operations
+      \item Datapath: We will design for the ARM instruction set (actually ``LEG'',
+        and only a small subset of that) but the design principles can
+	be applied to many other instruction set architectures.
+\item Single-cycle control unit: All instructions take one clock cycle
+	(students should not worry if that makes no sense now)
+\end{itemize}
+\end{frame}
+\begin{frame}[fragile]
+Instructor's Notes Continued:
+\begin{itemize}
+\item Pipelining: adopting an ``assembly-line'' approach to executing
+	code -- an elementary form of parallelism.
+\item Memory hierarchies: There is a tradeoff between the size of a
+	memory unit and its speed. Memory hierarchies seek to exploit
+	locality of reference in deciding when to move information
+	from slower to faster memory and back again.
+\item Multiprocessor systems: A brief overview of approaches taken in
+	using more than one processor on the same task or set of tasks.
+ \item This is a version of Figure 1.5 from the text, which is
+repeated throughout the book with different parts highlighted,
+depending on the topic of that section or chapter.
+\item This is a version of Figure 1.5 from the text, which is
+repeated throughout the book with different parts highlighted,
+depending on the topic of that section or chapter.
+
+\item Most of our emphasis in this course will be on the datapath, control,
+and memory. We will show one approach to building these up from
+standard components.
+
+\item The instruction set provides a functional description of the
+manipulations that the datapath is capable of.
+
+\end{itemize}
+
+\end{frame}
+\fi\ENotes
+
+% \begin{frame}[fragile]
+% \STitle{Course Learning Outcomes}
+% %     \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+%   colback=yellow!5!white,colframe=yellow!75!black,colbacktitle=yellow!80!black,
+%   title=Learning Outcomes,fonttitle=\bfseries,
+%   boxed title style={size=small,colframe=yellow!50!black} ]
+% {\tiny
+%     \centering
+%     \begin{tabular}{l}
+%    \hline
+%         Learning Objectives \\
+%     \hline\hline
+%         \textbf{Design} simple combinational hardware \\
+%         at the logic gate level \\
+%         \textbf{Design} sequential hardware \\
+%         to implement simple algorithms \\
+%         \textbf{Use} digital logic to  implement \\
+%         computations, such as addition, multiplication,\\
+%         and data-path control for processors.  \\
+%         \textbf{Describe} number systems used by\\
+%         computer hardware, including\\
+%         IEEE floating point and two's complement.  \\
+%         \textbf{ Explain} the limits of the binary \\
+%         representations, including rounding error and overflow conditions.  \\
+%         \textbf{Analyze} how machine language is executed by hardware\\
+%         , and describe a simple pipelined processor\\
+%         architecture for executing a RISC machine language. \\
+%         \textbf{Explain} basic cache and\\
+%         virtual-memory architectures, \\
+%         and how they can impact performance.  \\
+%     \end{tabular}
+% }
+%   \end{tcolorbox}
+% \end{frame}
+
+
+\begin{frame}[fragile]
+\STitle{CS251 Concepts in Future CS Courses}
+Various CS 251 topics are continued in other courses, for example,
+\begin{itemize}
+\item Memory	hierarchies
+  
+\begin{itemize}
+    \item CS 240--Data Structure and Data Management,
+    \item CS 350--Operating Systems,
+    \item CS 454--Distributed systems, and
+ \item CS 456--Computer Networks
+\end{itemize}
+\item Pipelining and Exception handling 
+\begin{itemize}
+\item CS 350--Operating Systems, 
+\item CS 454--Distributed systems, and
+\item CS 456--Computer Networks
+  \end{itemize}
+\item Uniprocessor architecture and single bus in multiprocessor systems
+\begin{itemize}
+    \item CS 343--Concurrent and Parallel Programming
+\end{itemize}
+
+\item  General errors caused by imperfect representation of real numbers as floating point numbers
+\begin{itemize}
+    \item CS 370--Numerical Computation
+\end{itemize}
+\end{itemize}
+
+\BNotes
+
+\ifnum\Notes=1
+
+ZHK notes
+\begin{itemize}
+    \item understand whats inside a computer and realize that the architecture and its organization can influence the outcomes of an executable program
+    \item that influence can impact performance, speed etc and may limit improvements in performance
+\item therefore, this understanding is needed for concepts in 240, 350, 343, 370 , etc. 
+\end{itemize}
+Instructor's Notes:
+\begin{itemize}
+
+\item The first bullet is because we feel it is important that
+	as computer scientists that students know something about
+	what goes on inside a computer.  But as noted in the third
+	bullet, there's more than that.
+\item The second bullet will be expanded on after the introduction.
+\item The third bullet is a lead-in to the next slide.
+
+\begin{itemize}
+\item CS 240: several topics (including B-trees, discussion of page
+	replacement algorithms) require an understanding of memory
+	hierarchies. 
+\item CS 350, 454, 456: many topics used, including memory hierarchies,
+	pipelining, exception handling, multiprocessor architectures
+\item CS 343: for discussions of synchronization primitives, it is essential to knowledge of uniprocessor architecture and
+	single-bus multiprocessor systems.
+\item CS 370: continues the coverage of floating-point numbers started
+	here (at the next higher level of abstraction) as a lead in to
+	the general topic of dealing with errors caused by imperfect
+	representation of real numbers
+\end{itemize}
+\end{itemize}
+
+\fi
+
+\ENotes
+\end{frame}
+
+
+% \begin{frame}[fragile]
+% \Title{CS251 Course Material and Resources}
+
+% % \item 
+% This term, CS 251 resources will primarily be available on EdX.
+% \begin{itemize}
+%     \item EdX support: cs-online@uwaterloo.ca
+% \end{itemize}
+% \begin{itemize}
+% \item Lecture slides:
+% \begin{itemize}
+% \item not comprehensive
+% \item no substitute for lectures
+% \item made available on EdX \textbf{before} lecture % on EdX %Online slide version
+% \item annotated lecture slides will be uploaded \textbf{after} lecture
+
+% \item lectures will be \textbf{recorded} (audio and slides only) and made available for viewing
+% \begin{itemize}
+%     \item Recordings will be "raw" with automatically generated transcription
+%     \item Posted within a reasonable amount of time after lectures 
+% \item If you don't want to be heard in the recording: You may ask questions after lecture has ended or setup an appointment with instructor
+% \item No camera recording of classroom, students or presenter. 
+% \end{itemize}
+% % \item lecture recording uploaded \textbf{after} lecture
+% \end{itemize}
+% \item Required textbook:%Textbooks for reference and additional study:
+%  \begin{itemize}
+%      \item ``Computer Organization and Design'', David Patterson and John Hennessy, ARM edition, 2017.
+%      \item Relevant readings in summary in lecture slides 
+%  \end{itemize} 
+% % \end{itemize}
+
+% \end{itemize}
+
+% \end{frame}
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% \item In Fall 2019, we switched from 5th edition MIPS to ARM edition.
+
+% \item Dave Patterson, former chair of CS at UC Berkeley, invented the
+% 	idea of the RISC (Reduced Instruction Set Chip) architecture, of which
+% 	MIPS is an example; he was a consultant for Sun Microsystems on the
+% 	SPARC architecture which used these concepts (most undergrad servers
+% 	are SPARC machines), and has gone on to other successful research
+% 	projects as well as being named ACM Educator of the Year.
+% \item John Hennessy started the MIPS project at Stanford and created
+% 	the successful commercial spinoff (MIPS is now part of Silicon
+% 	Graphics). He has gone on to other successful research projects, and
+% 	rose through the ranks of Dean of Engineering and Provost to become
+% 	current president of Stanford University.
+% \item Patterson and Hennessy received the 2017 Turing Award for the 
+% 	architecture concepts developed in the course textbook.
+% \end{itemize}
+% \end{frame}
+% \begin{frame}[fragile]
+% Instructor's Notes Continued:
+% \begin{itemize}
+% \item Students are expected to look at the course Web page for other
+% 	logistical details (including marking schemes) and to subscribe to the
+% 	course newsgroup for announcements and questions of common interest.
+% \item Be sure to point students to the course outline section
+%   of the web page!
+% \item The publisher lets us include their figures in the
+%   printed course notes as long as the text is a required text.  This was
+%   verified again in July 2019 as part of the switch to ARM.
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+
+
+\begin{frame}[fragile] 
+
+\Title{CS251 Course Material and Resources} 
+
+  
+
+% \item  
+
+This term, CS 251 resources will primarily be available on EdX. 
+
+\begin{itemize} 
+
+    \item EdX support: cs-online@uwaterloo.ca 
+
+% \end{itemize} 
+
+% \begin{itemize} 
+
+\item Lecture slides \textbf{without solutions}: 
+
+\begin{itemize} 
+
+% \item not comprehensive 
+
+\item on EdX \textbf{before} lecture, no substitute for \textbf{attending} lectures 
+
+\end{itemize} 
+
+\item Lecture Scribbles - annotated lecture slides \textbf{with solutions}: 
+
+\begin{itemize} 
+
+    \item on EdX \textbf{after} lecture 
+
+\end{itemize} 
+
+  
+
+  
+
+\item Lectures will be \textbf{recorded} (audio and slides only) 
+
+\begin{itemize} 
+
+    \item Posted by end of the day of the lecture for viewing 
+
+    \item Recordings will be "raw" with automatically generated transcription 
+
+\item If \underline{you don't want to be heard in the recording}: You may ask questions after lecture has ended or setup an appointment with instructor 
+
+\item No images of classroom, students or instructor in the recording.  
+
+\end{itemize} 
+
+% \item lecture recording uploaded \textbf{after} lecture 
+
+% \end{itemize} 
+
+\item Required textbook:%Textbooks for reference and additional study: 
+
+\begin{itemize} 
+
+     \item ``Computer Organization and Design'', David Patterson and John Hennessy, ARM edition, 2017. 
+
+     \item Relevant readings suggested in summary in lecture slides  
+
+\end{itemize}  
+
+% \end{itemize} 
+
+  
+
+\end{itemize} 
+
+  
+
+\end{frame} 
+
+\BNotes\ifnum\Notes=1 
+
+\begin{frame}[fragile] 
+
+Instructor's Notes: 
+
+\begin{itemize} 
+
+\item In Fall 2019, we switched from 5th edition MIPS to ARM edition. 
+
+  
+
+\item Dave Patterson, former chair of CS at UC Berkeley, invented the 
+
+	idea of the RISC (Reduced Instruction Set Chip) architecture, of which 
+
+	MIPS is an example; he was a consultant for Sun Microsystems on the 
+
+	SPARC architecture which used these concepts (most undergrad servers 
+
+	are SPARC machines), and has gone on to other successful research 
+
+	projects as well as being named ACM Educator of the Year. 
+
+\item John Hennessy started the MIPS project at Stanford and created 
+
+	the successful commercial spinoff (MIPS is now part of Silicon 
+
+	Graphics). He has gone on to other successful research projects, and 
+
+	rose through the ranks of Dean of Engineering and Provost to become 
+
+	current president of Stanford University. 
+
+\item Patterson and Hennessy received the 2017 Turing Award for the  
+
+	architecture concepts developed in the course textbook. 
+
+\end{itemize} 
+
+\end{frame} 
+
+\begin{frame}[fragile] 
+
+Instructor's Notes Continued: 
+
+\begin{itemize} 
+
+\item Students are expected to look at the course Web page for other 
+
+	logistical details (including marking schemes) and to subscribe to the 
+
+	course newsgroup for announcements and questions of common interest. 
+
+\item Be sure to point students to the course outline section 
+
+  of the web page! 
+
+\item The publisher lets us include their figures in the 
+
+  printed course notes as long as the text is a required text.  This was 
+
+  verified again in July 2019 as part of the switch to ARM. 
+
+\end{itemize} 
+
+\end{frame} 
+
+\fi\ENotes 
+
+
+
+\begin{frame}[fragile]
+\Title{Course Component, Grading Scheme: Assignments (A)}
+    \begin{itemize}
+    % \item Assignments (A), Participation Points (P), Midterm (M) and Final (F)
+    \item \NumberAssignments~assignments to be \textbf{submitted on EdX (automarked) and Crowdmark (handmakred)}%, flexible options to upload to EdX 
+    % \begin{itemize}
+    % \item Submit on EdX and sometimes on Crowdmark%, flexible options to upload to EdX
+    \item \textbf{No late submissions}, unless explicitly stated.
+    \item Remark requests sent to ISA at cs251@uwaterloo.ca 
+    \begin{itemize}
+    \item  within 1 week of release of assignment grades, 
+    \item subject: \textbf{Remark request for A\#}  
+     \item {\tiny Technical difficulties/submission issues? email your work to course account (cs251@uwaterloo.ca)}
+    \end{itemize}
+   
+\end{itemize}
+{\footnotesize
+      \begin{table}[h!]
+       \begin{center}
+        \begin{tabular}{c|c|c}
+             Assignment & Due Date (by 11:59pm) & Percentage  \\\hline\hline
+             A1 & Sep. 20th& 2 \\
+             A2 & Oct. 4th & 3\\
+             A3 & Oct. 11th & 3\\
+             A4 & Nov. 1st & 3\\\hline
+             A5 & Nov. 15th & 3\\
+             A6 & Nov. 29th & 3\\
+             A7 & Dec. 3rd & 3\\
+        \end{tabular} 
+        \caption{Tentative Assignment Due Date and Weights.}
+       \end{center}
+        \end{table}
+
+        
+        }
+
+
+\end{frame}
+
+
+
+\begin{frame}[fragile]
+\STitle{Course Assignment Schedule and Coverage\footnote{Due dates and assignment coverage are tentative } at a Glance}
+
+Assignment 1 is due on September 20th and coverage is Introduction to ARM in Lectures 1 and 2. 
+
+     \begin{tcolorbox}[enhanced,attach boxed title to top center={yshift=-3mm,yshifttext=-1mm},
+  colback=yellow!5!white,colframe=yellow!75!black,colbacktitle=yellow!80!black,
+  title=Course Objectives,fonttitle=\bfseries,
+  boxed title style={size=small,colframe=yellow!50!black},
+  left skip=1mm, right skip=1mm, grow to left by=0cm, grow to right by=0cm]
+{
+    {\tiny
+    \begin{tabular}{p{5cm} | p{1cm} | p{37mm}}
+        \textbf{Objective} & \textbf{Modules} & \textbf{Assessment (Approx. Due Date)} \\
+    \hline
+         &  & Assignment 2 (Oct. 4) \\
+         &  & Assignment 3 (Oct. 11) \\
+         &  & Midterm (Oct. 22) \\
+         &  & Final (TBA) \\
+         &  &  \\
+        \multirow{-6}{5cm}{\textbf{Design} simple combinational and sequential hardware at the logic gate level in order to \textbf{implement} simple algorithms and computations such as addition, multiplication, and datapath control unit for processors} & \multirow{-6}{2cm}{2} & \\
+        \hline
+
+         &  & Assignment 3 (Oct. 11) \\
+         &  & Midterm (Oct. 22) \\
+        \multirow{-3}{5cm}{\textbf{Describe} number systems used by computer hardware and \textbf{explain} the limits of the binary representations} & \multirow{-3}{2cm}{3} & Final (TBA) \\
+        \hline
+
+        Midterm & 1, 2, 3 & Midterm (Oct. 22) \\
+
+        \hline
+
+         &  & Midterm (Oct. 22) \\
+         &  & Assignment 4 (Nov. 1) \\
+        \multirow{-3}{5cm}{\textbf{Analyze} how machine language is executed by hardware} & \multirow{-3}{2cm}{4} & Final (TBA) \\
+        \hline
+
+         &  & Assignment 5 (Nov. 15) \\
+        \multirow{-2}{5cm}{\textbf{Describe} a simple pipelined processor architecture} & \multirow{-2}{2cm}{5} & Final (TBA) \\
+        \hline
+
+         &  & Assignment 6 (Nov. 29) \\
+         &  & Assignment 7 (Dec. 3) \\
+        \multirow{-3}{5cm}{\textbf{Explain} basic cache and virtual-memory architectures, and how they can impact performance} & \multirow{-3}{2cm}{6, 7} & Final (TBA) \\
+        \hline
+        Final & All & Final (TBA) \\
+
+        \hline
+    \end{tabular}
+}}
+  \end{tcolorbox}
+\end{frame}
+
+% for comprehensive
+\newpage
+
+\begin{frame}[fragile]
+\STitle{Course Component, Grading Scheme: Participation (P)}
+\begin{itemize}
+        \item Participation points (P) are equally weighted sum of clickers and tutorials
+  \item Work in groups or individually   
+    \item Clickers in lectures 
+     \begin{itemize}
+    \item Required: 
+\begin{itemize}
+    \item \textbf{Free (for Fall 24) Subscription} to the iClicker app, 
+    \item \textbf{no} physical iclicker remote needed
+        \item \hl{only register for the section you are enrolled in}
+    \end{itemize}
+     \item \hl{Check your clicker marks during the term and make sure they are correct.}
+  \begin{itemize}
+ \item No exceptions at the end of the term. 
+\end{itemize}
+\end{itemize}
+
+ \item Tutorial exercises
+ \begin{itemize}
+      
+        \item are on EdX \textbf{due at 11:59pm on Wednesdays}
+        % \item \hl{No in-person labs in first week of the term}
+        	
+    \end{itemize}
+   
+     % \item Participation (P) points $=$ 2.5\% $\times$ Best 80\% of Tutorial Questions $+$ 2.5\% $\times$ Best 80\% of Clicker Questions
+     
+
+% \begin{itemize}
+%  \item Accommodates for missed classes, illness, interviews, etc.
+% \end{itemize}
+% \item Bonus points: 2\%
+% \begin{itemize}
+% \item attempt \textbf{all, optional} enrichment exercises in the term
+% \item enrichment exercises on EdX \textbf{due at 11:59pm on Wednesdays}
+% \end{itemize}
+\item 20\% of your lowest clicker and tutorial points will be discarded before computing final participation points
+
+         \item Accommodates for missed classes, illness, interviews, etc.
+         
+\end{itemize}
+ \begin{align*}
+        \text{Participation (P)} = 2.5\% \times \text{Best 80\% of Tutorial exercise points} \\+ 2.5\% \times \text{Best 80\% of Clicker Points}
+    \end{align*}
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{Exams and Course Grades}
+\begin{itemize}
+    \item 1 midterm (M) exam and 1 final (F) exam
+    \begin{itemize}
+    \item In-person exams
+ \item Midterm is on Tuesday, Oct. 22, 2024 from 4:30pm to 6:20pm.
+ \item Final exam information not available yet.
+ \item Contact ISC for \textbf{final exam relief}
+       \item Remark requests sent to ISA at cs251@uwaterloo.ca 
+        \begin{itemize}
+            \item within 2 weeks of release of exam grades
+            \item subject: \textbf{Remark request for midterm/final exam}
+        \end{itemize}
+    \end{itemize}
+
+\item Grading Scheme
+\end{itemize}
+ \[ \text{exam} = \frac{(0.25 \times M + 0.5 \times F)}{0.75} \]
+ 
+ \[ \text{normal} = 0.2 \times A + 0.05 \times (P) + 0.25 \times M + 0.5 \times F \]
+\begin{verbatim}
+ if (exam < 50)
+    course grade = min (normal, exam)
+ else 
+    course grade = normal
+ \end{verbatim}
+
+ \tikz[remember picture, overlay] {\node[anchor=south east, outer sep=15pt] at (current page.south east) {\includegraphics[width=1.75cm]{01-ARM/01-01-Intro-to-course-outline/figs/weights.png}}}
+
+\BNotes\ifnum\Notes=1
+Instructor's Notes:
+\begin{itemize}
+\item you must pass weighted average of midterm and final exams
+	\item With regards to checking throughout the term: occasionally a student
+		will come up at the end of term saying they attended all term and
+		answered clicker questions, but got a 0 for their clicker score, and
+		want their clicker marks moved to the final.  If they had been
+		checking during the term, this problem could have been spotted
+		early and corrected.
+
+		The point of this warning and the previous: they get the clicker marks 
+		that is computed based on the gathered data.  No exceptions.
+\end{itemize}
+
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Online Discussion Forums}
+Piazza is a great way to ask questions about your assignments and course material in public.
+\begin{itemize}
+    \item It enables you to learn from questions others have, and avoid asking questions that have already been asked. It also provides a forum for the instructor to make announcements and clarifications about assignments and other course related topics. As a result, students are expected to check Piazza on a regular basis.
+
+\item Link to Piazza for this term \piazza
+% \href{http://piazza.com/uwaterloo.ca/spring2024/cs251}{term}
+\item \href{https://piazza.com/class/m06v54bgxhy2t3/post/6}{Follow these instructions and rules on using piazza}
+\item All Instructor and ISA office hours for are posted in this piazza \href{https://piazza.com/class/m06v54bgxhy2t3/post/7}{post}
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}[fragile]
+\Title{Copyright Issues and Intellectual Property}
+\begin{multicols}{2}
+\underline{Copyright Issues}
+   \begin{itemize}
+	\item Course notes contain figures from the textbook
+	\item We have copyright permission to use them in our slides.
+
+	\item Assignments and solutions contain figures from the textbook
+
+	\item	Student copies of course notes, solutions to assignments, etc., 
+		should not be posted or shared online
+\end{itemize}
+
+\columnbreak
+
+\underline{Intellectual property} includes items such as
+\begin{itemize}
+\item Lecture content, spoken and written 
+% \item Lecture slides
+\item Questions or solution sets from assignments, clicker questions, exams
+\item Work protected by copyright
+\end{itemize}
+% \bigskip
+\textbf{Must} ask instructor for permission before uploading or sharing 
+\begin{itemize}
+\item Online or
+\item With students taking the same/similar courses in subsequent terms/years
+\end{itemize}
+
+
+\end{multicols}
+
+
+\BNotes\ifnum\Notes=1
+Instructor's Notes:
+\begin{itemize}
+       \item The publisher allows us to include their figures in the
+		copy of the slides we present in lecture, as well as in
+		the printed course notes.
+
+		The course notes can also be put in a password protected
+		location accessible to the students.  Assignment
+		solutions have similar restrictions.
+  \item This was prompted by concerns about OneClass, a notesharing online business
+\item There is also a blurb in the course outline, with a link to the uWaterloo's official stance (they don't allow it)
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+
+% \ifnum\Collaboration=1
+\begin{frame}[fragile]
+\STitle{Excessive Collaboration}
+\begin{itemize}
+\item In the past, as many as 10\%-20\% of students in the course have been 
+	caught and penalized for excessive collaboration.
+\item \hl{You are \textbf{encouraged} to talk to one another without writing anything down},
+	 but each student must work out his/her own assignment solution.
+\item Do not consult other people, other books, or Web pages.
+\item If you show another student your homework and we find excessive
+	similarities between your solutions, you both will be penalized
+	for excessive collaboration.
+\item Standard Penalty for first offense at Waterloo: 
+	no marks on the assignment and a deduction of 5\% from the course 
+grade, letter to associate dean.
+
+	Additional penalties may apply depending on marking scheme.
+\item Standard Penalty for second offense: suspension for one term.
+\end{itemize}
+\BNotes\ifnum\Notes=1
+~
+\fi\ENotes
+\end{frame}
+% \else
+\begin{frame}[fragile]
+\STitle{Excessive Collaboration}
+\begin{itemize}
+\item In the past, as many as 10\%-20\% of students in the course have been 
+	caught and penalized for excessive collaboration.
+
+\item Previous terms: encouraged to talk/discuss, but must write up
+	solutions on your own without checking with other students.
+
+	Excessive similarities are treated as excessive collaboration.
+\bigskip
+\item This term (\ShortTerm): Discussions fine. Hand in own copy of assignment.
+
+\item {\bf Caution:}
+	Doing assignments is critical for learning the material:
+
+	\begin{quote}
+	``I feel lost sometimes in lectures, but the assignments help a lot.''
+	\end{quote}
+\item {\bf Caution:}
+	Reading course text is critical for learning the material.
+
+\end{itemize}
+\BNotes\ifnum\Notes=1
+Instructor's Notes:
+\begin{itemize}
+\item The quote is from student reviews
+\item The last caution is because a significant number of students do NOT
+	buy or read the book
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Excessive Collaboration - continued}
+\begin{itemize}
+\item What's not allowed:
+\begin{itemize}
+	\item Looking for solutions on the internet
+	\item Using solutions from previous terms
+	\item Photocopying (!) another student's assignment
+	\item Word-for-word copying
+\end{itemize}
+\item Standard Penalty for first offense at Waterloo: 
+	no marks on the assignment and a deduction of 5\% from the course 
+	grade, letter to associate dean.
+
+	Additional penalties may apply depending on marking scheme.
+\item Standard Penalty for second offense: suspension for one term.
+\end{itemize}
+\BNotes\ifnum\Notes=1
+Instructor's Notes:
+\begin{itemize}
+	\item The "word-for-word" copying refers to blocks of explanatory
+		text.  There isn't much of that in this course, but this
+		is the only thing we'll really pick on.
+
+		To clarify: if it's word-for-word the same, then it is
+		considered word-for-word copying, regardless of how it
+		happened.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+% \fi % end of collaboration policies
+
+\begin{frame}[fragile]
+  \Title{This Course is Easier/Harder Than It Looks}
+  Hard:
+  \begin{itemize}
+  \item First part - digital design - \textbf{easy!}
+\item     Second part - pipelining, cache, VM - \textbf{ HARD!}
+  \Figure{!}{1in}{1in}{Figs/f19cs251mtVsF.png}
+
+  % \item Conceptually different
+  %\item Not mechanical
+  \end{itemize}
+  Easy:
+  \begin{itemize}
+  \item Average close to 80
+\item     \textbf{Attend} lectures, \textbf{turn off} phone and other distractions 
+\item \textbf{do} clickers, \textbf{do} tutorials, \textbf{do} assignments
+  \end{itemize}
+\end{frame}
+
+\BNotes\ifnum\Notes=1
+\begin{frame}[fragile]
+Instructor's Notes:
+\begin{itemize}
+\item The graph is from Fall 2019.  The x-axis is midterm mark; the y-axis is final exam mark.  The green line marks anyone who gets the same final exam mark as midterm mark.  Any circle below the green line is someone who did worse on the final exam than the midterm.  The red line is the best fitting line to the data.
+
+  Similar plots were made between clickers and final exam, and assignments and final exam.  While there was correlation in all three cases, the red line was closest to diagonal for the midterm; the assignment red line was less sloped (about 30 degrees), and the clicker red line was still less sloped (about 15 degrees).
+\end{itemize}
+\end{frame}
+\fi\ENotes
+
+
+\begin{frame}[fragile]
+\Title{Emergency Contingency Plans}
+ A health pandemic or other natural disasters may require shifting the in-person course to an online course.
+
+ In such scenario, the following changes may need to be made:
+	\begin{itemize}
+		\item Lecture notes, assigned readings and recordings of lectures will be made available online.
+  \item Lectures\textbf{ may be} held synchronously on EdX, Zoom, MS Teams, and other school provided platforms.  
+  \item Opportunity to follow course \textbf{asynchronously} using lecture recordings.
+
+\item Weekly online quizzes will be administered instead of clickers
+		\item Exams might be online instead of in-person
+    \item Marking scheme will be adjusted accordingly.
+
+		\item Illness, quarantine
+
+	\end{itemize}
+	See detailed course outline on EdX for more details
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Accessibility Services}
+    \begin{multicols}{2}
+    Accommodations for:
+        \begin{itemize}
+            \item Disability
+            \item Serious/ long-term illness or injury
+\item Trauma (including racial trauma)
+\item High-level process:
+\begin{itemize}
+    \item Apply online
+    \item Once eligible: \textit{select accommodations for each course}
+\item Request accommodations by assessment
+\end{itemize}
+
+\columnbreak
+Accommodations can include:
+\begin{itemize}
+    \item Learning strategy resources
+\item Assistive technology
+\item Alternative testing
+\item Alternative format for materials
+\item Notetaking support
+\item Peer mentorship
+\item Accessible transportation services
+\end{itemize}
+
+        \end{itemize}
+    \end{multicols}
+\end{frame}
+
+
+
+ \begin{frame}[fragile]
+\STitle{Conclusion}
+ \underline{\textbf{Lecture Summary}}
+ \begin{itemize}
+ \item CS251 course outline
+ \item Course objectives and expectations
+ \item Course components and grading scheme
+ \end{itemize}
+ \underline{\textbf{Assigned Textbook Readings}}
+\begin{itemize}
+     \item \textbf{Skim} the following sections from Chapter 1
+    \begin{itemize}
+	
+     \item Sections 1.1, 1.2, 1.3, and 1.4
+     % and 1.5 
+    \end{itemize}
+
+% \item \textbf{Review} the content available on EdX and make note of the following:
+% \begin{itemize}
+%      \item course outline
+%      \item Midterm exam information
+%      \item \textbf{No in-person tutorial for Week 1}. There is an optional, ungraded, enrichment exercise for Week 1 Tutorial. Try it out!
+%      % \item Assignment 1, due date: Friday January 19th @ 11:59pm
+%     \end{itemize}
+\end{itemize}
+    \underline{\textbf{Next Steps}}
+    
+    \begin{itemize}
+    \item \textbf{Review} the content available on EdX and note the following:
+\begin{itemize}
+     \item Course outline, road-map and calendars with tentative coverage and due date information
+     \item Midterm exam information 
+     \item FYI: There was \textbf{no} in-person {\bf tutorial} yesterday September 4th. 
+%      % \item Assignment 1, due date: Friday January 19th @ 11:59pm
+    \end{itemize}
+\item \textbf{Get} the subscription for iClicker app
+\begin{itemize}
+    \item We will have a test clicker question next lecture
+    \begin{itemize}
+        \item \hl{only register for the section you are enrolled in}
+    \end{itemize}
+    % on Thursday, Jan 11 to test your iClickers.
+\end{itemize}
+% \item \textbf{Read} and start A1
+ \end{itemize}
+
+ \end{frame}

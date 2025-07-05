@@ -1,0 +1,2536 @@
+
+\begin{frame}[fragile]
+\STitle{Logic Blocks}
+\begin{itemize}
+	%\item Readings: Appendix A, sections A.1--A-3, A5, A.7-10.
+	\item Combinational: without memory
+		\Figure{!}{1.25in}{0.75in}{Figs/block}
+	\item Sequential: with memory
+		\Figure{!}{1.25in}{0.75in}{Figs/sequential}
+	\item Inputs and outputs are 1/0
+
+		(High/low voltage, true/false)
+\end{itemize}
+\end{frame}
+\BNotes\ifnum\Notes=1
+%\BNotes
+%\begin{SMNotes}
+\begin{frame}[fragile]
+Instructor's Notes:
+\begin{itemize}
+\item At many institutions, this course is preceded by a course in
+	digital logic design; at other institutions, the logic course comes
+	after, or is omitted (as it is at UW, currently). Appendix A provides a
+	brief overview of digital logic design, enough to understand the designs
+	presented in this book. Students should read the given sections
+	carefully. We will go into a little more detail, but not much more.
+\item	Conceptually, there is a one-way flow of information through a
+	combinational circuit (from inputs to outputs), and the output is
+	computed relatively rapidly, given the inputs.
+\item   A sequential circuit is named after the ``sequence'' of states
+	in the storage. Remind students of the earlier statement that most
+	computers have clocks and that state changes occur at clock ticks. The
+	clock must tick slowly enough for the combinational circuit to be able
+	to compute the next state given the current state and the inputs.
+\item Next we need to discuss the building blocks of both
+	combinational circuits and storage elements.
+\end{itemize}
+\end{frame}
+\fi\ENotes
+%\ENotes
+%\end{SMNotes}
+
+\begin{frame}[fragile]
+\STitle{Compact alternative: Boolean algebra}
+\begin{itemize}
+	\item Variables (usually $A, B, C$ or $X, Y, Z$) have values 0 or 1
+	\item OR ($+$) operator has result 1 iff either operand has value 1
+	\item AND ($\cdot$) operator has result 1 iff both operands have value 1
+	
+		$A\cdot B$ often written $AB$
+	\item NOT ($\lnot$) operator has result 1 iff operand has
+		value 0
+
+		$\lnot A$ usually written $\bar A$
+
+	\begin{center}
+	\begin{tabular}{|c|c|c|c|c|c|c|c|c|c|}\cline{1-3}\cline{5-7}\cline{9-10} 
+	\multicolumn{3}{|c|}{OR}& &\multicolumn{3}{|c|}{AND}& &\multicolumn{2}{|c|}{NOT}\\\cline{1-3}\cline{5-7}\cline{9-10}
+	A & B & A+B & & A & B & AB & & A & $\lnot$A \\\cline{1-3}\cline{5-7}\cline{9-10}
+	0 & 0 & 0   & & 0 & 0 & 0  & & 0 & 1 \\\cline{1-3}\cline{5-7}\cline{9-10}
+	0 & 1 & 1   & & 0 & 1 & 0  & & 1 & 0 \\\cline{1-3}\cline{5-7}\cline{9-10}
+	1 & 0 & 1   & & 1 & 0 & 0 \\\cline{1-3}\cline{5-7}
+	1 & 1 & 1   & & 1 & 1 & 1 \\\cline{1-3}\cline{5-7}
+	\end{tabular}
+	\end{center}
+	% \item For truth table on previous slide, clearly $G = \Bar{XYZ}$
+	% \item $F = \Bar{X}\Bar{Y}Z + X\Bar{Y}Z + XY\Bar{Z} + XYZ$ (not obvious)
+\end{itemize}
+\end{frame}
+\BNotes\ifnum\Notes=1
+\begin{frame}[fragile]
+Instructor's Notes:
+Much of this will be review from high-school (at least until the
+new curriculum comes in, and Boolean algebra is lost)
+\end{frame}
+\fi\ENotes
+
+
+\begin{frame}[fragile]
+\STitle{Specifying input/output behaviour}
+\begin{itemize}
+	\item Truth table: specifies outputs for each possible input
+combination 
+		\begin{center}\ifnum\slides=1\huge\fi
+		\begin{tabular}{ccc|cc}
+		X&Y&Z & F & G \\\hline
+		0&0&0 & 0 & 1 \\
+		0&0&1 & 1 & 1 \\
+		0&1&0 & 0 & 1 \\
+		0&1&1 & 0 & 1 \\
+		1&0&0 & 0 & 1 \\
+		1&0&1 & 1 & 1 \\
+		1&1&0 & 1 & 1 \\
+		1&1&1 & 1 & 0 \\
+		\end{tabular}
+
+		\end{center}		
+	\item Complete description, but big and hard to understand
+ 	\item For truth table, $G = \overline{XYZ}$
+	\item $F = \bar{X}\bar{Y}Z + X\bar{Y}Z + XY\bar{Z} + XYZ$ (not obvious)
+\end{itemize}
+\end{frame}
+\BNotes\ifnum\Notes=1
+\begin{frame}[fragile]
+Instructor's Notes:
+\begin{itemize}
+\item For N inputs and M outputs, there are $2^N$ lines
+\item Note that it is acceptable to break the table in two to use
+horizontal space more effectively.
+\item Tell the class that details are important:
+\begin{itemize}
+	\item Inputs should be labeled and alphabetized along the top
+	\item Inputs should be in increasing order (000,001,010, etc)
+	\item Outputs should be labeled alphabetized
+	\item For subscripted inputs, use the order $A_2$, $A_1$, $A_0$
+\end{itemize}
+\end{itemize}
+\end{frame}
+\fi\ENotes
+
+% \begin{frame}[fragile]
+% \STitle{Compact alternative: Boolean algebra}
+% \begin{itemize}
+% 	\item Variables (usually $A, B, C$ or $X, Y, Z$) have values 0 or 1
+% 	\item OR ($+$) operator has result 1 iff either operand has value 1
+% 	\item AND ($\cdot$) operator has result 1 iff both operands have value 1
+	
+% 		$A\cdot B$ often written $AB$
+% 	\item NOT ($\lnot$) operator has result 1 iff operand has
+% 		value 0
+
+% 		$\lnot A$ usually written $\bar A$
+
+% 	\begin{center}
+% 	\begin{tabular}{|c|c|c|c|c|c|c|c|c|c|}\cline{1-3}\cline{5-7}\cline{9-10} 
+% 	\multicolumn{3}{|c|}{OR}& &\multicolumn{3}{|c|}{AND}& &\multicolumn{2}{|c|}{NOT}\\\cline{1-3}\cline{5-7}\cline{9-10}
+% 	A & B & A+B & & A & B & AB & & A & $\lnot$A \\\cline{1-3}\cline{5-7}\cline{9-10}
+% 	0 & 0 & 0   & & 0 & 0 & 0  & & 0 & 1 \\\cline{1-3}\cline{5-7}\cline{9-10}
+% 	0 & 1 & 1   & & 0 & 1 & 0  & & 1 & 0 \\\cline{1-3}\cline{5-7}\cline{9-10}
+% 	1 & 0 & 1   & & 1 & 0 & 0 \\\cline{1-3}\cline{5-7}
+% 	1 & 1 & 1   & & 1 & 1 & 1 \\\cline{1-3}\cline{5-7}
+% 	\end{tabular}
+% 	\end{center}
+% 	\item For truth table on previous slide, clearly $G = \Bar{XYZ}$
+% 	\item $F = \Bar{X}\Bar{Y}Z + X\Bar{Y}Z + XY\Bar{Z} + XYZ$ (not obvious)
+% \end{itemize}
+% \end{frame}
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% Much of this will be review from high-school (at least until the
+% new curriculum comes in, and Boolean algebra is lost)
+% \end{frame}
+% \fi\ENotes
+
+\begin{frame}[fragile]
+\Title{Truth Table to Formula Using Minimal Terms}
+
+\vspace*{.5truein}
+
+\begin{center}
+\begin{tabular}{ccc|c|ccc|c}
+$A$&$B$&$C$ & $F$ & $\bar A \bar B C $& $A\bar B C$&$ A B C $& $\bar A \bar B C + A\bar B C+ A B C$ \\\hline
+0&0&0 & 0 & 0 & 0 & 0 & 0 \\
+0&0&1 & 1 & 1 & 0 & 0 & 1 \\
+0&1&0 & 0 & 0 & 0 & 0 & 0 \\
+0&1&1 & 0 & 0 & 0 & 0 & 0 \\
+1&0&0 & 0 & 0 & 0 & 0 & 0 \\
+1&0&1 & 1 & 0 & 1 & 0 & 1 \\
+1&1&0 & 0 & 0 & 0 & 0 & 0 \\
+1&1&1 & 1 & 0 & 0 & 1 & 1 \\
+\end{tabular}
+\end{center}
+
+\BNotes\ifnum\Notes=1
+Instructor's Notes:
+\begin{itemize}
+\item Show how to read minimal terms (minterms) off from the 1's in the table.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Two-Level Representations}
+\begin{itemize}
+	\item Any Boolean function can be represented as a sum of
+		products (OR of ANDs) of literals
+	\item Each term in sum corresponds to a single
+		line in truth table with value 1
+	\item This can be simplified by hand or by machine
+	\item Product of sums representation may also be useful
+\end{itemize}
+\BNotes\ifnum\Notes=1
+~% notes text
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Don't Cares in Truth Tables}
+\begin{itemize}
+	\item Represented as X instead of 0 or 1
+	\item When used in output, indicates that we don't care what
+	output is for that input
+	\item When used in input, indicates outputs are valid for all
+	inputs created by replacing X by 0 or 1 (useful in compressing
+		truth tables)  
+	\item Example:
+
+		\begin{center}
+		\begin{tabular}{ccc|c}
+		A&B&C & F\\
+		\hline
+		0&0&X & 0\\
+		0&1&X & 1\\
+		1&X&X & X\\
+		\end{tabular}
+		\end{center}
+
+\end{itemize}
+\end{frame}
+
+\BNotes\ifnum\Notes=1
+\begin{frame}[fragile]
+Instructor's Notes:
+\begin{itemize}
+\item This is simply a bit of convenient shorthand we use later in specifying
+	control functionality.
+
+\item Note: It is easy, when using don't cares, to write an incorrect
+  specification of a function. Consider what would happen if the
+  second line read ``0,X,1,1''. Here are three problems with it: (1)
+  input 001 is specified twice; (2) input 010 is not specified; (3)
+  input A can be eliminated.
+\end{itemize}
+\end{frame}
+\fi\ENotes
+
+\begin{frame}[fragile]
+\Title{Compressed Truth Tables and Non-Minimal Terms}
+\vspace*{.5truein}
+
+\begin{center}
+\begin{tabular}{ccc|c|cc|c}
+$A$&$B$&$C$ & $F$ & $\bar A \bar B C $& $A C$ & $\bar A \bar B C + A C$ \\\hline
+0&0&0 & 0 & 0 & 0 & 0 \\
+0&0&1 & 1 & 1 & 0 & 1 \\
+0&1&X & 0 & 0 & 0 & 0 \\
+1&X&0 & 0 & 0 & 0 & 0 \\
+1&X&1 & 1 & 0 & 1 & 1 \\
+\end{tabular}
+\end{center}
+
+\BNotes\ifnum\Notes=1
+Instructor's Notes:
+\begin{itemize}
+\item This is the same F as before. 
+\item We could have gotten this formula by
+simplifying the one from the previous slide, or by noticing that the
+term $AC$ covers two 1's, but here we just read off one term per 1 in
+the function value. This leads into the next slide.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{Using Overlapping Non-Minimal Terms}
+
+\vspace*{.5truein}
+
+\begin{center}
+\begin{tabular}{ccc|c|cc|c}
+$A$&$B$&$C$ & $F$ & $A B$ & $A C$& $A B + A C$ \\\hline
+0&0&0 & 0 & 0 & 0 & 0 \\
+0&0&1 & 0 & 0 & 0 & 0 \\
+0&1&0 & 0 & 0 & 0 & 0 \\
+0&1&1 & 0 & 0 & 0 & 0 \\
+1&0&0 & 0 & 0 & 0 & 0 \\
+1&0&1 & 1 & 0 & 1 & 1 \\
+1&1&0 & 1 & 1 & 0 & 1 \\
+1&1&1 & 1 & 1 & 1 & 1 \\
+\end{tabular}
+\end{center}
+
+\BNotes\ifnum\Notes=1
+Instructor's Notes:
+\begin{itemize}
+\item This is a different $F$ than we saw earlier.
+\item The previous two methods would have given us $A\bar B C + A B \bar C +
+A B C$ and (after compressing the truth table) $A \bar B C + AB$.
+\end{itemize}
+\ENotes\fi
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{Laws of Boolean Algebra}
+		\begin{center}
+		\begin{tabular}{ccl}
+		$\underline{\mbox{~~~Rule~~~}}$	& $\underline{\mbox{~~~Dual Rule~~~}}$ \\
+		$\Bar{\Bar{X}} = X$ & \\
+		$X+0=X$	& $X\cdot 1 = X$& (identity)\\
+		$X+1=1$	& $X\cdot 0 = 0$& (zero/one)\\
+		$X+X=X$	& $XX = X$ & (absorption)\\
+		$X+\Bar{X}=1$ &$X\Bar{X} = 0$ & (inverse)\\
+		$X+Y=Y+X$ & $XY = YX$&(commutative)\\
+		$X+(Y+Z)=\qquad$ & $X(YZ) = (XY)Z$ & (associative)\\
+		$\qquad (X+Y)+Z$ &\\
+		$X(Y+Z) = XY+XZ$ & $X+YZ = \qquad$ & (distributive)\\
+				& $\qquad (X+Y)(X+Z)$\\
+		$\Bar{X+Y}=\Bar{X}\cdot\Bar{Y}$ & $\Bar{XY} = \Bar{X}+\Bar{Y}$
+							& (DeMorgan)
+		\end{tabular}
+		\end{center}
+
+\end{frame}
+\BNotes\ifnum\Notes=1
+\begin{frame}[fragile]
+Instructor's Notes:
+\begin{itemize}
+\item Go over these briefly; we're not requiring deep knowledge.
+\item Exception: DeMorgan's law is useful; example: there are two ways
+	to draw a NAND gate: an AND with its output complemented, and an OR
+	with its inputs complemented.  Wait to tell them about two ways to
+	draw NAND until NAND is introduced later, but do a truth table proof
+	of DeMorgan's law.
+\end{itemize}
+\end{frame}
+\fi\ENotes
+
+\begin{frame}[fragile]
+\Title{Formula Simplification Using Laws}
+\begin{itemize}
+\item We can use algebraic manipulation (based on laws) to simplify formulas
+\item An example using the previous truth table
+		\begin{eqnarray*} F &=& \Bar{X}\Bar{Y}Z + X\Bar{Y}Z +
+                                  XY\Bar{Z} + XYZ \\
+				&=& \Bar{Y}Z (\Bar{X}+X) +
+				  XY(\Bar{Z}+Z)\\
+				&=& \Bar{Y}Z + XY
+		\end{eqnarray*}
+\item Difficult even for humans, tricky to automate
+\item Seems inherently hard to get ``simplest'' formula
+\item Is simplest formula the best for implementation?
+\end{itemize}
+\BNotes\ifnum\Notes=1
+Instructor's Notes:
+Show how the distributive law is used in reverse here, as well as the
+inverse and identity laws.
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Using Gates in Logic Design}
+\begin{itemize}
+	\item Here are symbols for AND, OR, NOT gates
+        \Figure{!}{1in}{.5in}{Figs/andornot}
+	\item NOT often drawn as ``bubble'' on input or output
+	\item AND, OR can be generalized to many inputs (useful)
+	\item We can design using AND, OR, NOT, and optimize afterwards
+\end{itemize}
+\BNotes\ifnum\Notes=1
+Instructor's Notes:
+\begin{itemize}
+\item
+AND, OR, NOT are useful for us conceptually because they are
+intuitive, and because we have the tools of Boolean algebra to help
+us.
+\item Show 3-input AND, with truth table.
+\item Return to previous slide and draw circuit for simplified formula
+  with AND and OR.  Keep it handy for next slide...
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+  \Title{NAND and NOR}
+  \begin{itemize}
+  \item In practice, logic minimization software works with
+	NAND or NOR gates, or at transistor level
+
+  \item Here are symbols for NAND, NOR:
+        \Figure{!}{1in}{.5in}{Figs/nandnor}
+
+	\begin{center}
+	\begin{tabular}{|c|c|c|c|c|c|c|}\cline{1-3}\cline{5-7}
+	\multicolumn{3}{|c|}{NAND}& &\multicolumn{3}{|c|}{NOR} \\\cline{1-3}\cline{5-7}
+	A & B & \Large$\overline{AB}$ &~~~~~ & A & B & \Large$\overline{A+B}$  \\\cline{1-3}\cline{5-7}
+	0 & 0 & 1   & & 0 & 0 & 1   \\\cline{1-3}\cline{5-7}
+	0 & 1 & 1   & & 0 & 1 & 0   \\\cline{1-3}\cline{5-7}
+	1 & 0 & 1   & & 1 & 0 & 0 \\\cline{1-3}\cline{5-7}
+	1 & 1 & 0   & & 1 & 1 & 0 \\\cline{1-3}\cline{5-7}
+	\end{tabular}
+	\end{center}
+    \item Two level NAND circuit
+    \end{itemize}
+\end{frame}
+\BNotes\ifnum\Notes=1
+\begin{frame}[fragile]
+Instructor's Notes:
+\begin{itemize}
+\item
+AND, OR, NOT are useful for us conceptually because they are
+intuitive, and because we have the tools of Boolean algebra to help
+us. But as we will see, because of the way transistors work, it takes 2
+transistors to create a NOT gate, 4 to create a NAND gate, and 6 to
+create an AND gate (by negating the NAND gate). Since NAND is
+universal (any Boolean function can be expressed using only this
+operator: exercise), it makes sense to use just NAND gates in designs,
+or to go directly to the transistor level.
+
+\item 	Show both types of NANDs (AND with output complemented, OR with
+	inputs complemented) and use DeMorgan as a quick proof of this.
+\item ...use circuit you drew with AND and OR, and then put bubbles on the
+	AND outputs and the OR inputs to make it all NANDs; the bubbles
+	cancel, so it's the same circuit..
+
+\end{itemize}
+\end{frame}
+\fi\ENotes
+
+%%%%%%%%zhk w23 rearranged
+
+\begin{frame}[fragile]
+\STitle{Deriving Truth Table from Circuit}
+\begin{itemize}
+	\item Label intermediate gate outputs
+	\item Fill in truth table in appropriate order
+
+	\Figure{!}{1.5in}{1in}{Figs/xorMagic}
+	\bigskip\bigskip
+	\begin{center}
+	\begin{tabular}{cc|ccc|c}
+		X & Y & A & B & C & F\\
+		\hline
+		0 & 0 &&&&\\
+		0 & 1 &&&&\\
+		1 & 0 &&&&\\
+		1 & 1 &&&&
+	\end{tabular}
+	\end{center}
+\end{itemize}
+\end{frame}
+\BNotes\ifnum\Notes=1
+\begin{frame}[fragile]
+Instructor's Notes:
+\begin{itemize}
+\item Derivation process:
+
+	1. Find gate all of whose inputs are known
+
+	2. Compute its outputs (in truth table)
+
+	3. Repeat
+\item This circuit computes the exclusive-OR (XOR) function. 
+
+	Note that the column for C (for example)
+	cannot be computed unless the column for A is done first.
+\item Draw XOR symbol; draw and discuss XNOR
+\end{itemize}
+\end{frame}
+\fi\ENotes
+
+\begin{frame}[fragile]
+\Title{Good Style in Circuit Drawing}
+\begin{itemize}
+	\item Assume all literals (variables and their negations) are available
+	\item Rectilinear wires, dots when wires split
+	\item Do not draw spaghetti wires for inputs; instead, write
+	each literal as needed
+
+	\TwoFigure{!}{2.25in}{1in}{Figs/badEx}{Figs/goodEx}
+
+	\centerline{\hfill harder to read \hfill preferred \hfill}
+
+\end{itemize}
+\BNotes\ifnum\Notes=1
+Instructor's Notes:
+\begin{itemize}
+\item Draw a BAD example with non-rectilinear wires.
+\item Points will be deducted for spaghetti wiring on assignments, at the
+discretion of the marker. Note that the main goal is communication.
+\end{itemize}
+\fi\ENotes
+\end{frame}
+
+%moved decoder and multiplexor up with gates ZHK in W23
+
+\begin{frame}[fragile]
+\STitle{Useful Components: Decoders}
+\begin{itemize}
+	\item $n$ inputs, $2^n$ outputs (converts binary to ``unary'')
+	\item Example: 3-to-8 (or 3-bit) decoder
+		\begin{center}
+		\begin{tabular}{ccc|cccccccc}
+		$A_2$ & $A_1$ & $A_0$ & $D_7$ & $D_6$ & $D_5$ & $D_4$ & $D_3$ & $D_2$ & $D_1$ & $D_0$\\\hline
+		0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 &1\\
+		0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 1 &0\\
+		0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 1 & 0 &0\\
+		0 & 1 & 1 & 0 & 0 & 0 & 0 & 1 & 0 & 0 &0\\
+		1 & 0 & 0 & 0 & 0 & 0 & 1 & 0 & 0 & 0 &0\\
+		1 & 0 & 1 & 0 & 0 & 1 & 0 & 0 & 0 & 0 &0\\
+		1 & 1 & 0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 &0\\
+		1 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 & 0 &0\\
+		\end{tabular}
+		\end{center}
+	\item Circuit has regular structure
+\end{itemize}
+\end{frame}
+\BNotes\ifnum\Notes=1
+\begin{frame}[fragile]
+Instructor's Notes:
+\begin{itemize}
+\item
+	The book does not give the circuit, but gives the same truth table on
+	page C--9. This is NOT spaghetti wiring, since it is a
+	diagram with many crossing wires, but it has a regular
+	structure. Using a sum-of-product representation with input literals
+	would hide this structure.
+\item 
+	What good are decoders? They are used when one of a large number of
+	units needs to be ``activated''. We will use them in register files
+	and memory units.
+
+	Use as an example a computer with 512MB of memory, and wanting
+	to expand it by using 3 more 512MB memory chips (ie, to 2 GB total).
+	Draw a picture on the board of four 512MB memory chips with select 
+	lines, and use a decoder to select one of them to "turn on".  There
+	will be 29 address lines into each memory chip, with two more 
+	address lines going into the decoder, giving 31 address lines in
+	total.
+
+	The "turn on" part won't make sense until we talk about three-state
+	buffers, but with this type of circuit, the outputs of the memory
+	chips are tied directly together.
+\end{itemize}
+\end{frame}
+\fi\ENotes
+
+\begin{frame}[fragile]
+		\Figure{!}{6in}{2.5in}{Figs/3-8-decoder2}
+		\centerline{3-to-8 (or 3-bit) Decoder}
+\BNotes\ifnum\Notes=1
+~
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Multiplexors}
+\begin{itemize}
+	\item Inputs: $2^n$ lines ($D_0,\dots,D_{2^n-1}$)
+
+		$n$ select lines ($S_{n-1},\dots,S_0$)
+	\item Output: The value of the $D_S$ line
+	\item Example: 4-1 Multiplexer
+		\begin{center}
+		\begin{tabular}{cc|c}
+		$S_1$ & $S_0$ & $Y$\\\hline
+		0 & 0 & $D_0$\\
+		0 & 1 & $D_1$\\
+		1 & 0 & $D_2$\\
+		1 & 1 & $D_3$\\
+		\end{tabular}
+		\end{center}
+
+	\Figure{!}{2in}{1in}{Figs/multiplexer2}
+\end{itemize}
+\end{frame}
+
+\BNotes\ifnum\Notes=1
+\begin{frame}[fragile]
+Instructor's Notes:
+\begin{itemize}
+\item You can warn students that most people spell it
+``multiplexers''.
+\item The book only does a 2-1 multiplexor.
+\item Note the unusual truth table: $D_i$ are inputs, but appear in the
+	output column.  Consider putting up part of standard truth table
+	(with both $S_i$ and $D_i$ as inputs and $Y$ having 0,1 values)
+	and also noting that this shortened form expresses operation
+	better.
+\item Book usually puts select lines at top, but occasionally at bottom,
+	and sometimes select on left, data in on top, output on
+	bottom, and sometimes select omitted.
+
+ \item What good are multiplexors? We use them when we want to combine
+several possible sources of data on one line.  They can again be useful
+in register files and memory, though alternate methods are often
+used (three-state buffers). When we have a functional unit and want to
+use it for more than one thing, it is natural to put a multiplexor
+before its inputs.
+
+Draw a figure on the board with 4 boxes, 2 inputs each (A and B, eight
+	or 32 lines) and one (8 or 32 bit) output.  The boxes should be
+	labeled $+,-,*,/$.  Feed all four into a multiplexor, whose
+	control lines select which operation we want.  
+
+	This is roughly how the CPU works, although we don't have a box
+	for multiplication or division.  Ie, we compute everything we
+	might want, and use a multiplexor to pick what we really want.
+
+\end{itemize}
+\end{frame}
+\fi\ENotes
+
+\begin{frame}
+	\Figure{!}{6in}{2.5in}{Figs/multiplexer3}
+	\centerline{4-1 Multiplexor}
+\BNotes\ifnum\Notes=1
+~
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\STitle{Arrays of Logic Elements}
+\begin{itemize}
+	\item ``Slash'' notation is used to indicate lines carrying
+	multiple bits, and to imply parallel constructions
+
+%	\PHFigure{!}{4.5in}{4in}{PHALL/B08}{Similar to Figure A.3.6}
+	\Figure{!}{4.5in}{2in}{Figs/32mux}
+
+64-bit wide, 2:1 multiplextor expands to 64, 1 bit, 2:1 multiplexors
+\end{itemize}
+\end{frame}
+\BNotes\ifnum\Notes=1
+\begin{frame}[fragile]
+Instructor's Notes:
+This sort of construction is used a lot in processor designs later
+on. Again, it is a shorthand notation that simplifies diagrams.
+\end{frame}
+\fi\ENotes
+
+\begin{frame}[fragile]
+\STitle{Implementing Boolean Functions: PLAs}
+\begin{itemize}
+	\item A PLA (Programmable Logic Array) implements a two-level
+	function
+	
+%	\Figure{!}{4in}{3in}{PHFigs/B05}
+	\Figure{!}{4in}{2in}{PHALL/B05}
+	\item Typically a PLA has fixed number of product terms and outputs available
+\end{itemize}
+\end{frame}
+\BNotes\ifnum\Notes=1
+\begin{frame}[fragile]
+Instructor's Notes:
+\begin{itemize}
+	\item Mention that both AND and OR arrays are programmable.
+	\item Internally, complemented inputs are available
+	\item Draw simple example (show AND and OR gates, but not fuses,
+		just draw connections) on blackboard
+\end{itemize}
+\end{frame}
+\fi\ENotes
+
+\begin{frame}[fragile]
+\STitle{Implementing Boolean Functions: ROMs}
+\begin{itemize}
+	\Figure{!}{1.25in}{.75in}{Figs/ROM}
+	\item Can think of ROM as table of $2^n$ $m$-bit words
+	\item Can think of ROM as implementing $m$ one-bit functions
+	of $n$ variables
+	\item Internally, consists of a decoder plus an OR gate for
+	each output
+	\item Types of ROM: PROM, EPROM, EEPROM
+%	\item ROMs and PLAs closely related
+	\item PLAs - simplified ROM
+
+		Less hardware, but less flexible
+\end{itemize}
+\end{frame}
+\BNotes\ifnum\Notes=1
+\begin{frame}[fragile]
+Instructor's Notes:
+\begin{itemize}
+\item We'll be talking about using ROMs or PLAs in our discussion of
+implementing finite-state machines, but otherwise we do not use them
+much in this course. You can talk about their more general uses if you
+wish. 
+\item Note that the fixed number of product terms in a PLA means that
+it cannot implement all possible collections of $m$ one-bit functions;
+some would require too many product terms. In contrast, a ROM can implement
+any collection.
+\bigskip
+\item {\bf The real point}: there is non-volatile memory in the computer (ie, that doesn't forget when power is turned off).  This memory is read many times and written rarely.  In older techologies, this memory was written once, when it was created, and then installed in the computer.  But newer ones can be written after having been installed in the computer.  Flashing the bios is an example of this.
+\end{itemize}
+\end{frame}
+\fi\ENotes
+
+
+%%%%%%%%finishing talking about circuits and truth tables without talking about cmos and pmos 
+
+
+
+
+
+
+\begin{frame}[fragile]
+\Title{Implementing Gates Using Transistors}
+\begin{itemize}
+\item Transistor: an electrically-controlled switch
+
+\Figure{!}{1in}{0.5in}{NewTransFigs/nswitch}
+
+\item An NMOS transistor (``n-transistor'') and its symbol
+
+\Figure{!}{2in}{1in}{NewTransFigs/ndefn}
+
+\item This behaves like the switch above
+\item Problem: transmits strong 0 but weak 1
+\end{itemize}
+\end{frame}
+\BNotes\ifnum\Notes=1
+\begin{frame}[fragile]
+Instructor's Notes:
+\begin{itemize}
+\item The source and drain are two nearby channels deposited in the substrate
+\item The gate is isolated from them by a layer of insulating material
+\item When the gate has high voltage applied to it, it alters the electrical properties of the configuration, and allows current to flow between source and drain
+\item Physically, source and drain are identical; by convention the source is the terminal of lower voltage
+\item Because of the electrical properties of the transistor, when drain is high, source cannot go all the way up to high voltage without the transistor turning off; hence 1 is ``weak''.
+\item Because transistors have no moving
+parts, they can be extremely fast, which is what makes modern
+computers possible. Before transistors, computers were built using
+electromagnetic relays, in which current flowing into C causes an
+electromagnet to close the connection between A and B. The same types
+of designs are possible, but they would be much, much slower.
+
+\end{itemize}
+\end{frame}
+\fi\ENotes
+
+
+%%%% not talking about NMOS NOT, in the interest of time and not to confuse students, 
+%% since we dont realy talk about the CMOS technology , so the transition to NMOS based %transistors and then CMOS is unnatural - ZHK W23. 
+
+% \begin{frame}[fragile]
+% \Title{An NMOS NOT}
+
+% \Figure{!}{3in}{1.5in}{NewTransFigs/ntrans}
+
+% \begin{itemize}
+%   \item If $A=1$, then low resistance between
+% 	drain and source ($F=0$)
+%   \item If $A=0$, then very high resistance between drain and source ($F=1$)
+%   \item Problem: in $A=1$ case, lots of current flow
+% \end{itemize}
+% \end{frame}
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% \item If current is allowed to flow between drain and source, there is a direct connection between power and ground
+% \item This results in a short circuit, though in practice, a resistor is put between drain and power to limit current flow
+% \item Gates and therefore complete circuits can be built entirely out of NMOS, and historically this was used before the CMOS technology we describe shortly.
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+\begin{frame}[fragile]
+\Title{A PMOS transistor}
+
+\Figure{!}{1.5in}{.75in}{NewTransFigs/pdefn}
+
+\begin{itemize}
+	\item Opposite behaviour to NMOS:
+        \begin{itemize}
+	\item	If $A=1$, high resistance between drain and source
+	\item	If $A=0$, low resistance between drain and source
+        \item   Transmits strong 1 but weak 0
+	\end{itemize}
+\item Denote inversion with ``bubble''
+\end{itemize}
+\BNotes\ifnum\Notes=1
+~
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{Transistor Summary}
+\begin{itemize}
+	\item Two types of transistors: nmos, pmos
+
+	\begin{center}
+        \footnotesize
+	\begin{tabular}{cc}
+		\includegraphics[height=1in]{NewTransFigs/newNMOS} &
+		\includegraphics[height=1in]{NewTransFigs/newPMOS} \\
+	NMOS & PMOS\\
+	\begin{tabular}{|r|cc|}
+	\hline
+	Input& $A=0$ & $A=1$\\
+	\hline
+		Resistance& High & Low \normalsize S0, W1\\
+	\hline
+	\end{tabular} &
+
+	\begin{tabular}{|r|cc|}
+	\hline
+	Input& $A=0$ & $A=1$\\
+	\hline
+		Resistance& Low  \normalsize W0, S1& High\\
+	\hline
+	\end{tabular}
+	\end{tabular}
+	\end{center}
+	\item To analyze CMOS circuit:
+	\begin{itemize}
+		\item Make table with inputs, transistors, and output(s)
+		\item For each row of table (setting of inputs),
+
+			check whether transistor resistance is High,Low
+		\item For each row of table, check if output has clean path to
+
+			power (1)
+
+			ground (0)
+	\end{itemize}
+\end{itemize}
+\end{frame}
+\BNotes\ifnum\Notes=1
+\begin{frame}[fragile]
+Instructor's Notes:
+\begin{itemize}
+	\item CMOS uses both types of transistors; see next few slides
+	\item The analysis proceedure is very mechnical and easy.
+
+		What's hard about what comes next is that as people, we
+		like to impose meaning on the transistor diagrams, and
+		we expect to see data "flowing" through the circuit.
+
+		But that's not how it works: The transitor inputs (gate
+		inputs) just connect the output to power or ground.
+		Except in tri-state, the input never flows through to the
+		output.
+	\item You'll want this slide handy when you do the next few examples
+\end{itemize}
+\end{frame}
+\fi\ENotes
+
+\begin{frame}[fragile]
+\Title{CMOS}
+\begin{itemize}
+	\item CMOS circuits use both n-transistors and p-transistors
+	\item Will build circuits with ``clean'' paths to exactly
+		one of power and ground.
+	\item CMOS NOT:
+
+	\Figure{!}{2.25in}{1in}{NewTransFigs/cmosnot}
+
+		\begin{center}
+		\begin{tabular}{c|cc|c}
+		A & $Q_1$ & $Q_2$ & F\\\hline
+		0 & Low & High & 1\\
+		1 & High & Low & 0
+		\end{tabular}
+		\end{center}
+	\item No bad flow of current from power to ground
+        \item No weak transmissions
+\end{itemize}
+\end{frame}
+\BNotes\ifnum\Notes=1
+\begin{frame}[fragile]
+Instructor's Notes:
+\begin{itemize}
+\item The important thing here is that whether the input to the inverter is 1 or 0, there is no current flow
+\item There is a small amount of current flow during an input transition from 1 to 0 or vice-versa
+\item For this reason, CMOS technologies are currently popular
+
+\item CMOS was a huge improvement over TTL, the dominant technology before
+	CMOS (in the 1970s).  In particular, a TTL NAND
+	gate had 4 resistors, 1 diode, and 5 transistors, compared to
+	the 4 transistors of the CMOS NAND.  
+
+	Further, CMOS has broader
+	fan-out (i.e., you can use the output of one CMOS gate as the
+	input to 30-50 other CMOS gates; for a TTL NAND, you can use
+	the output as the input to about 10 other TTL gates).
+
+        (R. Mann, W05).  Main advantage of CMOS over TTL is lower power.  Only
+        one transitor is on at a time, so ideally, no DC current flows.  Also,
+        by using Field Effect Transistors (FETs) instead of standard (bipolar)
+        transistors, inputs require almost zero input power.  This explains
+        huge fan out.
+
+\end{itemize}
+\end{frame}
+\fi\ENotes
+
+\begin{frame}[fragile]
+\Title{CMOS NAND}
+\Figure{!}{4in}{2in}{NewTransFigs/cmosnand}
+\bigskip
+
+\begin{center}
+\begin{tabular}{cc|cccc|c}
+A	& B	& $Q_1$	& $Q_2$	& $Q_3$	& $Q_4$	& Z\\\hline
+% 0	& 0	& Low	& Low	& High	& High	& 1\\
+0	& 0	& 	& 	& 	& 	& \\
+0	& 1	& 	&	&	&	&\\
+1	& 0	& 	&	&	&	&\\
+1	& 1	& 	&	&	&	&
+\end{tabular}
+\end{center}
+\end{frame}
+\BNotes\ifnum\Notes=1
+\begin{frame}[fragile]
+Instructor's Notes:
+\begin{itemize}
+\item A NOR gate can be built in similar fashion (exercise for keen students?)
+
+	The exercise is simple: it looks a lot like the CMOS NAND, except the
+	PMOS transistors are in series while the NMOS transistors are in
+	parallel.
+
+\item In "Fundamentals of Digital Logic Design", by Brown
+	and Vranesic, section 3.2, page 65, it says, "Because of the way the
+	transistors operate, an NMOS transistor cannot be used to pull its
+	drain terminal completely up to $V_{DD}$. Similarly, a PMOS terminal
+	cannot be used to pull its drain terminal completely down to Gnd. We
+	discuss the operation of MOSFETs in considerable detail in section
+	3.8."
+
+	This is important, since otherwise you could get an AND by exchanging 
+	power and ground in the NAND transistor circuit on this slide.
+
+\end{itemize}
+\end{frame}
+\fi\ENotes
+
+\begin{frame}\frametitle{CMOS NAND Gate: Summary}
+
+\begin{table}[H]
+\begin{center}
+    \begin{tabular}{ |p{1cm} |p{1cm} || p{1cm} |p{1cm} |p{1cm} |p{1cm} || p{1cm} |}
+    \hline 
+A & B & $Q_1$ & $Q_2$ & $Q_3$ & $Q_4$ & $Z$  \\ \hline
+0 & 0 & Low  & Low  & High & High & 1  \\ \hline
+0 & 1 & Low  & High & High & Low  & 1 \\ \hline
+1 & 0 & High & Low  & Low  & High & 1\\ \hline
+1 & 1 & High & High & Low  & Low  & 0  \\ \hline
+\end{tabular}
+\caption{CMOS NAND Gate Analysis}
+\end{center}
+\end{table}
+
+
+\end{frame}
+
+
+
+\begin{frame}[fragile]
+\Title{CMOS AND and OR}
+\begin{itemize}
+\item To get AND and OR, add inverter at end
+
+\item Example: 
+	\Figure{!}{5in}{2in}{NewTransFigs/cmos2and}
+\item Thus, NAND is preferred to AND in actual circuits
+\end{itemize}
+\end{frame}
+\BNotes\ifnum\Notes=1
+\begin{frame}[fragile]
+Instructor's Notes:
+\begin{itemize}
+\item Note that if we have a two-level circuit (OR of ANDs, or sum of products), we can replace each gate by NAND, and the resulting circuit computes the same function
+\item Hence we can continue to use AND-OR design
+\end{itemize}
+\end{frame}
+\fi\ENotes
+
+
+
+\begin{frame}[fragile]
+\Title{CMOS 3 Input NAND and NOR}
+\begin{itemize}
+\item $n$-input NAND: 2 transistors per input
+
+\item Example: 3 Input NAND
+	\Figure{!}{5in}{2.5in}{NewTransFigs/cmos3nand}
+\end{itemize}
+\end{frame}
+\BNotes\ifnum\Notes=1
+\begin{frame}[fragile]
+Instructor's Notes:
+\begin{itemize}
+\item There is a limit to the number of inputs, but it's pretty high
+\end{itemize}
+\end{frame}
+\fi\ENotes
+
+
+% \begin{frame}[fragile]
+% \STitle{Deriving Truth Table from Circuit}
+% \begin{itemize}
+% 	\item Label intermediate gate outputs
+% 	\item Fill in truth table in appropriate order
+
+% 	\Figure{!}{1.5in}{1in}{Figs/xorMagic}
+% 	\bigskip\bigskip
+% 	\begin{center}
+% 	\begin{tabular}{cc|ccc|c}
+% 		X & Y & A & B & C & F\\
+% 		\hline
+% 		0 & 0 &&&&\\
+% 		0 & 1 &&&&\\
+% 		1 & 0 &&&&\\
+% 		1 & 1 &&&&
+% 	\end{tabular}
+% 	\end{center}
+% \end{itemize}
+% \end{frame}
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% \item Derivation process:
+
+% 	1. Find gate all of whose inputs are known
+
+% 	2. Compute its outputs (in truth table)
+
+% 	3. Repeat
+% \item This circuit computes the exclusive-OR (XOR) function. 
+
+% 	Note that the column for C (for example)
+% 	cannot be computed unless the column for A is done first.
+% \item Draw XOR symbol; draw and discuss XNOR
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+% \begin{frame}[fragile]
+% \Title{Good Style in Circuit Drawing}
+% \begin{itemize}
+% 	\item Assume all literals (variables and their negations) are available
+% 	\item Rectilinear wires, dots when wires split
+% 	\item Do not draw spaghetti wires for inputs; instead, write
+% 	each literal as needed
+
+% 	\TwoFigure{!}{2.25in}{1in}{Figs/badEx}{Figs/goodEx}
+
+% 	\centerline{\hfill Bad \hfill Good \hfill}
+
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% Instructor's Notes:
+% \begin{itemize}
+% \item Draw a BAD example with non-rectilinear wires.
+% \item Points will be deducted for spaghetti wiring on assignments, at the
+% discretion of the marker. Note that the main goal is communication.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \STitle{Useful Components: Decoders}
+% \begin{itemize}
+% 	\item $n$ inputs, $2^n$ outputs (converts binary to ``unary'')
+% 	\item Example: 3-to-8 (or 3-bit) decoder
+% 		\begin{center}
+% 		\begin{tabular}{ccc|cccccccc}
+% 		$A_2$ & $A_1$ & $A_0$ & $D_7$ & $D_6$ & $D_5$ & $D_4$ & $D_3$ & $D_2$ & $D_1$ & $D_0$\\\hline
+% 		0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 &1\\
+% 		0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 1 &0\\
+% 		0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 1 & 0 &0\\
+% 		0 & 1 & 1 & 0 & 0 & 0 & 0 & 1 & 0 & 0 &0\\
+% 		1 & 0 & 0 & 0 & 0 & 0 & 1 & 0 & 0 & 0 &0\\
+% 		1 & 0 & 1 & 0 & 0 & 1 & 0 & 0 & 0 & 0 &0\\
+% 		1 & 1 & 0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 &0\\
+% 		1 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 & 0 &0\\
+% 		\end{tabular}
+% 		\end{center}
+% 	\item Circuit has regular structure
+% \end{itemize}
+% \end{frame}
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% \item
+% 	The book does not give the circuit, but gives the same truth table on
+% 	page C--9. This is NOT spaghetti wiring, since it is a
+% 	diagram with many crossing wires, but it has a regular
+% 	structure. Using a sum-of-product representation with input literals
+% 	would hide this structure.
+% \item 
+% 	What good are decoders? They are used when one of a large number of
+% 	units needs to be ``activated''. We will use them in register files
+% 	and memory units.
+
+% 	Use as an example a computer with 512MB of memory, and wanting
+% 	to expand it by using 3 more 512MB memory chips (ie, to 2 GB total).
+% 	Draw a picture on the board of four 512MB memory chips with select 
+% 	lines, and use a decoder to select one of them to "turn on".  There
+% 	will be 29 address lines into each memory chip, with two more 
+% 	address lines going into the decoder, giving 31 address lines in
+% 	total.
+
+% 	The "turn on" part won't make sense until we talk about three-state
+% 	buffers, but with this type of circuit, the outputs of the memory
+% 	chips are tied directly together.
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+% \begin{frame}[fragile]
+% 		\Figure{!}{6in}{2.5in}{Figs/3-8-decoder2}
+% 		\centerline{3-to-8 (or 3-bit) Decoder}
+% \BNotes\ifnum\Notes=1
+% ~
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \STitle{Multiplexors}
+% \begin{itemize}
+% 	\item Inputs: $2^n$ lines ($D_0,\dots,D_{2^n-1}$)
+
+% 		$n$ select lines ($S_{n-1},\dots,S_0$)
+% 	\item Output: The value of the $D_S$ line
+% 	\item Example: 4-1 Multiplexer
+% 		\begin{center}
+% 		\begin{tabular}{cc|c}
+% 		$S_1$ & $S_0$ & $Y$\\\hline
+% 		0 & 0 & $D_0$\\
+% 		0 & 1 & $D_1$\\
+% 		1 & 0 & $D_2$\\
+% 		1 & 1 & $D_3$\\
+% 		\end{tabular}
+% 		\end{center}
+
+% 	\Figure{!}{2in}{1in}{Figs/multiplexer2}
+% \end{itemize}
+% \end{frame}
+
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% \item You can warn students that most people spell it
+% ``multiplexers''.
+% \item The book only does a 2-1 multiplexor.
+% \item Note the unusual truth table: $D_i$ are inputs, but appear in the
+% 	output column.  Consider putting up part of standard truth table
+% 	(with both $S_i$ and $D_i$ as inputs and $Y$ having 0,1 values)
+% 	and also noting that this shortened form expresses operation
+% 	better.
+% \item Book usually puts select lines at top, but occasionally at bottom,
+% 	and sometimes select on left, data in on top, output on
+% 	bottom, and sometimes select omitted.
+
+%  \item What good are multiplexors? We use them when we want to combine
+% several possible sources of data on one line.  They can again be useful
+% in register files and memory, though alternate methods are often
+% used (three-state buffers). When we have a functional unit and want to
+% use it for more than one thing, it is natural to put a multiplexor
+% before its inputs.
+
+% Draw a figure on the board with 4 boxes, 2 inputs each (A and B, eight
+% 	or 32 lines) and one (8 or 32 bit) output.  The boxes should be
+% 	labeled $+,-,*,/$.  Feed all four into a multiplexor, whose
+% 	control lines select which operation we want.  
+
+% 	This is roughly how the CPU works, although we don't have a box
+% 	for multiplication or division.  Ie, we compute everything we
+% 	might want, and use a multiplexor to pick what we really want.
+
+% \end{itemize}
+% \end{frame}
+
+% \begin{frame}
+% 	\Figure{!}{6in}{2.5in}{Figs/multiplexer3}
+% 	\centerline{4-1 Multiplexor}
+% \BNotes\ifnum\Notes=1
+% ~
+% \fi\ENotes
+% \end{frame}
+
+
+% \begin{frame}[fragile]
+% \STitle{Useful Components: Decoders}
+% \begin{itemize}
+% 	\item $n$ inputs, $2^n$ outputs (converts binary to ``unary'')
+% 	\item Example: 3-to-8 (or 3-bit) decoder
+% 		\begin{center}
+% 		\begin{tabular}{ccc|cccccccc}
+% 		$A_2$ & $A_1$ & $A_0$ & $D_7$ & $D_6$ & $D_5$ & $D_4$ & $D_3$ & $D_2$ & $D_1$ & $D_0$\\\hline
+% 		0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 &1\\
+% 		0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 1 &0\\
+% 		0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 1 & 0 &0\\
+% 		0 & 1 & 1 & 0 & 0 & 0 & 0 & 1 & 0 & 0 &0\\
+% 		1 & 0 & 0 & 0 & 0 & 0 & 1 & 0 & 0 & 0 &0\\
+% 		1 & 0 & 1 & 0 & 0 & 1 & 0 & 0 & 0 & 0 &0\\
+% 		1 & 1 & 0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 &0\\
+% 		1 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 & 0 &0\\
+% 		\end{tabular}
+% 		\end{center}
+% 	\item Circuit has regular structure
+% \end{itemize}
+% \end{frame}
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% \item
+% 	The book does not give the circuit, but gives the same truth table on
+% 	page C--9. This is NOT spaghetti wiring, since it is a
+% 	diagram with many crossing wires, but it has a regular
+% 	structure. Using a sum-of-product representation with input literals
+% 	would hide this structure.
+% \item 
+% 	What good are decoders? They are used when one of a large number of
+% 	units needs to be ``activated''. We will use them in register files
+% 	and memory units.
+
+% 	Use as an example a computer with 512MB of memory, and wanting
+% 	to expand it by using 3 more 512MB memory chips (ie, to 2 GB total).
+% 	Draw a picture on the board of four 512MB memory chips with select 
+% 	lines, and use a decoder to select one of them to "turn on".  There
+% 	will be 29 address lines into each memory chip, with two more 
+% 	address lines going into the decoder, giving 31 address lines in
+% 	total.
+
+% 	The "turn on" part won't make sense until we talk about three-state
+% 	buffers, but with this type of circuit, the outputs of the memory
+% 	chips are tied directly together.
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+% \begin{frame}[fragile]
+% 		\Figure{!}{6in}{2.5in}{Figs/3-8-decoder2}
+% 		\centerline{3-to-8 (or 3-bit) Decoder}
+% \BNotes\ifnum\Notes=1
+% ~
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \STitle{Multiplexors}
+% \begin{itemize}
+% 	\item Inputs: $2^n$ lines ($D_0,\dots,D_{2^n-1}$)
+
+% 		$n$ select lines ($S_{n-1},\dots,S_0$)
+% 	\item Output: The value of the $D_S$ line
+% 	\item Example: 4-1 Multiplexer
+% 		\begin{center}
+% 		\begin{tabular}{cc|c}
+% 		$S_1$ & $S_0$ & $Y$\\\hline
+% 		0 & 0 & $D_0$\\
+% 		0 & 1 & $D_1$\\
+% 		1 & 0 & $D_2$\\
+% 		1 & 1 & $D_3$\\
+% 		\end{tabular}
+% 		\end{center}
+
+% 	\Figure{!}{2in}{1in}{Figs/multiplexer2}
+% \end{itemize}
+% \end{frame}
+
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% \item You can warn students that most people spell it
+% ``multiplexers''.
+% \item The book only does a 2-1 multiplexor.
+% \item Note the unusual truth table: $D_i$ are inputs, but appear in the
+% 	output column.  Consider putting up part of standard truth table
+% 	(with both $S_i$ and $D_i$ as inputs and $Y$ having 0,1 values)
+% 	and also noting that this shortened form expresses operation
+% 	better.
+% \item Book usually puts select lines at top, but occasionally at bottom,
+% 	and sometimes select on left, data in on top, output on
+% 	bottom, and sometimes select omitted.
+% \end{itemize}
+% \end{frame}
+% \begin{frame}[fragile]
+% Instructor's Notes Continued:
+% \begin{frame}[fragile]
+% \STitle{Useful Components: Decoders}
+% \begin{itemize}
+% 	\item $n$ inputs, $2^n$ outputs (converts binary to ``unary'')
+% 	\item Example: 3-to-8 (or 3-bit) decoder
+% 		\begin{center}
+% 		\begin{tabular}{ccc|cccccccc}
+% 		$A_2$ & $A_1$ & $A_0$ & $D_7$ & $D_6$ & $D_5$ & $D_4$ & $D_3$ & $D_2$ & $D_1$ & $D_0$\\\hline
+% 		0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 &1\\
+% 		0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 1 &0\\
+% 		0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 1 & 0 &0\\
+% 		0 & 1 & 1 & 0 & 0 & 0 & 0 & 1 & 0 & 0 &0\\
+% 		1 & 0 & 0 & 0 & 0 & 0 & 1 & 0 & 0 & 0 &0\\
+% 		1 & 0 & 1 & 0 & 0 & 1 & 0 & 0 & 0 & 0 &0\\
+% 		1 & 1 & 0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 &0\\
+% 		1 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 & 0 &0\\
+% 		\end{tabular}
+% 		\end{center}
+% 	\item Circuit has regular structure
+% \end{itemize}
+% \end{frame}
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% \item
+% 	The book does not give the circuit, but gives the same truth table on
+% 	page C--9. This is NOT spaghetti wiring, since it is a
+% 	diagram with many crossing wires, but it has a regular
+% 	structure. Using a sum-of-product representation with input literals
+% 	would hide this structure.
+% \item 
+% 	What good are decoders? They are used when one of a large number of
+% 	units needs to be ``activated''. We will use them in register files
+% 	and memory units.
+
+% 	Use as an example a computer with 512MB of memory, and wanting
+% 	to expand it by using 3 more 512MB memory chips (ie, to 2 GB total).
+% 	Draw a picture on the board of four 512MB memory chips with select 
+% 	lines, and use a decoder to select one of them to "turn on".  There
+% 	will be 29 address lines into each memory chip, with two more 
+% 	address lines going into the decoder, giving 31 address lines in
+% 	total.
+
+% 	The "turn on" part won't make sense until we talk about three-state
+% 	buffers, but with this type of circuit, the outputs of the memory
+% 	chips are tied directly together.
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+% \begin{frame}[fragile]
+% 		\Figure{!}{6in}{2.5in}{Figs/3-8-decoder2}
+% 		\centerline{3-to-8 (or 3-bit) Decoder}
+% \BNotes\ifnum\Notes=1
+% ~
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \STitle{Multiplexors}
+% \begin{itemize}
+% 	\item Inputs: $2^n$ lines ($D_0,\dots,D_{2^n-1}$)
+
+% 		$n$ select lines ($S_{n-1},\dots,S_0$)
+% 	\item Output: The value of the $D_S$ line
+% 	\item Example: 4-1 Multiplexer
+% 		\begin{center}
+% 		\begin{tabular}{cc|c}
+% 		$S_1$ & $S_0$ & $Y$\\\hline
+% 		0 & 0 & $D_0$\\
+% 		0 & 1 & $D_1$\\
+% 		1 & 0 & $D_2$\\
+% 		1 & 1 & $D_3$\\
+% 		\end{tabular}
+% 		\end{center}
+
+% 	\Figure{!}{2in}{1in}{Figs/multiplexer2}
+% \end{itemize}
+% \end{frame}
+
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% \item You can warn students that most people spell it
+% ``multiplexers''.
+% \item The book only does a 2-1 multiplexor.
+% \item Note the unusual truth table: $D_i$ are inputs, but appear in the
+% 	output column.  Consider putting up part of standard truth table
+% 	(with both $S_i$ and $D_i$ as inputs and $Y$ having 0,1 values)
+% 	and also noting that this shortened form expresses operation
+% 	better.
+% \item Book usually puts select lines at top, but occasionally at bottom,
+% 	and sometimes select on left, data in on top, output on
+% 	bottom, and sometimes select omitted.
+% \end{itemize}
+% \end{frame}
+% \begin{frame}[fragile]
+% Instructor's Notes Continued:
+% \begin{itemize}
+% \item What good are multiplexors? We use them when we want to combine
+% several possible sources of data on one line.  They can again be useful
+% in register files and memory, though alternate methods are often
+% used (three-state buffers). When we have a functional unit and want to
+% use it for more than one thing, it is natural to put a multiplexor
+% before its inputs.
+
+% Draw a figure on the board with 4 boxes, 2 inputs each (A and B, eight
+% 	or 32 lines) and one (8 or 32 bit) output.  The boxes should be
+% 	labeled $+,-,*,/$.  Feed all four into a multiplexor, whose
+% 	control lines select which operation we want.  
+
+% 	This is roughly how the CPU works, although we don't have a box
+% 	for multiplication or division.  Ie, we compute everything we
+% 	might want, and use a multiplexor to pick what we really want.
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+% \begin{frame}[fragile]
+% 	\Figure{!}{6in}{2.5in}{Figs/multiplexer3}
+% 	\centerline{4-1 Multiplexor}
+% \BNotes\ifnum\Notes=1
+% ~
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \STitle{Arrays of Logic Elements}
+% \begin{itemize}
+% 	\item ``Slash'' notation is used to indicate lines carrying
+% 	multiple bits, and to imply parallel constructions
+
+% %	\PHFigure{!}{4.5in}{4in}{PHALL/B08}{Similar to Figure A.3.6}
+% 	\Figure{!}{4.5in}{2in}{Figs/32mux}
+
+% 64-bit wide, 2:1 multiplextor expands to 64, 1 bit, 2:1 multiplexors
+% \end{itemize}
+% \end{frame}
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% This sort of construction is used a lot in processor designs later
+% on. Again, it is a shorthand notation that simplifies diagrams.
+% \end{frame}
+% \fi\ENotes
+
+%%%%%%%%%%%%%%%%%%%%%%%%added by ZHK for W23
+
+%%from XBL slides
+
+\begin{frame}\frametitle{CMOS: Some Key Ideas}
+
+A \textbf{short circuit} is a low resistance path between power and ground.
+\hfill\break
+
+A \textbf{float state} is being disconnected from both power and ground.
+\hfill\break
+
+For strong transmission, always connect NMOS to ground and PMOS to power.
+\hfill\break
+
+Note that if we have a two-level circuit (OR of ANDs, or sum of products), we can replace
+each gate by NAND, and the resulting circuit computes the same function. Hence we can continue to use AND-OR design.
+
+\end{frame}
+
+
+% \begin{frame}{fragile}
+%     \STitle{Readings to accompany this lecture}
+%     \begin{itemize}
+%     \item Appendix A, sections A.1--A-3%, A5, A.7-10.
+%     \end{itemize}
+% \end{frame}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%added by ZHK for W23
+
+%%%%%%%%%%%%%%%%%%%%
+% \begin{frame}[fragile]
+% \STitle{Implementing Boolean Functions: PLAs}
+% \begin{itemize}
+% 	\item A PLA (Programmable Logic Array) implements a two-level
+% 	function
+	
+% %	\Figure{!}{4in}{3in}{PHFigs/B05}
+% 	\Figure{!}{4in}{2in}{PHALL/B05}
+% 	\item Typically a PLA has fixed number of product terms and outputs available
+% \end{itemize}
+% \end{frame}
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% 	\item Mention that both AND and OR arrays are programmable.
+% 	\item Internally, complemented inputs are available
+% 	\item Draw simple example (show AND and OR gates, but not fuses,
+% 		just draw connections) on blackboard
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+
+% \begin{frame}[fragile]
+% \STitle{Implementing Boolean Functions: ROMs}
+% \begin{itemize}
+% 	\Figure{!}{1.25in}{.75in}{Figs/ROM}
+% 	\item Can think of ROM as table of $2^n$ $m$-bit words
+% 	\item Can think of ROM as implementing $m$ one-bit functions
+% 	of $n$ variables
+% 	\item Internally, consists of a decoder plus an OR gate for
+% 	each output
+% 	\item Types of ROM: PROM, EPROM, EEPROM
+% %	\item ROMs and PLAs closely related
+% 	\item PLAs - simplified ROM
+
+% 		Less hardware, but less flexible
+% \end{itemize}
+% \end{frame}
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% \item We'll be talking about using ROMs or PLAs in our discussion of
+% implementing finite-state machines, but otherwise we do not use them
+% much in this course. You can talk about their more general uses if you
+% wish. 
+% \item Note that the fixed number of product terms in a PLA means that
+% it cannot implement all possible collections of $m$ one-bit functions;
+% some would require too many product terms. In contrast, a ROM can implement
+% any collection.
+% \bigskip
+% \item {\bf The real point}: there is non-volatile memory in the computer (ie, that doesn't forget when power is turned off).  This memory is read many times and written rarely.  In older techologies, this memory was written once, when it was created, and then installed in the computer.  But newer ones can be written after having been installed in the computer.  Flashing the bios is an example of this.
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+% \begin{frame}[fragile]
+% \STitle{Clocks and Sequential Circuits}
+% \begin{itemize}
+% 	\item Two types of sequential circuits:
+% 	\item Synchronous: has a clock 
+
+% 		Memory changes only at discrete points in time
+
+% 		Clock pulse:
+% 		\Figure{!}{1in}{.5in}{Figs/clock2}
+
+% 		Block diagram:
+% 		\Figure{!}{1in}{.5in}{Figs/sequential2}
+
+% 	Easier to analyze, tend to be more stable
+
+% 	\item Asynchronous: no clock
+
+% 	Potentially faster and less power-hungry, but harder to design
+% 	and analyze
+
+% \end{itemize}
+% \end{frame}
+
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% \item Point out rising edge, falling edge, clock period on diagram
+% \item Emphasize that the circuits we use will all be synchronous
+% 	except for the latch (next slide).
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+% \begin{frame}[fragile]
+% \Title{SR Latch with NOR gates}
+% \begin{itemize}
+
+% 	\item SR Latch with NOR gates
+
+%           		\Figure{!}{2in}{1in}{Figs/sr}
+
+% 	\item Problem: Behavior depends on {\em previous} values of
+% 		$Q$ and $\Bar{Q}$ when $S=R=0$
+% 	\item Need to add time, talk about transitions
+% 		\begin{center}
+% 		\begin{tabular}{c|c}
+% 		$S,R$ transition & $Q$, $\Bar{Q}$ transition\\\hline
+% 		1,0 $\rightarrow$ 0,0 &  ~~~~~ $\rightarrow$ ~~~~~  \\
+% 		0,1 $\rightarrow$ 0,0 &  ~~~~~ $\rightarrow$ ~~~~~  \\
+% 		1,1 $\rightarrow$ 0,0 &  ~~~~~ $\rightarrow$ ~~~~~  \\
+% 		\end{tabular}
+% 		\end{center}
+% \end{itemize}
+% \end{frame}
+
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% \item Make sure you point out that this is not drawn according to our
+% style guidelines; we use it because it's straight from the
+% book. Here's how it should be drawn.
+
+% 		\Figure{!}{2in}{1in}{Figs/SRNOR}
+
+
+% \item Analyzing this and subsequent circuits can be very tricky.  Be
+% sure to read the book and practice this material before giving the
+% lecture. Key to this slide is that when $S=R=0$, we don't have enough
+% information to know what the outputs $Q$ and $\Bar{Q}$ are, but when
+% one of $S$ or $R$ is one, we do. Work this out on the board.
+% \end{itemize}
+% \end{frame}
+
+% \begin{frame}[fragile]
+% Instructor's Notes Continued:
+% \begin{itemize}
+% \item The last transition is a problem; it's unstable (the
+% outputs oscillate 00,11,00, and eventually one will change first and
+% there will be a transition through 01 or 10 to 00). This behaviour
+% has to be ``designed out'' (eliminate the possibility through
+% additional circuitry).
+
+% \item The names $Q$ and $\bar{Q}$ aren't right for inputs 1,1.
+% 	However, we will design this input out, so for all ``real''
+% 	inputs, the names work.
+
+% \item Also note that this latch design is typical of a certain class
+% 	of memory element, and thus we often have both $Q$ and $\bar{Q}$
+% 	available as inputs.
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+% \begin{frame}[fragile]
+% \Title{Functional Description of SR Latch}
+
+% 		\begin{center}
+% 		\begin{tabular}{cc|ccl}
+% 		$S$ & $R$ & $Q$ & $\Bar{Q}$ &\\\cline{1-4}
+% 		0 & 0 & $Q$ & $\Bar{Q}$ & Latch state (no change) \\
+% 		0 & 1 & 0 & 1 & Reset state\\
+% 		1 & 0 & 1 & 0 & Set state\\
+% 		1 & 1 & ? & ? & Undefined
+% 		\end{tabular}
+% 		\end{center}
+
+% \begin{itemize}
+% 	\item Advantages:
+% 	\begin{itemize}
+% 		\item Can ``remember'' value
+% 		\item Natural ``reset'' and ``set'' signals
+	
+% 			(SR=01 is ``reset'' to 0, SR=10 is ``set'' to
+% 			1)
+% 	\end{itemize}
+% 	\item Disadvantages:
+% 	\begin{itemize}
+% 		\item SR=11 input has to be avoided
+% 		\item No notion of a clock or change at discrete
+% 			points in time yet
+% 	\end{itemize}
+% \end{itemize}
+% \end{frame}
+
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% We fix both the cons by adding a pair of AND gates together with the
+% clock signal; when the clock is off, the AND gates transmit 00, the
+% latch state of the SR latch. The other input to the AND gates is D or
+% not-D respectively, and that provides the value that the latch remembers.
+% \end{frame}
+% \fi\ENotes
+
+% \begin{frame}[fragile]
+% \STitle{The D Latch}
+
+% 		%\PHFigure{!}{1.75in}{1in}{PHALL/B13}{Similar to A.8.2}
+% 		\Figure{!}{1.75in}{1in}{Figs/d-latch}
+
+% 		\begin{center}
+% 		\begin{tabular}{cc|l}
+% 		$C$ & $D$ & Next state of $Q$\\\hline
+% 		0 & X & No change\\
+% 		1 & 0 & $Q=0$ (Reset)\\
+% 		1 & 1 & $Q=1$ (Set)
+% 		\end{tabular}
+% 		\end{center}
+% \vspace{-4mm}
+
+% Graphical example:
+% \vspace{-4mm}
+% 		\Figure{!}{2.5in}{1in}{Figs/dlatch}
+% \end{frame}
+
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% \item Notice the {\it gate propagation delay time} (from C to Q).
+% \item Point out that the "1,1" input to the SR-latch can't occur.
+% \item 
+% The D latch is transparent; that is, when the clock is on, the output
+% reflects any change in the input. 
+
+% Demonstrate this by drawing on the
+% slide, showing a variation in the D input and the corresponding
+% variation in the Q output. 
+
+% Thus we still don't have the situation we
+% want, where change only occurs at discrete times.
+% \item The "clock" (C input) is really acting as a control, not a clock
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+% \begin{frame}[fragile]
+% \STitle{The D Flip-Flop}
+% \begin{itemize}
+% \item We want state to be affected only at discrete points in time; a
+% master-slave design achieves this.
+
+% 		%\PHFigure{!}{1.5in}{1in}{PHALL/B15}{Simlar to Figure A.8.6}
+% 		\Figure{!}{1.5in}{1in}{Figs/d-flip-flop}
+% \item Graphical example:
+% \vspace{-4mm}
+% 		\Figure{!}{3.25in}{1.5in}{Figs/dff}
+% \end{itemize}
+% \end{frame}
+
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:\\
+% Explain in words how 
+% \begin{itemize}
+% \item the master latch (leftmost) reflects the D input
+% 	while the clock signal is high, but the slave latch (receiving an
+% 	inverted clock signal) does not; 
+% \item at the falling edge of the clock, the
+% 	master is turned off, but the slave is turned on and reflects the
+% 	value stored in the master (the D input just before the falling
+% 	edge). 
+% \item Since the master is off, this value will not change through the
+% 	period where the clock is high. 
+% \item At the rising edge of the clock, the
+% 	master turns on, but the slave is off again, and so the slave
+% 	``remembers'' the value it received at the falling edge.
+% \end{itemize}
+% \end{frame}
+
+% \begin{frame}[fragile]
+% Instructor's Notes Continued:
+% \begin{itemize}
+% \item $Q_I$ is the output of the ``internal'' latch; 
+% 	$Q_E$ is the output of the ``external'' latch (ie, the output
+% 	of the flip-flop).  You need to label the subscripts in the
+% 	figure.
+% \item Illustrate the behaviour by drawing lines from the D input to
+% 	the $Q_I$ line while the clock is high to indicate that the
+% 	input is copied to $Q_I$ during this time, and lines from $Q_I$
+% 	to $Q_E$ to while the clock is high to indicate the copying
+% 	the occurs during this time.
+% \item Draw up-down spikes on the D-input and show how it changes $Q_I$ and
+% 	$Q_E$.
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+% \begin{frame}[fragile]
+% \STitle{Registers and Register Files}
+% \begin{itemize}
+% \item Register: an array of flip-flops (64 for a double word register)
+% \item Register file: a way of organizing registers
+
+% 	%	\PHFigure{!}{4in}{2in}{PHALL/B18}{Similar to Figure A.8.7}
+% 	\Figure{!}{4in}{2in}{Figs/regfile}
+% \end{itemize}
+% \end{frame}
+
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% \item This register file has 32-registers with 64-bits each
+% \item Don't forget to point out that the lines on this diagram are not one
+% 	bit wide. The read register number lines are log n bits wide, and the read
+% 	data lines are 64 bits wide.
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+% \begin{frame}[fragile]
+% \Title{Read/Write Logic for Register File}
+% 		\TwoFigure{!}{2.75in}{1.5in}{Figs/regwrite}{Figs/regread}
+% \end{frame}
+
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% 	\item Not shown in the figure: The clock.
+% 	\item Also: the figure on the left is wrong: the register file
+% 		should have registers numbered from 0 to $2^n-1$.  The
+% 		figure on the right is correct.  The first figure is from
+% 		the textbook.  The second one is one we created; the
+% 		corresponding figure in the book incorrectly numbers
+% 		the outputs of the decoder and the numbers of the
+% 		registers.  These figures are wrong in all five editions
+% 		of the book.
+% 	\item The next slide merges these
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+% \begin{frame}[fragile]
+% \Title{Read/Write Logic for Register File--Merged}
+% \ifnum\slides=1
+% 		\TwoFigure{!}{2.75in}{2.5in}{Figs/regwrite}{Figs/regread}
+% \fi
+
+% 	\Figure{!}{3.5in}{2.5in}{Figs/regRW}
+% \BNotes\ifnum\Notes=1
+% Instructor's Notes:
+% \begin{itemize}
+% 	\item This is the merged version of the read/write logic
+% 		for the register file.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \STitle{Random Access Memories}
+% \begin{itemize}
+% \item Static random access memories (SRAM) use D latches
+
+% 	\PHFigure{!}{3in}{1.5in}{PH5Figs/FB-9-1}{Similar to Figure A.9.1}
+	
+% \item Register file idea won't scale up; decoder and multiplexors too big
+% \item Fix multiplexor problem by using three-state buffers
+% \item Fix decoder problem by using two-level decoding
+% \item This type of memory is {\bf not} clocked
+% \end{itemize}
+% \end{frame}
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% 	\item Return to Decode slide and count transistors.
+
+% 	You should get $2^n$ $n$-input ANDs.  That gives $2n$ transistors
+% 	for each {\em word} of memory.
+
+% 	\item Return to multiplexor slide and count the transistors.
+
+% 	You should get $2\times 2^n$ for the $2^n$-input OR
+
+% 	And you should have $2^n$ $n+1$-input ANDs.
+
+% 	Thus, each {\em bit} has $2n+2$ transistors in the ANDs (and 2 more for the OR)
+
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+\begin{frame}[fragile]
+\Title{Three-state buffer Gate}
+\begin{itemize}
+	\item Has three outputs
+		0, 1, and {\em floating} (connected to neither power or ground)
+		\Figure{!}{2.5in}{1.5in}{NewTransFigs/tgate}
+	\item $C=1$, then 
+	\begin{itemize}
+		\item NMOS gate passes 0 well 
+		\item $\bar{C}=0$ and PMOS gate passes 1 well
+	\end{itemize}
+	\item $C=0$, then $\bar{C}=1$ and both transistors are off (output is floating).
+\end{itemize}
+\end{frame}
+\BNotes\ifnum\Notes=1
+\begin{frame}[fragile]
+Instructor's Notes:
+\begin{itemize}
+\item The floating state is like a physical disconnection
+\item It cannot be propagated through other gates
+\item One caution with three-state buffers: note that when C is high, then
+	the output IS the input.  Ie, with a CMOS NAND, the output is connected
+	either to power or ground.  With a CMOS Three-state, when C is high,
+	the output is wired to the input.  This means we don't get the power
+	boost that is normally associated with passing the signal through a
+	gate (i.e., the three-state gate doesn't have a fan-out count, since
+	its output is really the output of another gate).
+\end{itemize}
+\end{frame}
+\fi\ENotes
+
+
+\begin{frame}[fragile]
+\STitle{Using Three-State Buffers}
+		\Figure{!}{1.25in}{1in}{Figs/tristate}
+\begin{itemize}
+\item High-impedance outputs can be ``tied together'' without problems
+\item Normally, do not tie output lines together
+		\Figure{!}{1.75in}{1in}{Figs/wiredORa}
+\end{itemize}
+\end{frame}
+
+\BNotes\ifnum\Notes=1
+\begin{frame}[fragile]
+Instructor's Notes:
+\begin{itemize}
+\item The reason for not tying output lines together is that 1 (high
+voltage) means a low-resistance path to power, and 0 (low voltage)
+means a low-resistance path to ground. If, in the crossed-out example
+above, the output of one AND gate was 1 and of the other 0, this would
+mean a direct connection between power and ground -- a short-circuit.
+\item In some older technologies (TTL open collector, for example), you
+	could use a Wired-OR.
+\end{itemize}
+\end{frame}
+\fi\ENotes
+
+\begin{frame}[fragile]
+\Title{XOR from Three-State Buffers}
+ \Figure{!}{2.5in}{1in}{Figs/xorTrans} 
+
+        Circuit analysis with tri-stage gates:
+        \begin{itemize}
+                \item Label floating output as '---'
+                \item Tied lines better have exactly one non-floating!
+        \end{itemize}
+        \begin{center}
+        \begin{tabular}{cc|cc|cc|c}
+                $X$ & $Y$ & $\bar{X}$ & $\bar{Y}$ & $F_0$ & $F_1$ & $F$\\
+                \hline
+                0 & 0 &&&&&\\
+                0 & 1 &&&&&\\
+                1 & 0 &&&&&\\
+                1 & 1 &&&&&
+        \end{tabular}
+        \end{center}                                                            
+\BNotes\ifnum\Notes=1
+~
+\fi\ENotes
+\end{frame}
+
+\begin{frame}[fragile]
+\Title{Making Multiplexors from Three-State Buffers}
+		\PHFigure{!}{4in}{2in}{PHALL/B22}{Similar to Figure A.9.2}
+
+IMPORTANT: Must ensure that at most one select input is 1, or
+		short-circuit may result (physical meltdown)\\
+\BNotes\ifnum\Notes=1
+Instructor's Notes:
+This figure scales up in an obvious fashion.
+\fi\ENotes
+\end{frame}
+
+\begin{frame}\frametitle{Tri-State Buffer and Mux}
+
+We can use the tri-state buffer to make a mux. Such a mux does not need a big OR gate. Exactly one select line is 1.
+
+\begin{figure}[H]
+\centering
+	\subfloat[4-to-1 mux with OR gate.]{\includegraphics[width=0.4\textwidth]{Figs/4-1-mux-OR-gate}}
+	\subfloat[Tri-state mux without OR gate.]{\includegraphics[width=0.4\textwidth]{Figs/tri-state-mux}}
+%\caption{}
+\end{figure}
+
+
+\end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Example of SRAM Structure}
+% 		\PHFigure{!}{5in}{2.5in}{PHALL/B23}{Simlar to Figure A.9.3}
+ 
+% Does this design scale up well?
+% \end{frame}
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% \item Point out the places where output lines are tied together using
+% three-state buffers (Dout[1] and Dout[0] lines).
+% \item  Discuss how this
+% scales up (horizontally for wider words, vertically for more words).
+% \item Point out, though, that if there are 32K words, a 14-to-32K decoder is
+% needed.  This is very large.
+
+% However, the size isn't so bad if you compare number of transistors per
+% AND gate of decoder to number of transistors in an 8 bit word made of
+% D latches.  If needed, we could reduce using two level decoding, but
+% we won't cover that in class.
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+% \begin{frame}[fragile]
+%   \Title{6 Transistor SRAM Cell}
+%   Flipflop takes about 40 transistors.
+
+%   Can implement SRAM cell with 6 transistors:\bigskip
+  
+% \Figure{!}{5in}{2.in}{6transSRAM/6tranSRAM}  
+% \BNotes\ifnum\Notes=1
+% Instructor's Notes:
+% It's hard to figure out from a black and white, but the next slide
+% colours things to make it easier.
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+%   \Title{6 Transistor SRAM Cell--How It Works}
+%   Put 1 on Cell Select, and then (for example)
+
+%   put $1$ on Data and $0$ on $\overline{Data}$ \bigskip
+  
+%   \Figure{!}{5in}{2.in}{6transSRAM/6tranSRAMColor}
+% \end{frame}
+%   \BNotes\ifnum\Notes=1
+%   \begin{frame}[fragile]
+%   Instructor's Notes:
+%     \begin{itemize}
+%       \item When Cell Select is 0, Data is ignored.
+%       \item When Cell Select is 1, the Data is passed to the internals.
+%         The p and n transistors from Data and !Data are connected to
+%         two internal transistors each;
+%         Each sets its pair ``opposite'' to the other, but the low
+%         resistance connections to power and ground are consistent with
+%         the values of Data and !Data.
+%         When Cell Select goes back to 0, the internal connections stay
+%         the same.
+%       \item Unclear how to read data; and once a value is stored, it's
+%         unclear how the opposite value gets stored (ie, the Data lines
+%         conflict with the internal low resistance paths to power and ground).
+
+%         It's easy to see how to get rewrite to work if you insert two pmos
+%         transistors in front of power and ground (with Cell Select as input), although even then it's unclear what happens with Cell Select goes to 0 (you have to assume that the transistors change resistance slowly when connected to neither power or ground);
+%         read could work if you listened to Data lines rather than put data
+%         on them.
+%       \end{itemize}
+% \end{frame}
+%  \fi\ENotes
+
+% \begin{frame}[fragile]
+% \Title{Dynamic RAM}
+% \begin{itemize}
+% \item Even six transistors is too expensive
+% \item Alternative: use a capacitor to store a charge to represent 1
+% \item Problem: charge leaks away, must be refreshed
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% Instructor's Notes:
+% \begin{itemize}
+% \item The six-transistor implementation uses two cross-coupled NOT gates implemented using two transistors each, plus two additional transistors controlling access for both read and write.  See previous slides.
+% \end{itemize}
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{DRAM Cell}
+% \Figure{!}{2.5in}{1.in}{NewTransFigs/dramcell}
+% \begin{itemize}
+% \item To write: place value on bit line, 1 on word line
+
+% 	Change word line to 0 before changing bit line
+% \item To read: put half-voltage on bit line, 1 on word line
+
+% Charge in capacitor will slightly increase bit line voltage, \\
+% no charge will slightly decrease voltage
+
+% This change detected, amplified, and written back
+% \end{itemize}
+% \end{frame}
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% \item Briefly explain what a capacitor does
+% \item The capacitor is made out of a transistor
+% \item The reading method seems somewhat elaborate, but
+% sense amplification is also used in reading the six-transistor SRAM
+% cell
+% \item Note that read is destructive, hence need for writeback
+% \item The term ``word line'' makes no sense here, but it will make
+% sense after the following slide.
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+% \begin{frame}[fragile]
+% \Title{Design of 4Mx1 DRAM}
+% \PHFigure{!}{3in}{1.5in}{PHALL/B26}{Similar to Figure A.9.6}
+% \begin{itemize}
+% \item 20-bit address provided 11 bits at a time
+% \item Whole row is read at once
+% \item Column address selects single bit
+% \item Refresh handled a row at a time (external controller)
+% \item If capacitors hold charge for 4ms, refresh takes 80ns, fraction of time
+% devoted to refresh is about 4\%
+% \end{itemize}
+% \end{frame}
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% \item Note that the figure is in error; a different set of bits goes into
+% 	the MUX than goes into the decoder.
+% \item There are additional signals called RAS (Row Access Strobe) and
+% CAS (Column Access Strobe) to signal whether a row or column address
+% is provided 
+% \item The math on the refresh goes like this: $2048 \times 80$ ns
+%   $=163840\times 10^{-9}$ secs, and dividing this by $4\times 10^{-3}$
+%   secs gives $0.04096$
+% \item In practice, refresh overhead can often be hidden by other
+%   necessary operations in the total memory cycle
+% \item Note that a ``word line'' now accesses 2048 bits -- not our
+%   usual definition of ``word''
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+% \begin{frame}[fragile]
+% \Title{DRAM Complications}
+% \begin{itemize}
+% \item DRAM is cheaper than SRAM, but slower
+% \item Refresh controller must also allow read/write access
+% \item Possibility of getting more bits out at a time (e.g. page-mode RAM)
+% \item SDRAM: synchronized DRAM
+%    \begin{itemize}
+%    \item Uses external clock to synchronize with processor
+%    \item Useful in memory hierarchies 
+%    \end{itemize}
+% \end{itemize}
+% \end{frame}
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% \item The textbook discusses page-mode, static-column-mode,
+%   nibble-mode, and extended-data-out DRAM; there is also video
+%   RAM. Details are not provided because they are complicated and vary
+%   from vendor to vendor.
+% \item SDRAM is often used in ``burst mode'' to access and transmit a
+%   series of bits; thus it is suited for interfacing with caches and
+%   paging mechanisms.
+% \item We are not providing enough detail here for students to be
+%   tested on these concepts; our goal is demystification.
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+% \begin{frame}[fragile]
+% \STitle{Designing Using Finite-State Machines}
+% 	%	\PHFigure{!}{3.5in}{2.75in}{PHALL/B27}{Figure A.10.1}
+% 		\Figure{!}{3.5in}{2in}{Figs/fsmHL}
+
+% High-level circuit implementation of finite-state machine
+% \end{frame}
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% \item This is a schematic drawing from the text.
+% \item Students sometimes confuse this diagram with the graphical
+% representation of an FSM, introduced below.
+% \item The brown line is for Mealy machines (see below) and isn't there
+% 	for CS 251
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+
+
+% \begin{frame}[fragile]
+% \Title{Example: Traffic Light}
+% \begin{itemize}
+% \item Output signals: NSlight, EWlight
+% \item Input signals: NScar, EWcar
+% \item State names: NSgreen, EWgreen (no yellow for now)
+% \item Functionality: want light to change only if car is waiting at
+% red light
+% \end{itemize}
+% \end{frame}
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% \item Explain the meanings of these signals, as given in book (Appendix B.10).
+
+% Outputs:
+% \begin{itemize}
+% 	\item {\em NSlite:} When this signal is asserted, the light on the
+% 		north-south road is green; when it is deasserted, the light
+% 		on the north-south road is red.
+% 	\item {\em EWlite:} When this signal is asserted, the light on the
+% 		east-west road is green; when it is deasserted, the light
+% 		on the east-west road is red.
+% 	\item 
+% \end{itemize}
+
+% Inputs:
+% \begin{itemize}
+% 	\item {\em NScar:} Indicates that a car is over the detector
+% 		placed in the roadbed in front of the light on the
+% 		north-sout road (going north or south).
+% 	\item {\em EWcar:} Indicates that a car is over the detector
+% 		placed in the roadbed in front of the light on the
+% 		north-sout road (going north or south).
+% 	\item 
+% \end{itemize}
+
+% States:
+% \begin{itemize}
+% 	\item {\em NSgreen:} The traffic light is green in the north-south
+% 		direction.
+% 	\item {\em EWgreen:} The traffic light is green in the east-west
+% 		direction.
+% \end{itemize}
+% \item Do the
+% next-state function and output functions (listed in book) on the board.
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+% \begin{frame}[fragile]
+% \Title{Graphical Representation of Traffic Light Controller}
+% %		\PHFigure{!}{3.5in}{2.5in}{PHALL/B28}{Figure A.10.2}
+% 		\Figure{!}{3.5in}{2in}{Figs/tlc}
+
+% \begin{itemize}
+% \item Names of states outside ovals
+% \item Output in given state inside oval
+% \item Transition arc labelled with Boolean formula of inputs
+% \end{itemize}
+% \end{frame}
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% \item Clock rate has to be slow to avoid rapid light cycling
+% \item Book suggests clock period (cycle length) of 30 seconds (0.033 Hz)
+% \item Re-emphasize difference between representation here and one used
+% in language recognition
+% \item Point out equivalence of this representation and truth tables
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+% \begin{frame}[fragile]
+% \STitle{Variations on Finite-State Machines}
+% \begin{itemize}
+% \item Moore machine: output depends only on state (what we use)
+% \item Mealy machine: output can depend on inputs
+% \item Moore machine may be faster, Mealy machine may be smaller
+% \item Conceptually, computation is infinite (input streams have no
+% beginning or end)
+% \item In practice, need to worry about power-up and power-down (as
+% with all our state devices)
+% \item Different in language-recognition context (e.g. CS 241)
+% \begin{itemize}
+% \item Input is single character at a time, not set of bits
+% \item Because strings have finite length, 
+% computation is finite (start state, final states)
+% \item Mealy machines used (outputs on transition arcs)
+% \end{itemize}
+% \end{itemize}
+% \BNotes\ifnum\Notes=1
+% ~% notes text
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \STitle{Electronic Implementation of Finite-State Controller}
+% \bigskip
+% \PHFigure{!}{4in}{3in}{PHALL/B29}{Figure A.10.3}
+% \end{frame}
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% \item Complete the example:
+% \begin{itemize}
+% 	\item Do the state assignment
+% 	\item Write a formula for the next-state function
+% 	\item Write formulae for the outputs
+% 	\item Draw the circuit
+% \end{itemize}
+% \item Point out that the combinatorial logic is usually implemented via a
+% 	PLA or ROM. 
+
+% 	This is the scheme we will use to implement the control for our CPUs.
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+% \begin{frame}[fragile]
+% \STitle{Extending the Traffic-Light Controller}
+% \begin{itemize}
+% \item Add 4-second yellow light
+% \item Assume 0.25Hz clock
+% \item need to add 28-second timer
+% \begin{itemize}
+% \item Timer input: TimerReset (TR)
+% \item Timer output: TimerSignal (TS)
+% \end{itemize}
+% \item Behaviour of system
+% \begin{itemize}
+% \item Stay green in one direction (red in other direction)
+% until car arrives or 32 seconds
+% elapse, whichever happens last
+% \item Green turns to yellow for 4 seconds; red in other direction stays
+% \item Yellow turns to red, red in other direction turns to green
+% \end{itemize}
+% \end{itemize}
+% \end{frame}
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+%  \emph{This example was removed from 3rd Edition but added back into the 4th edition.}
+% This is the example worked out in exercises B.41 to B.44 of the
+% text.
+
+% Giving a more detailed example of a FSM implementation at this
+% point will allow students to work examples for themselves, as well as
+% to better understand the controllers developed for architectures.
+% \end{frame}
+% \fi\ENotes
+
+% \begin{frame}[fragile]
+% \Title{State Diagram of Extended Controller}
+% \begin{itemize}
+% \item Inputs: NScar, EWcar, TS
+% \item Outputs: NSg, NSy, NSr, EWg, EWy, EWr, TR
+% \Figure{!}{5in}{2.5in}{Figs/traffic-fsm}
+% \end{itemize}
+% \end{frame}
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% NSg is short for north-south green light; similarly, NSy and NSr are
+% the yellow and red lights, respectively, for the north-south direction.
+% \end{frame}
+% \fi\ENotes
+
+% \begin{frame}[fragile]
+% \Title{Next-State Table for Extended Controller}
+% \begin{center}
+% \small
+% \begin{tabular}{|c|c|c|c|c||c|c|c|c|c|}\hline
+% current & \multicolumn{3}{c|}{inputs} & next & current &
+%  \multicolumn{3}{c|}{inputs} & next \\ 
+% \cline{2-4}\cline{7-9}
+% state & NS- & EW- & & state &
+% state & NS- & EW- & & state \\
+% \cline{1-1}\cline{5-6}\cline{10-10}
+% $S_2S_1S_0$ & car & car & TS & $S_2'S_1'S_0'$  &
+% $S_2S_1S_0$  & car & car & TS &$S_2'S_1'S_0'$  \\ \hline
+% 0~~0~~0 & X & X & 0 & 0~~0~~0 & 
+%  1~~0~~0 & X & X & 0 & 1~~0~~0 \\
+% 0~~0~~0 & X & X & 1 & 0~~0~~1 & 
+%  1~~0~~0 & X & X & 1 & 1~~0~~1  \\
+% 0~~0~~1 & X & 0 & X & 0~~0~~1 &
+%  1~~0~~1 & 0 & X & X & 1~~0~~1  \\
+% 0~~0~~1 & X & 1 & X & 0~~1~~0 &
+%  1~~0~~1 & 1 & X & X & 1~~1~~0  \\
+% 0~~1~~0 & X & X & X & 1~~0~~0 & 
+%  1~~1~~0 & X & X & X & 0~~0~~0  \\
+% 0~~1~~1 & X & X & X & X~X~X &
+%  1~~1~~1 & X & X & X & X~X~X  \\ \hline
+% \end{tabular}
+% \end{center}
+
+% Note unused states, symmetries\\
+% \BNotes\ifnum\Notes=1
+% Instructor's Notes:\\
+% The symmetries are not surprising, since the state diagram is
+% symmetrical. We can exploit these to simplify the logic. The use of
+% don't cares to compress the table is crucial here, since otherwise
+% there would be 64 entries.
+% \fi\ENotes
+% \end{frame}
+
+% \begin{frame}[fragile]
+% \Title{Output Table For Extended Controller}
+% \begin{itemize}
+% \item Output table looks like truth table
+
+% 	Inputs are State, Outputs are Outputs
+
+% \item	Traffic light outputs: NSg, NSy, NSr, EWg, EWy, EWr, TR
+% \item If output listed in State, then 1 in output table
+
+% 	If output not listed in State, then 0 in output table
+% \end{itemize}
+% \begin{center}
+% \begin{tabular}{ccc|ccccccc}
+% $S_2$ & $S_1$ & $S_0$ & NSg & NSy & NSr & EWg & EWy & EWr & TR\\\hline
+% 0 & 0 & 0 &\\
+% 0 & 0 & 1 &\\
+% 0 & 1 & 0 &\\
+% 0 & 1 & 1 &\\\hline
+% 1 & 0 & 0 &\\
+% 1 & 0 & 1 &\\
+% 1 & 1 & 0 &\\
+% 1 & 1 & 1 &\\
+% \end{tabular}
+% \end{center}
+% \end{frame}
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% 	\item Put up state diagram to explain 3rd bullet
+% 	\item From state diagram, fill in table.  Use don't cares for
+% 		unused states
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+% \begin{frame}[fragile]
+% \Title{Next-State/Output Logic For Extended Controller}
+
+% \vspace*{.1in}
+% Current state = $S_2 S_1 S_0$, next state = $S'_2 S'_1 S'_0$
+
+% \vspace*{.1in}
+% $S'_0 = \Bar{S_1}\Bar{S_0}\cdot TS + \Bar{S_2}\Bar{S_1}S_0\cdot \Bar{EWcar} + 
+% S_2\Bar{S_1}S_0\cdot \Bar{NScar}$
+
+% \vspace*{.1in}
+% $S'_1 = \Bar{S_2}\Bar{S_1}S_0\cdot EWcar + S_2\Bar{S_1}S_0\cdot NScar$
+
+% \vspace*{.1in}
+% $S'_2 = \Bar{S_2}S_1\Bar{S_0} + S_2\Bar{S_1}$
+
+% \vspace*{.1in}
+% $NSg = \Bar{S_2}\Bar{S_1}$, $EWg = S_2 \Bar{S_1}$
+
+% \vspace*{.1in}
+% $NSy = \Bar{S_2}S_1\Bar{S_0}$, $EWy = S_2 S_1\Bar{S_0}$
+
+% \vspace*{.1in}
+% $NSr = S_2$, $EWr = \Bar{S_2}$
+
+% \vspace*{.1in}
+% $TR = S_1\Bar{S_0}$
+
+% \end{frame}
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% \item You can show the students on the board how to simply sum the minterms
+% 	multiplied by the appropriate combination of input signals, but then
+% 	either simplify the resulting expressions via algebra or (better)
+% 	point out how to take advantages of don't cares and symmetries.
+% \item Warn them about don't care's and unused states.  In particular,
+% 	suppose that we some how ended up in an unused state (cosmic ray?
+% 	strange start condition?), and what if both lights green at once!
+% 	Or what if one direction has red, green, and yellow all on at once?
+% 	Or what if none of the lights are on?
+
+% 	Likewise, if we end up in an unused state, what is the next state?
+% 	We'd like to go to a sensible next state.  In the case of a traffic
+% 	light, any used state is probably fine, but you can imagine situations
+% 	where a sequence of states represents a process and going to the middle
+% 	of the process would be catastrophic (example: robot tooth extraction: 
+% 	Steps: Step 1: give anestesia.  Step 2: remove tooth.  Step 3: whatever.
+% 	If an unused state jumped to Step 2 (skipping step 1), the patient 
+% 	would be unhappy!)
+% \end{itemize}
+% \end{frame}
+% \begin{frame}[fragile]
+% Instructor's Notes Continued:
+% \begin{itemize}
+% \item After finishing the example, go back to the State Diagram and
+% 	ask "what if we want a pedestrian button?  How do we modify the
+% 	state diagram?"  The answer is to add EWPed and NSPed signals,
+% 	and change the arc out of 001 to be EWCar+EWPed and the arc
+% 	looping back to 001 to bEWCar AND bEWPed.
+
+% 	This extension is important as its the only time we've shown that
+% 	arcs can be labeled with Boolean formulas.  Be sure to point out
+% 	that the set of arcs out of a state must be consistent and complete:
+% 	ie, for all settings of the variables there is exactly one arc
+% 	out of the state.
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+
+% \begin{frame}[fragile]
+% \Title{Outputs}
+% Output based on {\em current state}
+% \begin{center}
+% \begin{tabular}{cc}
+% \ifnum\slides=0
+% \includegraphics[height=0.75in]{Figs/fsmE} & 
+% \else
+% \includegraphics[height=1.75in]{Figs/fsmE} & 
+% \fi
+% \begin{tabular}{cc}
+% Next State & Output \\
+% \begin{tabular}{cc|c}
+% S&A&S'\\
+% \hline
+% 0  &0&1\\
+% 0  &1&0\\
+% 1  &X&0\\
+% \end{tabular}&
+% \begin{tabular}{c|c}
+% S&T\\
+% \hline
+% 0 & 1\\
+% 1 & 0
+% \end{tabular}
+% \end{tabular}
+% \vspace*{0.5in}~\\
+% \ifnum\slides=0
+% \includegraphics[height=0.75in]{Figs/fsmCirc} & 
+% \else
+% \includegraphics[height=1.75in]{Figs/fsmCirc} & 
+% \fi
+% \ifnum\slides=0
+% \includegraphics[height=0.75in]{Figs/fsmC} 
+% \else
+% \includegraphics[height=1.75in]{Figs/fsmC} 
+% \fi
+% \end{tabular}
+% \end{center}
+% \end{frame}
+% \BNotes\ifnum\Notes=1
+% \begin{frame}[fragile]
+% Instructor's Notes:
+% \begin{itemize}
+% 	\item The point of this slide is to emphasize that the output is
+% 		based on the current state.
+%     \item The upper left shows a state diagram, the upper right shows
+% 		its truth table.
+
+% 		The lower left shows a circuit for this FSM.  The important thing
+% 		here is that the next state ($S'$) isn't used to compute $T$.
+
+% 		The lower right is the important one: while $S=0$, the output $T$ is 1.
+% \end{itemize}
+% \end{frame}
+% \fi\ENotes
+
+\begin{frame}{fragile}
+    \STitle{Readings to accompany this lecture}
+    \begin{itemize}
+    \item Appendix A, sections A.1--A-3%, A5, A.7-10.
+    \end{itemize}
+\end{frame}
+
+

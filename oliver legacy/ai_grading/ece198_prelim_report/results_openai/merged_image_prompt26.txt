@@ -1,0 +1,13 @@
+No.
+
+Direct evidence from the report:
+
+1. "Heat stress is closely linked to the metabolic rate of an individual..."—This appears in the introduction but it’s not clearly and explicitly stated as a principle, nor is there an equation.
+
+2. "WBGT = 0.7Tnwb + 0.2Tg + 0.1Tdb (Formula 1)"—An equation is provided here, which is a clear application of a principle.
+
+3. "Thermal Work Limit (TWL)" - The report mentions this as a standard but does not include the relevant section of the standard.
+
+4. In Table 1 under "Heat stress" section, temperature and various thresholds are mentioned, but the relevant section does not include an equation or section number from a standard.
+
+Overall, the report only clearly meets the criterion in one instance (WBGT equation provided). The other principles and standards mentioned are either not clearly stated, do not have accompanying equations, or lack the relevant section from the standard.

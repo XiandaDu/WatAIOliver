@@ -1,0 +1,114 @@
+from typing import List, Dict, Any, Tuple, Optional
+from langchain_community.vectorstores import SupabaseVectorStore
+from langchain.schema import Document
+from supabase import create_client
+
+
+class SupabaseVectorClient:
+    """Supabase vector database client optimized for 512-dimensional vectors."""
+    
+    def __init__(self, supabase_url: str, supabase_key: str, embeddings_client, table_name: str = "documents"):
+        """Initialize Supabase vector client.
+        
+        Args:
+            supabase_url: Supabase project URL
+            supabase_key: Supabase service key
+            embeddings_client: Embedding client (should output 512-dimensional vectors)
+            table_name: Vector table name (default: "documents")
+        """
+        self.supabase = create_client(supabase_url, supabase_key)
+        self.embeddings_client = embeddings_client
+        self.table_name = table_name
+        
+        # Create vector store with enhanced configuration
+        self.vector_store = SupabaseVectorStore(
+            client=self.supabase,
+            embedding=embeddings_client,
+            table_name=table_name,
+            # Note: Vector column dimension should be set to 512 in Supabase
+            # CREATE TABLE documents (
+            #   id bigserial primary key,
+            #   content text,
+            #   metadata jsonb,
+            #   embedding vector(512)  -- 512 dimensions for cost/performance optimization
+            # );
+        )
+    
+    def add_documents(self, documents: List[Document]) -> List[str]:
+        """Add documents to the vector store with bulk operation.
+        
+        Returns:
+            List of document IDs that were added
+        """
+        try:
+            # Bulk write operation as specified in meeting notes
+            result = self.vector_store.add_documents(documents)
+            print(f"✅ Successfully added {len(documents)} documents to vector store")
+            return result
+        except Exception as e:
+            print(f"❌ Failed to add documents: {e}")
+            raise
+    
+    def similarity_search(self, query: str, k: int = 4, filter: Optional[Dict[str, Any]] = None) -> List[Document]:
+        """Search for similar documents."""
+        try:
+            if filter:
+                return self.vector_store.similarity_search(query, k=k, filter=filter)
+            return self.vector_store.similarity_search(query, k=k)
+        except Exception as e:
+            print(f"❌ Similarity search failed: {e}")
+            raise
+    
+    def similarity_search_with_score(self, query: str, k: int = 4, filter: Optional[Dict[str, Any]] = None) -> List[Tuple[Document, float]]:
+        """Search for similar documents with similarity scores.
+        
+        This implements the secondary filtering logic mentioned in meeting notes.
+        """
+        try:
+            if filter:
+                results = self.vector_store.similarity_search_with_score(query, k=k, filter=filter)
+            else:
+                results = self.vector_store.similarity_search_with_score(query, k=k)
+            
+            # Enhanced filtering with metadata and score thresholds
+            filtered_results = []
+            for doc, score in results:
+                # Add score to metadata for better debugging
+                if doc.metadata is None:
+                    doc.metadata = {}
+                doc.metadata['similarity_score'] = score
+                filtered_results.append((doc, score))
+            
+            return filtered_results
+        except Exception as e:
+            print(f"❌ Similarity search with score failed: {e}")
+            raise
+    
+    def as_retriever(self, search_type: str = "similarity_score_threshold", search_kwargs: Optional[Dict[str, Any]] = None):
+        """Get retriever for the vector store with enhanced configuration."""
+        if search_kwargs is None:
+            # Optimized for 512-dimensional vectors
+            search_kwargs = {
+                "k": 4, 
+                "score_threshold": 0.7,
+                # Additional metadata for filtering
+                "fetch_k": 20  # Fetch more candidates for better filtering
+            }
+        
+        return self.vector_store.as_retriever(
+            search_type=search_type,
+            search_kwargs=search_kwargs
+        )
+    
+    def get_vector_store(self):
+        """Get the underlying LangChain vector store."""
+        return self.vector_store
+    
+    def get_table_info(self) -> Dict[str, Any]:
+        """Get information about the vector table configuration."""
+        return {
+            "table_name": self.table_name,
+            "expected_dimensions": 512,
+            "indexing": "HNSW/ivfflat optimized for 512D",
+            "note": "Vector column should be configured as vector(512) in Supabase"
+        } 

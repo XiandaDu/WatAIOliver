@@ -1,0 +1,7 @@
+**Standard 1: The report is required to include three scientific principles, mathematical principles, engineering standards, or some combination totalling at least three. These principles or standards must be clearly and explicitly stated.**
+
+- **Yes**, the report meets this standard. It explicitly states three mathematical principles:
+  - **Standard deviation**: "The project will make use of mathematical principles through the calculation of standard deviation, which indicates how data is dispersed around the mean."
+  - **Solving systems of linear equations**: "The project will use mathematical principles involved in solving systems of linear equations."
+  - **Inequality**: "The final mathematical principle this project would make use of is inequality."
+  - Additionally, it mentions engineering standards such as electrical insulation and power consumption limits.

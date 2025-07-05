@@ -1,0 +1,17 @@
+```markdown
+# 3. Details on design decisions
+
+## Class Node:
+- **Constructor:** initializes the data as an empty string and have the next and previous pointer set as nullptr
+- **Destructor:** Frees the memories that are used by the next and previous pointers by deleting them and setting them to NULL.
+
+## Class Deque:
+- **Constructor:** Initializes the maximum size of the deque and set head and tail to nullptr
+- **Destructor:** Free up the memory of the head and tail by setting them to NULL
+
+# 4. Test Cases
+
+Used test cases that are provided on the course site: test01.in, test02.in, and test06.in.
+
+Test1 covered if my functions that add elements to the front and back functioned correctly if the deque is full. Test2 covered what happens if two of the same url is added and covered if my find and remove front and back functions worked correctly if there wasn't any elements in the deque.
+```

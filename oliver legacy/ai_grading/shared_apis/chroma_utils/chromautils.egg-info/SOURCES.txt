@@ -1,0 +1,7 @@
+chroma_utils.py
+setup.py
+chromautils.egg-info/PKG-INFO
+chromautils.egg-info/SOURCES.txt
+chromautils.egg-info/dependency_links.txt
+chromautils.egg-info/requires.txt
+chromautils.egg-info/top_level.txt

@@ -2,21 +2,24 @@ import { useState, useRef } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Search, Plus, ChevronLeft, ChevronRight, Pencil } from "lucide-react"
+import { Search, Plus, ChevronLeft, ChevronRight, Pencil, Trash2, RefreshCw } from "lucide-react"
 
-const mockConversations = [
-  { id: 1, title: "CS 245 Doubt", lastMessage: "Need help with logic proofs", timestamp: "2h ago" },
-  { id: 2, title: "Optimization Doubt", lastMessage: "Understanding gradient descent", timestamp: "5h ago" },
-  { id: 3, title: "Mid Term Review", lastMessage: "Reviewing key concepts", timestamp: "1d ago" },
-]
-
-export function Sidebar({ onSelectConversation }) {
+export function Sidebar({ 
+  conversations = [], 
+  isLoading = false, 
+  selectedConversation,
+  onSelectConversation, 
+  onNewConversation,
+  onDeleteConversation,
+  onRefreshConversations,
+  formatTimestamp
+}) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [search, setSearch] = useState("")
   const searchInputRef = useRef(null)
 
   const handleNewChat = () => {
-    onSelectConversation(null) // This will clear the conversation and show welcome screen
+    onNewConversation()
   }
 
   const handleExpandAndFocusSearch = () => {
@@ -28,12 +31,19 @@ export function Sidebar({ onSelectConversation }) {
     }, 200) // Wait for animation
   }
 
+  const handleDeleteConversation = (e, conversationId) => {
+    e.stopPropagation() // Prevent conversation selection
+    if (window.confirm('Are you sure you want to delete this conversation?')) {
+      onDeleteConversation(conversationId)
+    }
+  }
+
   // Filter conversations based on search
-  const filteredConversations = mockConversations.filter(conversation => {
+  const filteredConversations = conversations.filter(conversation => {
     const q = search.toLowerCase()
     return (
-      conversation.title.toLowerCase().includes(q) ||
-      conversation.lastMessage.toLowerCase().includes(q)
+      conversation.title?.toLowerCase().includes(q) ||
+      conversation.lastMessage?.toLowerCase().includes(q)
     )
   })
 
@@ -76,6 +86,16 @@ export function Sidebar({ onSelectConversation }) {
                 >
                   <Pencil className="h-5 w-5" />
                 </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onRefreshConversations}
+                  className="hover:bg-gray-100"
+                  aria-label="Refresh conversations"
+                  disabled={isLoading}
+                >
+                  <RefreshCw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
+                </Button>
               </>
             ) : (
               <>
@@ -89,6 +109,17 @@ export function Sidebar({ onSelectConversation }) {
                   >
                     <Pencil className="h-5 w-5" />
                     <span className="font-medium">New chat</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onRefreshConversations}
+                    className="flex items-center gap-2 w-full justify-start px-2 py-2 hover:bg-gray-100"
+                    aria-label="Refresh conversations"
+                    disabled={isLoading}
+                  >
+                    <RefreshCw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
+                    <span className="font-medium">Refresh</span>
                   </Button>
                 </div>
               </>
@@ -124,27 +155,66 @@ export function Sidebar({ onSelectConversation }) {
           </div>
           <ScrollArea className="h-[calc(100vh-12rem)]">
             <nav aria-label="Conversation list">
-              <div className="space-y-2 px-2">
-                {filteredConversations.map((conversation) => (
-                  <Button
-                    key={conversation.id}
-                    variant="ghost"
-                    className="w-full justify-start h-auto py-3 px-3 rounded-lg transition-colors duration-200 hover:bg-gray-100/80 focus:bg-gray-200/80 mb-1"
-                    onClick={() => onSelectConversation(conversation)}
-                    aria-label={`Open conversation: ${conversation.title}`}
-                    style={{ textAlign: 'left' }}
-                  >
-                    <div className="flex flex-col items-start gap-0.5 w-full">
-                      <span className="font-medium leading-tight">{conversation.title}</span>
-                      <span className="text-sm text-muted-foreground truncate w-full">
-                        {conversation.lastMessage}
-                      </span>
-                      <span className="text-xs text-muted-foreground mt-0.5">
-                        {conversation.timestamp}
-                      </span>
+              <div className="space-y-2 px-4">
+                {isLoading ? (
+                  // Loading state
+                  <div className="flex items-center justify-center py-8">
+                    <div className="flex space-x-1">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                     </div>
-                  </Button>
-                ))}
+                  </div>
+                ) : filteredConversations.length === 0 ? (
+                  // Empty state
+                  <div className="text-center py-8 text-gray-500">
+                    <p className="text-sm">No conversations yet</p>
+                    <p className="text-xs mt-1">Start a new chat to begin</p>
+                  </div>
+                ) : (
+                  // Conversation list
+                  filteredConversations.map((conversation) => {
+                    const isSelected = selectedConversation?.conversation_id === conversation.conversation_id
+                    return (
+                      <div
+                        key={conversation.conversation_id}
+                        className={`relative group rounded-lg transition-colors duration-200 hover:bg-gray-100/80 ${
+                          isSelected ? 'bg-gray-200/80' : ''
+                        }`}
+                      >
+                        <Button
+                          variant="ghost"
+                          className="w-full justify-start h-auto py-3 px-3 rounded-lg transition-colors duration-200 hover:bg-transparent focus:bg-transparent mb-1"
+                          onClick={() => onSelectConversation(conversation)}
+                          aria-label={`Open conversation: ${conversation.title}`}
+                          style={{ textAlign: 'left' }}
+                        >
+                          <div className="flex flex-col items-start gap-0.5 w-full pr-12">
+                            <span className="font-medium leading-tight truncate w-full max-w-[180px]">
+                              {conversation.title || 'Untitled Conversation'}
+                            </span>
+                            <span className="text-sm text-muted-foreground truncate w-full max-w-[180px]">
+                              {conversation.lastMessage || 'No messages yet'}
+                            </span>
+                            <span className="text-xs text-muted-foreground mt-0.5">
+                              {formatTimestamp(conversation.updated_at || conversation.created_at)}
+                            </span>
+                          </div>
+                        </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-4 top-1/2 transform -translate-y-1/2 opacity-100 bg-red-50 hover:bg-red-100 hover:text-red-600 z-10 w-8 h-8 rounded-l-md"
+                          onClick={(e) => handleDeleteConversation(e, conversation.conversation_id)}
+                          aria-label={`Delete conversation: ${conversation.title}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )
+                  })
+                )}
               </div>
             </nav>
           </ScrollArea>

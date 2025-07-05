@@ -1,0 +1,29 @@
+# Class OpenHashTable
+
+This class represents a hash table that resolves collisions using a technique called open addressing using double hashing. It is implemented by inheriting from the HashTable class. Since the data stored in this class is a Student class, its mother class is HashTable<Student>.
+
+## Member variables/functions:
+- **+ void insert (unsigned int student_id, const string student_name):**
+  1. Check if the table is full; if it is full, print out "failure"
+  2. Using hash functions (h1(k) + i.h2(k)) mod max_size), find the appropriate index to insert the key
+  3. If the key is already in the table, print out "failure"
+  4. Else, insert the key and value and print out "success"
+
+- **+ void search (unsigned int student_id):**
+  1. Using hash functions, search for the key in the table
+  2. If the key was found in the position p of the table, print out "found LN in p"
+  3. Else, print out "not found"
+
+- **+ void remove (unsigned int student_id):**
+  1. Using hash functions, search and remove
+  2. Using hash functions (h1(k) + i.h2(k)) mod max_size), find the key in the table
+  3. If the key was found in the positions p of the table, return p
+  4. Else, return -1
+
+- **- int find (unsigned int student_id):**
+  1. Helper function for functions search and remove
+  2. Using hash functions (h1(k) + i.h2(k)) mod max_size), find the key in the table
+  3. If the key was found in the positions p of the table, return p
+  4. Else, return -1
+
+- **- int hash_2 (unsigned int k): Secondary hash function; returns (|k| / max_size) mod max_size**

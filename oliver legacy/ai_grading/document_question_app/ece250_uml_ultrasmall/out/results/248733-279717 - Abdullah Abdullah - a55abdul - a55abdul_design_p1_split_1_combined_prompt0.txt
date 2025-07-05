@@ -1,0 +1,1 @@
+Yes, there is a UML diagram included in the document. It consists of two class diagrams: one for the "Doubly Linked List" and another for the "Node" class.

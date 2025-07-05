@@ -1,0 +1,19 @@
+```markdown
+## Member variables:
+- **size (data type: int)** --- max size of the deque
+- **counter (data type: int)** --- current size of list
+- **tmpData (data type: string)** --- temporary data
+- **tmp (data type: Node pointer)** --- temporary pointer
+- **head (data type: Node pointer)** --- address to first element in the deque
+- **tail (data type: Node pointer)** --- address to last element in the deque
+
+## Member functions:
+- **addFront, addBack**: add element to front or back of list
+- **removeFront, removeBack**: remove element from front or back of list
+- **clear**: clear all elements from list
+- **checkSize**: return size of element
+- **accessFront, accessBack**: return the element at the front or back of list
+- **checkEmpty**: check if there is any elements in the list
+- **find**: searches for a specific URL in the list
+- **print**: outputs all elements from back of the deque to the front
+```

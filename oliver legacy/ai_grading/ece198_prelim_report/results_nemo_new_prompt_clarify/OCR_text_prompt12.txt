@@ -1,0 +1,8 @@
+<answer>yes</answer>
+
+The report lists four functional requirements:
+
+1. Measures body temperature in the range of 35.6 to 40.6 degrees Celsius and warns user of high body temperature.
+2. Measures heart rate in the range of 60 to 200 beats per minute and warns user of over-exertion.
+3. Measures ultraviolet index ranging from 1 to 11 and provides warnings for potential sunburn.
+4. Displays light warnings and sound warnings of at least 70 decibels.

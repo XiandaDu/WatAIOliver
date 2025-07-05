@@ -1,0 +1,28 @@
+<header>
+    <div class="container text-center">
+        <div class="row justify-content-md-center py-3 mb-4 border-bottom">
+            <div class="col-2">
+                <a href="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-dark text-decoration-none">
+                    <span class="fs-4">Oliver</span>
+                </a>
+            </div>
+            <div class="col-4">
+            </div>
+            <div class="col-4" >
+                <ul class="nav nav-pills" style="margin: 0 auto">
+                    {% if not request.session.session_user %}
+<!--                    <li class="nav-item"><a href="/reg" class="nav-link">Register</a></li>-->
+                    <li class="nav-item"><a href="/login" class="nav-link">Log in</a></li>
+                    {% endif %}
+
+                    {% if request.session.session_user %}
+
+                     <li class="nav-item"><em class="nav-link">{{ request.session.session_user.nickname }}</em></li>
+
+                    <li class="nav-item"><a href="/logout" class="nav-link">logout</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</header>

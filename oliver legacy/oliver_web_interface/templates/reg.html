@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <title>Oliver</title>
+
+    <link href="/static/assets/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+
+        @media (min-width: 768px) {
+            .bd-placeholder-img-lg {
+                font-size: 3.5rem;
+            }
+        }
+
+        .b-example-divider {
+            height: 2rem;
+        }
+
+        .b-example-vr {
+            flex-shrink: 0;
+            width: 1.5rem;
+            height: 100vh;
+        }
+
+        .bi {
+            vertical-align: -.125em;
+            fill: currentColor;
+        }
+
+        .nav-scroller {
+            position: relative;
+            z-index: 2;
+            height: 2.75rem;
+            overflow-y: hidden;
+        }
+
+        .nav-scroller .nav {
+            display: flex;
+            flex-wrap: nowrap;
+            padding-bottom: 1rem;
+            margin-top: -1px;
+            overflow-x: auto;
+            text-align: center;
+            white-space: nowrap;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        html,
+        body {
+            height: 100%;
+        }
+
+        body {
+            display: flex;
+            align-items: center;
+            padding-top: 40px;
+            padding-bottom: 40px;
+            background-color: #f5f5f5;
+            background-image: url('/static/bg.jpeg');
+        }
+
+        .form-signin {
+            max-width: 330px;
+            padding: 15px;
+        }
+
+        .form-signin .form-floating:focus-within {
+            z-index: 2;
+        }
+
+        .form-signin input[type="username"] {
+            margin-bottom: -1px;
+            border-bottom-right-radius: 0;
+            border-bottom-left-radius: 0;
+        }
+
+        .form-signin input[type="password"] {
+            margin-bottom: 10px;
+            border-top-left-radius: 0;
+            border-top-right-radius: 0;
+        }
+
+        .form-signin input[type="text"] {
+            margin-bottom: 10px;
+            border-top-left-radius: 0;
+            border-top-right-radius: 0;
+        }
+    </style>
+</head>
+<body class="text-center">
+
+<main class="form-signin w-100 m-auto">
+    <form action="/reg" method="post">
+        <h1 class="h3 mb-3 fw-normal" style="color: white">Register</h1>
+        {% if msg %}
+            <div class="alert alert-primary" role="alert">
+                {{ msg }}
+            </div>
+        {% endif %}
+
+        <div class="form-floating">
+            <input type="text" class="form-control" name="username" value="{{ username }}">
+            <label for="username">username</label>
+        </div>
+        <div class="form-floating">
+            <input type="password" class="form-control" name="password" value="{{ password }}">
+            <label for="password">password</label>
+        </div>
+        <div class="form-floating">
+            <input type="password" class="form-control" name="rePassword" value="{{ rePassword }}">
+            <label for="rePassword">password</label>
+        </div>
+        <div class="form-floating">
+            <input type="text" class="form-control" name="nickname" value="{{ nickname }}">
+            <label for="nickname">nickname</label>
+        </div>
+
+        <button class="w-100 btn btn-lg btn-primary" type="submit">submit</button>
+        <div class="b-example-divider"></div>
+    </form>
+    <a href="/login">
+        <button class="w-100 btn btn-lg btn-primary">back</button>
+    </a>
+</main>
+
+
+</body>
+</html>

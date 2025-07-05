@@ -1,0 +1,14 @@
+**No**, it is not feasible for the students to perform these measurements for every functional requirement based on the information in the report.
+
+**Direct Evidence:**
+
+1. **Functional Requirements Section:**
+   - "Measure and record weather data (temperature, humidity, etc.)."
+     - "Accuracy within ±0.5C for temperature"
+     - "Accuracy within ±5% for humidity"
+   - "Analyze and predict heat stress levels."
+     - "Prediction accuracy within ±10% when compared to validated models"
+
+These statements include specific accuracy requirements such as ±0.5°C for temperature and ±5% for humidity, which demand precise measurement tools and techniques. The prediction accuracy requirement of ±10% when compared to validated models also poses a significant challenge, requiring access to validated models and analytical tools or software. 
+
+For first-semester engineering students, who may lack sophisticated skills and tools, achieving and verifying these specified accuracies could be quite challenging. More detail on prescribed methods and specific measurement tools suitable for novices would be necessary to ensure feasibility.

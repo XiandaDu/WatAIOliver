@@ -1,0 +1,6 @@
+<answer>yes</answer>
+
+The document contains both types of requirements:
+1. **Functional Requirements:** These are outlined in the "Functional requirements" section, where it lists the specific functionalities the device needs to have, such as measuring body temperature, heart rate, and UV index, and providing warnings based on these measurements.
+
+2. **Technical Requirements:** These are detailed in the "Technical requirements" section, specifying how the device should perform these functionalities, such as the specific conditions under which the microcontroller activates various warnings and the performance criteria like response time.

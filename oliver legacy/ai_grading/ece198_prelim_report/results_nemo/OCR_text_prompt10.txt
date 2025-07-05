@@ -1,0 +1,24 @@
+**Are all stakeholders clearly described, along with why they are interested in the outcomes of this project?**
+
+**Answer:** Yes.
+
+**Evidence from the report:**
+
+The report clearly describes several stakeholders and their interests in the project:
+
+1. **Danish Germschi (User)**
+   - Interested in the project because it warns the user before the onset of heat stroke, protecting their health.
+   - Concerned about the project accurately measuring heartbeat, body temperature, and UV exposure without giving false warnings, which would impact productivity.
+
+2. **Employers of the customer**
+   - Interested in the project because it improves productivity by keeping workers from suffering from heat stroke.
+   - Concerned about reducing their responsibility for the worker's health.
+
+3. **Governmental or regulatory bodies**
+   - Interested in the project being well-insulated to prevent the customer from getting shocked.
+   - Concerned about the project's characteristics and performance not deteriorating under normal use to a degree where the customer is adversely affected.
+
+4. **Ontario Federation of Agriculture**
+   - Interested in the project recording accurate readings of heartbeat, body temperature, and UV exposure to provide leverage against employers.
+
+Each stakeholder's needs and concerns are clearly outlined, showing a clear understanding of who is affected by the project and why they are interested in its outcomes.

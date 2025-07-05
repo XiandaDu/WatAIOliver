@@ -1,0 +1,23 @@
+**Standard: Every functional requirement must have an associated measurement. This measurement must be quantifiable numerically, and the report must include a range of values with relevant units indicating acceptable measurements.**
+
+- **Requirement 1: Measures body temperature in the range of 35.6 to 40.6 degrees Celsius and warns user of high body temperature.**
+  - **Measurement:** Body temperature in degrees Celsius (°C)
+  - **Range:** 35.6 to 40.6 °C
+  - **Units:** Degrees Celsius (°C)
+  - **Evidence from the report:** "Measures body temperature in the range of 35.6 to 40.6 degrees Celsius and warns user of high body temperature."
+
+- **Requirement 2: Measures heart rate in the range of 60 to 200 beats per minute and warns user of over-exertion.**
+  - **Measurement:** Heart rate in beats per minute (bpm)
+  - **Range:** 60 to 200 bpm
+  - **Units:** Beats per minute (bpm)
+  - **Evidence from the report:** "Measures heart rate in the range of 60 to 200 beats per minute and warns user of over-exertion."
+
+- **Requirement 3: Measures ultraviolet index ranging from 1 to 11, the full range of the scale, providing warnings for potential sunburn.**
+  - **Measurement:** Ultraviolet index (UVI)
+  - **Range:** 1 to 11
+  - **Units:** No units specified, but the report mentions "the full range of the scale," indicating that the UVI is the appropriate measurement.
+  - **Evidence from the report:** "Measures ultraviolet index ranging from 1 to 11, the full range of the scale, providing warnings for potential sunburn."
+
+- **Requirement 4: Displays light warnings between 150 and 200 millicandelas (luminous intensity of hobby LEDs) and sound warnings of at least 70 decibels (like an alarm clock) are produced.**
+  - **Measurement:** Luminous intensity for light warnings (in millicandelas, cd) and sound pressure level for sound warnings (in decibels, dB)
+  - **Range:** Light warnings: 150 to 200 cd, Sound warnings: at least 70 dB

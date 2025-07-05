@@ -1,0 +1,24 @@
+**Standard: Every technical requirement in the document must have an associated measurement. This measurement must be quantifiable numerically, and the report must include a range of values with relevant units indicating acceptable measurements.**
+
+- **Requirement 1:** "Measures body temperature in the range of 35.6 to 40.6 degrees Celsius and warns user of high body temperature"
+  - **Measurement:** Temperature range is provided as 35.6°C to 40.6°C.
+  - **Units:** Degrees Celsius (°C)
+  - **Acceptable range:** 35.6°C to 40.6°C
+  - **Answer:** Yes, the requirement has a quantifiable numerical measurement with relevant units and an acceptable range.
+
+- **Requirement 2:** "Measures heart rate in the range of 60 to 200 beats per minute and warns user of over-exertion"
+  - **Measurement:** Heart rate range is provided as 60 to 200 beats per minute.
+  - **Units:** Beats per minute (bpm)
+  - **Acceptable range:** 60 to 200 bpm
+  - **Answer:** Yes, the requirement has a quantifiable numerical measurement with relevant units and an acceptable range.
+
+- **Requirement 3:** "Measures ultraviolet index ranging from 1 to 11, the full range of the scale, providing warnings for potential sunburn"
+  - **Measurement:** Ultraviolet index range is provided as 1 to 11.
+  - **Units:** No units are provided for the ultraviolet index.
+  - **Acceptable range:** 1 to 11
+  - **Answer:** Yes, the requirement has a quantifiable numerical measurement, but no units are provided for the ultraviolet index.
+
+- **Requirement 4:** "Displays light warnings between 150 and 200 millicandelas (luminous intensity of hobby LEDs) and sound warnings of at least 70 decibels (like an alarm clock) are produced"
+  - **Measurement:** Light warning range is provided as 150 to 200 millicandelas, and sound warning is at least 70 decibels.
+  - **Units:** Light warnings are in millicandelas (mcd), and sound warnings are in decibels (dB)
+  - **Acceptable range:** Light warnings - 150 to 2

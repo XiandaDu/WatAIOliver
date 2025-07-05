@@ -1,14 +1,10 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { ChatContainer, ChatForm, ChatMessages } from "@/components/ui/chat"
-import { MessageInput } from "@/components/ui/message-input"
-import { transcribeAudio } from "@/lib/utils/audio"
-import { MessageList } from "@/components/ui/message-list"
-import { PromptSuggestions } from "@/components/ui/prompt-suggestions"
-import { CustomSelect } from "@/components/ui/custom-select"
+import { ChatContainer } from "@/components/ui/chat"
 import { Sidebar } from "@/components/Sidebar"
-import { marked } from "marked"
+import { WelcomeScreen } from "@/components/WelcomeScreen"
+import { ChatInterface } from "@/components/ChatInterface"
 
 export default function ChatPage() {
   const [messages, setMessages] = useState([])
@@ -16,6 +12,8 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
   const [selectedConversation, setSelectedConversation] = useState(null)
+  const [conversations, setConversations] = useState([])
+  const [isLoadingConversations, setIsLoadingConversations] = useState(true)
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
   const [selectedModel, setSelectedModel] = useState("qwen")
@@ -23,6 +21,64 @@ export default function ChatPage() {
     { label: "Qwen 3", value: "qwen" },
     { label: "Model 2", value: "model-2" }
   ]
+
+  const userId = 'A1' // Using TEST user from database
+
+  useEffect(() => {
+    loadConversations()
+  }, [])
+
+  useEffect(() => {
+    if (selectedConversation) {
+      loadMessages(selectedConversation.conversation_id)
+    } else {
+      setMessages([])
+    }
+  }, [selectedConversation])
+
+  const loadConversations = async () => {
+    setIsLoadingConversations(true)
+    try {
+      const response = await fetch(`http://localhost:8000/chat/conversations/${userId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setConversations(data || [])
+      } else {
+        console.error('Failed to load conversations')
+      }
+    } catch (error) {
+      console.error('Error loading conversations:', error)
+    } finally {
+      setIsLoadingConversations(false)
+    }
+  }
+
+  const loadMessages = async (conversationId) => {
+    console.log('Loading messages for conversation:', conversationId)
+    try {
+      const response = await fetch(`http://localhost:8000/chat/messages/${conversationId}`)
+      console.log('Response status:', response.status)
+      if (response.ok) {
+        const data = await response.json()
+        console.log('Loaded messages:', data)
+        // Transform backend message format to frontend format
+        const transformedMessages = data.map(msg => ({
+          id: msg.message_id,
+          role: msg.sender,
+          content: msg.content,
+          createdAt: new Date(msg.created_at)
+        }))
+        console.log('Transformed messages:', transformedMessages)
+        setMessages(transformedMessages)
+      } else {
+        console.error('Failed to load messages')
+        setMessages([])
+      }
+    } catch (error) {
+      console.error('Error loading messages:', error)
+      setMessages([])
+    }
+  }
 
   const scrollToBottom = () => {
     if (messagesContainerRef.current) {
@@ -51,20 +107,89 @@ export default function ChatPage() {
     setIsTyping(true)
 
     try {
-      const res = await fetch("http://localhost:8000/chat", {
+      let currentConversationId = selectedConversation?.conversation_id
+
+      // If no conversation is selected, create a new one
+      if (!currentConversationId) {
+        const createResponse = await fetch('http://localhost:8000/chat/create_conversation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: userId,
+            title: input.length > 50 ? input.substring(0, 50) + '...' : input
+          })
+        })
+
+        if (createResponse.ok) {
+          const conversationData = await createResponse.json()
+          currentConversationId = conversationData[0]?.conversation_id
+          
+          if (currentConversationId) {
+            const newConversation = {
+              conversation_id: currentConversationId,
+              title: input.length > 50 ? input.substring(0, 50) + '...' : input,
+              user_id: userId,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }
+            setSelectedConversation(newConversation)
+            setConversations(prev => [newConversation, ...prev])
+          }
+        }
+      }
+
+      // Save user message
+      if (currentConversationId) {
+        await fetch('http://localhost:8000/chat/create_message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            conversation_id: currentConversationId,
+            user_id: userId,
+            sender: 'user',
+            content: input
+          })
+        })
+      }
+
+      // Get AI response
+      const chatResponse = await fetch("http://localhost:8000/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: input })
+        body: JSON.stringify({ 
+          prompt: input,
+          conversation_id: currentConversationId
+        })
       })
-      const data = await res.json()
+      
+      const chatData = await chatResponse.json()
+      const aiResponse = chatData.result || "No response from AI"
+
+      // Save AI response
+      if (currentConversationId) {
+        await fetch('http://localhost:8000/chat/create_message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            conversation_id: currentConversationId,
+            user_id: userId,
+            sender: 'assistant',
+            content: aiResponse
+          })
+        })
+      }
+
+      // Add AI response to messages
       const assistantMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: data.result || "No result returned",
+        content: aiResponse,
         createdAt: new Date()
       }
       setMessages(prev => [...prev, assistantMessage])
+
     } catch (err) {
+      console.error('Chat error:', err)
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: "assistant",
@@ -87,21 +212,89 @@ export default function ChatPage() {
     setMessages(prev => [...prev, userMessage])
     setIsLoading(true)
     setIsTyping(true)
+    
     try {
-      const res = await fetch("http://localhost:8000/chat", {
+      let currentConversationId = selectedConversation?.conversation_id
+
+      // If no conversation is selected, create a new one
+      if (!currentConversationId) {
+        const createResponse = await fetch('http://localhost:8000/chat/create_conversation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: userId,
+            title: message.content.length > 50 ? message.content.substring(0, 50) + '...' : message.content
+          })
+        })
+
+        if (createResponse.ok) {
+          const conversationData = await createResponse.json()
+          currentConversationId = conversationData[0]?.conversation_id
+          
+          if (currentConversationId) {
+            const newConversation = {
+              conversation_id: currentConversationId,
+              title: message.content.length > 50 ? message.content.substring(0, 50) + '...' : message.content,
+              user_id: userId,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }
+            setSelectedConversation(newConversation)
+            setConversations(prev => [newConversation, ...prev])
+          }
+        }
+      }
+
+      // Save user message
+      if (currentConversationId) {
+        await fetch('http://localhost:8000/chat/create_message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            conversation_id: currentConversationId,
+            user_id: userId,
+            sender: 'user',
+            content: message.content
+          })
+        })
+      }
+
+      // Get AI response
+      const chatResponse = await fetch("http://localhost:8000/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: message.content })
+        body: JSON.stringify({ 
+          prompt: message.content,
+          conversation_id: currentConversationId
+        })
       })
-      const data = await res.json()
+      
+      const chatData = await chatResponse.json()
+      const aiResponse = chatData.result || "No response from AI"
+
+      // Save AI response
+      if (currentConversationId) {
+        await fetch('http://localhost:8000/chat/create_message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            conversation_id: currentConversationId,
+            user_id: userId,
+            sender: 'assistant',
+            content: aiResponse
+          })
+        })
+      }
+
       const assistantMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: data.result || "No result returned",
+        content: aiResponse,
         createdAt: new Date()
       }
       setMessages(prev => [...prev, assistantMessage])
     } catch (err) {
+      console.error('Chat error:', err)
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: "assistant",
@@ -122,26 +315,81 @@ export default function ChatPage() {
   const isEmpty = messages.length === 0
 
   const handleSelectConversation = (conversation) => {
+    console.log('Selecting conversation:', conversation)
     setSelectedConversation(conversation)
     if (conversation === null) {
       // Clear messages to show welcome screen
       setMessages([])
-    } else {
-      // Load conversation messages
-      setMessages([
-        {
-          id: "1",
-          role: "assistant",
-          content: `Welcome to ${conversation.title}! How can I help you today?`,
-          createdAt: new Date()
-        }
-      ])
     }
+    // If conversation is selected, loadMessages useEffect will handle loading the messages
+  }
+
+  const handleNewConversation = () => {
+    setSelectedConversation(null)
+    setMessages([])
+  }
+
+  const handleDeleteConversation = async (conversationId) => {
+    try {
+      const response = await fetch('http://localhost:8000/chat/delete_conversation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversation_id: conversationId })
+      })
+      
+      if (response.ok) {
+        // Remove from conversations list
+        setConversations(prev => prev.filter(conv => conv.conversation_id !== conversationId))
+        
+        // If this was the selected conversation, clear it
+        if (selectedConversation?.conversation_id === conversationId) {
+          setSelectedConversation(null)
+          setMessages([])
+        }
+      } else {
+        console.error('Failed to delete conversation')
+      }
+    } catch (error) {
+      console.error('Error deleting conversation:', error)
+    }
+  }
+
+  const formatTimestamp = (timestamp) => {
+    const date = new Date(timestamp)
+    const now = new Date()
+    const diffInHours = (now - date) / (1000 * 60 * 60)
+    
+    if (diffInHours < 1) {
+      return 'Just now'
+    } else if (diffInHours < 24) {
+      const hours = Math.floor(diffInHours)
+      return `${hours}h ago`
+    } else if (diffInHours < 48) {
+      return '1d ago'
+    } else {
+      const days = Math.floor(diffInHours / 24)
+      return `${days}d ago`
+    }
+  }
+
+  const sortConversationsByDate = (conversations) => {
+    return [...conversations].sort((a, b) => {
+      return new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at)
+    })
   }
 
   return (
     <div className="flex h-screen bg-white">
-      <Sidebar onSelectConversation={handleSelectConversation} />
+      <Sidebar 
+        conversations={sortConversationsByDate(conversations)}
+        isLoading={isLoadingConversations}
+        selectedConversation={selectedConversation}
+        onSelectConversation={handleSelectConversation}
+        onNewConversation={handleNewConversation}
+        onDeleteConversation={handleDeleteConversation}
+        onRefreshConversations={loadConversations}
+        formatTimestamp={formatTimestamp}
+      />
       <div className="flex-1 flex flex-col items-center justify-center w-full h-screen">
         <div
           className="flex flex-col min-h-0 w-full h-full items-center justify-center"
@@ -149,134 +397,33 @@ export default function ChatPage() {
         >
           <ChatContainer className="flex flex-col h-full w-full">
             {isEmpty ? (
-              <div className="flex-1 flex flex-col items-center justify-center gap-8 p-8">
-                <div className="text-center">
-                  <h1 className="text-2xl font-semibold text-gray-900 mb-2">
-                    Welcome to Oliver.
-                  </h1>
-                  <p className="text-gray-600">
-                    Ask me anything about your course!
-                  </p>
-                  <div className="mt-4 flex flex-col items-center">
-                    <CustomSelect
-                      value={selectedModel}
-                      onChange={setSelectedModel}
-                      options={modelOptions}
-                      placeholder="Select a model"
-                      className="w-48"
-                    />
-                  </div>
-                </div>
-                <PromptSuggestions
-                  label="Get started with some examples"
-                  append={append}
-                  suggestions={[
-                    "What was covered in yesterday's lesson?",
-                    "Did Lecture 16 in ECE 108 cover cardinality?",
-                    "How much time do I need to finish yesterday's lecture?"
-                  ]}
-                />
-                <div className="w-full max-w-2xl pt-5">
-                  <ChatForm
-                    isPending={isLoading || isTyping}
-                    handleSubmit={handleSubmit}
-                  >
-                    {({ files, setFiles }) => (
-                      <MessageInput
-                        value={input}
-                        onChange={handleInputChange}
-                        allowAttachments
-                        files={files}
-                        setFiles={setFiles}
-                        stop={stop}
-                        isGenerating={false}
-                        transcribeAudio={transcribeAudio}
-                        placeholder="Ask me about school..."
-                      />
-                    )}
-                  </ChatForm>
-                </div>
-              </div>
+              <WelcomeScreen
+                selectedModel={selectedModel}
+                setSelectedModel={setSelectedModel}
+                modelOptions={modelOptions}
+                append={append}
+                handleSubmit={handleSubmit}
+                input={input}
+                handleInputChange={handleInputChange}
+                isLoading={isLoading}
+                isTyping={isTyping}
+                stop={stop}
+              />
             ) : (
-              <>
-                <div className="px-6 py-4 flex-shrink-0">
-                  <div className="flex flex-col items-start">
-                    <h1 className="text-xl font-semibold text-gray-900">Oliver Chat</h1>
-                    <div className="mt-2">
-                      <CustomSelect
-                        value={selectedModel}
-                        onChange={setSelectedModel}
-                        options={modelOptions}
-                        placeholder="Select a model"
-                        className="w-40"
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div
-                  ref={messagesContainerRef}
-                  className="flex-1 overflow-y-auto px-6 py-6 min-h-0"
-                  style={{ minHeight: 0 }}
-                >
-                  <ChatMessages className="py-6">
-                    <div className="space-y-4">
-                      {messages.map((message) => (
-                        <div
-                          key={message.id}
-                          className={`flex ${
-                            message.role === "user" ? "justify-end" : "justify-start"
-                          }`}
-                        >
-                          <div
-                            className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                              message.role === "user"
-                                ? "bg-blue-500 text-white"
-                                : "bg-gray-100 text-gray-900"
-                            }`}
-                          >
-                            {message.role === "assistant" ? (
-                              <div dangerouslySetInnerHTML={{ __html: marked.parse(message.content) }} />
-                            ) : (
-                              <span>{message.content}</span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                      {isTyping && (
-                        <div className="flex justify-start">
-                          <div className="bg-gray-100 text-gray-900 px-4 py-2 rounded-lg">
-                            <div className="flex space-x-1">
-                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </ChatMessages>
-                </div>
-                <div className="px-6 py-4 flex-shrink-0">
-                  <ChatForm
-                    isPending={isLoading || isTyping}
-                    handleSubmit={handleSubmit}
-                  >
-                    {({ files, setFiles }) => (
-                      <MessageInput
-                        value={input}
-                        onChange={handleInputChange}
-                        allowAttachments
-                        files={files}
-                        setFiles={setFiles}
-                        stop={stop}
-                        isGenerating={false}
-                        transcribeAudio={transcribeAudio}
-                        placeholder="Ask me about school..."
-                      />
-                    )}
-                  </ChatForm>
-                </div>
-              </>
+              <ChatInterface
+                selectedConversation={selectedConversation}
+                selectedModel={selectedModel}
+                setSelectedModel={setSelectedModel}
+                modelOptions={modelOptions}
+                messages={messages}
+                isTyping={isTyping}
+                handleSubmit={handleSubmit}
+                input={input}
+                handleInputChange={handleInputChange}
+                isLoading={isLoading}
+                stop={stop}
+                messagesContainerRef={messagesContainerRef}
+              />
             )}
           </ChatContainer>
         </div>

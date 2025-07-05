@@ -1,0 +1,203 @@
+*****0=====what does a term with <> on either side mean
+*****0=====what does < > mean
+*****0=====class
+*****0=====what does overhead mean
+*****0=====Hi
+*****0=====How to do lab?
+*****0=====What is grass
+*****0=====explain to me 250 p1
+*****0=====When should you get rid of children
+*****0=====What is the meaning of life
+*****0=====how do you detect chatgpt code
+*****0=====whats an optimal sol badguy counter combo
+*****0=====any issues with the code below?
+*****0=====else if (time < 0.0) {             double distance = sqrt(current->x * current->x + current->y * current->y);             if (distance < 1.0) {                 if (p_prev != nullptr) {                     p_prev->next = current->next;                     delete current;                     current = p_prev->next;                 } else {                     //phead is set to next
+            p_head = current->next;                     //deletes the current node                     delete current;
+      //current is now the head                     current = p_head;                 }             //Remove child from global count; this --count; was added by me                 --count;             }              // Code generated from chat.openai.com for the code above ends here             else {                 p_prev = current;                 current = current->next;             }         }
+*****0=====what textbooks are you trained on
+*****0=====who made you
+*****0=====// Create a structure variable called myStructure struct {   int myNum;   string myString; } myStructure;  // Assign values to members of myStructure myStructure.myNum = 1; myStructure.myString = "Hello World!";  // Print members of myStructure cout << myStructure.myNum << "\n"; cout << myStructure.myString << "\n";
+*****0=====hello
+*****0=====show me constructor syntax for a car object
+*****0=====The constructor syntax for a Car object is as follows:  Car(string carMake, int carModel, int carMileage, double carPrice, int carDoors)  This constructor accepts arguments for the car's make, model, mileage, price, and number of doors. one linewhy is the example
+*****0=====who are you
+*****0=====what's the best course to learn about chat bots?
+*****0=====nothing?
+*****0=====tell me about large language models
+*****0=====what do you know?
+*****0=====what is ECE 250 Lab 1
+*****0=====what is ece 250
+*****0=====What is ECE 250
+*****0=====What is your purpose?
+*****0=====WHAT IS ECE 250???
+*****0=====HOW LINK LIST
+*****0=====are you just a worse version of chat gpt?
+*****0=====What is ece 250
+*****0=====what is e^5.7
+*****0=====gimme the code for project 1 of ece 250
+*****0=====please explain this project
+*****0=====please explain project 1
+*****0=====gimme some code for project 1
+*****0=====gimme some code for the TIME command
+*****0=====can you explain lab 1
+*****0=====can you explain lab 1 a children's game
+*****0=====parse
+*****0=====pars
+*****0=====parse
+*****0=====give me some pseudo code for removing nodes from a linked list only if the node's distance is strictly less than 1 from the origin
+*****0=====what does parcing code me
+*****0=====what is parsing a program
+*****0=====how to parse
+*****0=====parse
+*****0=====is this the correct way to create a conostructor for a pointer p_head:
+*****0=====creating a linked list function c++
+*****0=====What are the restrictions of spawning
+*****0=====what are the spawn conditions
+*****0=====What is spawn?
+*****0=====Hello
+*****0=====What is a Constantine ?
+*****0=====What are methods performed in O(1)
+*****0=====How do I solve recurrences ?
+*****0=====what are the spawn conditions
+*****0=====Can you spawn a child at 0 0
+*****0=====how would i do that
+*****0=====Hi, how do i start lab 1?
+*****0=====why can't i change my p_head outside of the scope of my function if it's a member variable of my linked list class?
+*****0=====why can't i change the head pointer of my linked list within a member function?
+*****0=====I am accessing and modifying my private head pointer of the linked list from within a member function, why won't it work to change?
+*****0=====help me for lab 1
+*****0=====lab1 ece 250
+*****0=====what your name
+*****0=====lab1 submission
+*****1=====what is STL in c++
+*****1=====Assume that RetailItem is the name of a class, and the class has a void member function named setPrice , which accepts a double argument. Which of the following shows the correct use of the scope resolution operator in the member  function definition? A) RetailItem::void setPrice(double p) B) void RetailItem::setPrice(double p)
+*****1=====Complete the following code skeleton to declare a class named Date. The class should contain variables and functions to store and retrieve a date in the form 4/2/2014. class Date  {  private:  public:
+*****1=====what is an object
+*****1=====what does /n do
+*****1=====what is /n
+*****1=====what is a header file
+*****1=====are all header files .cpp files
+*****1=====what is #ifndef
+*****1=====what is #define
+*****1=====are the angled brackets part of the stl
+*****1=====what is an object file
+*****1=====can a constructor have a return type
+*****1=====what is a destructor
+*****1=====when does a constructor get excecuted
+*****1=====if a constructor accepts arguments why do you need getter and setter functions
+*****1=====what is a default argument
+*****1=====how to implement a destructor for a pointer
+*****1=====does a pointer need to be set to null after its deleted
+*****1=====What will the following program display on the screen? #include <iostream> using namespace std; class Tank  {  private:  int gallons;  public:  Tank()  { gallons = 50; }  Tank(int gal)  { gallons = gal; }  int getGallons()  { return gallons; }  }; int main()  {  Tank storage[3] = { 10, 20 };  for (int index = 0; index < 3; index++)  cout << storage[index].getGallons() << endl;  return 0;  }
+*****1=====What will the following program display on the screen? #include <iostream> using namespace std; class Package  {  private:  int value;  public:  Package()  { value = 7; cout << value << endl; }  Package(int v)  { value = v; cout << value << endl; }  ~Package()  { cout << value << endl; }  }; int main()  {  Package obj1(4);  Package obj2();  Package obj3(2);  return 0;  }
+*****1=====can you write multiple things in one cout statement
+*****1=====how to pass a string as an argument
+*****1=====what does a constructor with arguments do
+*****1=====how initialize objects within an array
+*****1=====how to return an array
+*****1=====In this programming challenge you will create a simple trivia game for two players. The program will work like this:  Starting with player 1, each player gets a turn at answering five trivia questions. (There are a total of 10 questions.) When a question is displayed, four possible answers are also displayed. Only one of the answers is correct, and if the player selects the correct answer he or she earns a point.  After answers have been selected for all of the questions, the program displays the number of points earned by each player and declares the player with the highest number of points the winner. In this program you will design a Question class to hold the data for a trivia question. The Question class should have member variables for the following data:  A trivia question  Possible answer #1  Possible answer #2  Possible answer #3  Possible answer #4  The number of the correct answer (1, 2, 3, or 4) The Question class should have appropriate constructor(s), accessor, and mutator functions. The program should create an array of 10 Question objects, one for each trivia question. Make up your own trivia questions on the subject or subjects of your choice for the objects.
+*****1=====What do I need to submit for Project 1?
+*****1=====How do I create a class in C++
+*****1=====Do I use .h or .hpp header file extensions?
+*****1=====whats your name
+*****1=====how do I test files for project 1 on my mac
+*****1=====What is the C syntax for creating a class, and what design decisions are usually made when writing one
+*****1=====How do i submit project 1
+*****1=====when is lab 1 due
+*****1=====How do I add a .hpp file to my main.cpp file in c++
+*****1=====what is a struct
+*****1=====what courses are you able to help with
+*****1=====how to make a hash map in c++
+*****1=====what are hash maps
+*****1=====hash maps
+*****1=====what is the c++ syntax for making a class
+*****1=====is a constructor typically a private or public?
+*****1=====give me destructor syntax
+*****1=====what is an algorithm
+*****1=====how do you reverse a c string
+*****1=====how to create a new object using the new key word
+*****1=====How do I dynamically allocate an object?
+*****1=====what is wrong with "std::cin << input;
+*****1=====What is a linked list?
+*****1=====can you give me a linked list example in c++
+*****1=====write me some code to do binary search
+*****1=====are you familiar with Project1 for ece250?
+*****1=====gimme some code for a linked list
+*****1=====When is the first project for ECE 250 due?
+*****1=====what are header/make files in cpp
+*****1=====When is the first project for ECE 250 due?
+*****1=====gimme some pseudo code for removing nodes from a linked list
+*****1=====gimme some pseudo code for removing nodes from a linked list
+*****1=====how to access eceUbuntu on windows
+*****1=====When is lab 1 due
+*****1=====What do I need to submit?
+*****1=====What do I need to submit?
+*****1=====What do I need to submit in lab 1?
+*****1=====What do I need to submit in lab 1?
+*****1=====What is a stack ?
+*****1=====What is accessor ?
+*****1=====Can you give me examples of stack pseudo code where there is the accessor function?
+*****1=====What is a queue?
+*****1=====when is lab 1 due
+*****1=====how to use getters and setters
+*****1=====#include <iostream> #include <cmath>  class Child { private:     int x_coord;     int y_coord;     bool isChildLeft;     Child *next;  public:     Child(double x, double y)     {         x_coord = x;         y_coord = y;         next = nullptr;     }      double getX()     { // getter for x_coord (accessing pvt )         return x_coord;     }      double getY()     { // getter for y_coord         return y_coord;     }      double setX(double xCoord)     { // setter for x_coord         x_coord = xCoord;         return x_coord;     }      double setY(double yCoord)     { // setter for y_coord         y_coord = yCoord;         return y_coord;     }      Child *get_next()     { // getting next pointer of the current node         return next;     }      void set_next(Child *next_ptr)     { // setting the next pointer of the current node         next = next_ptr;     }      bool isInFirstQuad(double a, double b)     {         if (a > 0 && b > 0)         {             return true;         }         return false;     }      double distance_from_wolf()     {         return sqrt(pow(x_coord, 2) + pow(y_coord, 2));     }      // double time();      // double calculate_time(double t) {     //     double delta_X = t * cos(std::pow(atan2(y_coord, x_coord),2));     //     double delta_Y = t * sin(std::pow(atan2(y_coord, x_coord),2));      //     double new_X = x_coord - delta_X;     //     double new_Y = y_coord - delta_Y;      //     std::cout << new_X << std::endl;     //     std::cout << new_Y << std::endl;      //     if (t >= 0) {     //         if (this->isInFirstQuad() == true) {     //             // delete child node     //             return 0;     //         }     //     } else {     //         if (this->distance_from_wolf() < 1) {     //             // delete child node     //             return 0;     //         }     //     }     //     return 0;     // } }; can you structure this file properly
+*****1=====How do i go about compiling a file and run it?
+*****2=====are #include headers part of the c++ STL
+*****2=====what does < mean
+*****2=====what indicates the use of STL
+*****2=====how to access other .cpp files
+*****2=====what does angled brackets mean in cpp
+*****2=====if public member variables are initialized is a constructor required
+*****2=====if a public variable is initialized with zero, is a constructor needed?
+*****2=====Summarize lab 1
+*****2=====Summarize Lab 1
+*****2=====What is a child
+*****2=====explain to me ece 250 assignment 1
+*****2=====who is our professor
+*****2=====when is the midterm
+*****2=====How to solve lab 1
+*****2=====How to solve lab1 for ece 250
+*****2=====how can I make the code efficient else if (time < 0.0) {             double distance = sqrt(current->x * current->x + current->y * current->y);             if (distance < 1.0) {                 if (p_prev != nullptr) {                     p_prev->next = current->next;                     delete current;                     current = p_prev->next;                 } else {
+   //phead is set to next                     p_head = current->next;                     //deletes the current node
+    delete current;                     //current is now the head                     current = p_head;                 }
+ //Remove child from global count; this --count; was added by me                 --count;             }              // Code generated from chat.openai.com for the code above ends here             else {                 p_prev = current;                 current = current->next;             }         }
+*****2=====what is your name
+*****2=====when do i have tutorials
+*****2=====can you help with a c++ program
+*****2=====How do I make a constructor / destructor
+*****2=====give me an example of a car constructopr so i can see this done on a car class
+*****2=====show me constructor for a car that sets carName, carMake, etc. in multiple lines
+*****2=====what is lab 1?
+*****2=====show me some template logic to delete a car object using its destructor. do i need to use a destructor?
+*****2=====what are good courrse on programming in C++
+*****2=====so if i delete a car, the destructor is automaically called? how do i code a destructor for a car.
+*****2=====do i need to explicitly code a destructor if i dont wnt deletion logic inside my destructor
+*****2=====do i need a main function for this project?
+*****2=====how do delete a node from a linked-list
+*****2=====how do delete a node from a linked-list tell me the implementation in code
+*****2=====does the order of linked list matter for lab 1?
+*****2=====does the order of linked list matter for ECE 250 lab 1?
+*****2=====do we need linked list in ece 250
+*****2=====What is the first project for this course?
+*****2=====Who is the prof for ece 250
+*****2=====what file should i be opening for my parser
+*****2=====how do I code a parser
+*****2=====how do i parse
+*****2=====create a constructor that initializes a pointer to null
+*****2=====create a constructor outside the class declaration that sets a pointer to null
+*****2=====what is wrong with my code? class linkedlist{     private:     node *p_head = nullptr;      public:     linkedlist(){         p_head = nullptr;     };     ~linkedlist(){         delete p_head;         p_head = nullptr;     };     void SPAWN(double x, double y);     void TIME(double t);     int NUM();     void PRT();     bool OVER();     void TEST(); }; linkedlist::linkedlist(){p_head = nullptr;} linkedlist::~linkedlist(){delete p_head; p_head = nullptr;}
+*****2=====For project 1, can you spawn a child at (0, 0)?
+*****2=====if i have helper files mrWolf_lib.cpp, child.cpp and mrWolf.cpp, which file should my main() function be in?
+*****2=====what is the convention for helper files in a multi-file c++ project?
+*****2=====i have put getters and setters for a double value inside my node class in my header file. i was wondering how to use the same double value in my linkedlist class in my .cpp file
+*****2=====#include <iostream> #include "childnode.hpp" using namespace std;  class LinkedList { private:     Child *head;     int numOfChildrenPLaying; // len of linked list      public:     LinkedList()     {         head = nullptr;         numOfChildrenPLaying = 0;     }      // append child node to linked list     void spawn(double x_coord, double y_coord) {     if (x_coord > 0 && y_coord > 0) {         Child* newChild = new Child(x_coord, y_coord);  // creation of new child node         if (head == nullptr) {
+          // when the list is empty             head = newChild;                            // assigning new child node to head         } else {             newChild->set_next(head);                // assigning current head as next node to the newChild
+head = newChild;                            //           }          numOfChildrenPLaying++;         double distance_from_wolf = sqrt(pow(x_coord,2) + pow(y_coord,2));          cout << "success" << endl;         } else {         cout << "failure" << endl;     } }      // length of linked list at any given instant of time     void num()     {         cout << "number of children still playing: " << numOfChildrenPLaying << endl;     }      // delete child node from linked list     void kill_child(double t){}      void time(double t)     {         {                double delta_X = t * cos(std::pow(atan2(y_coord, xCoord), 2));             double delta_Y = t * sin(std::pow(atan2(y_coord, x_coord), 2));              double new_X = x_coord - delta_X;             double new_Y = y_coord - delta_Y;              std::cout << new_X << std::endl;             std::cout << new_Y << std::endl;              if (numOfChildrenPLaying >= 0)             {                 Child *prev = head;                  // iterating through the linked list                 for (Child *curr = head; curr->get_next() == nullptr; curr = curr->get_next())                 {                     if (t >= 0)
+     {                         if (curr->isInFirstQuad(new_X, new_Y) == false)                         {
+prev->set_next(curr->get_next()); // prev node pointing to next node of curr node                             curr = nullptr;                   // curr node is pointing to nullptr, essentially deleting it                             numOfChildrenPLaying--;
+ // decrement counter since we delete node                         }                     }                     else
+   {                         if (curr->distance_from_wolf() < 0)                         {                             prev->set_next(curr->get_next()); // prev node pointing to next node of curr node                             curr = nullptr;                   // curr node is pointing to nullptr, essentially deleting it                             numOfChildrenPLaying--;           // decrement counter since we delete node                         }                     }                 }             }         }     } }; have i set my getters and seters properly
+*****2=====#include <iostream> #include <cmath>  class Child { private:     int x_coord;     int y_coord;     bool isChildLeft;     Child *next;  public:     Child(double x, double y)     {         x_coord = x;         y_coord = y;         next = nullptr;     }      double getX()     { // getter for x_coord (accessing pvt )         return x_coord;     }      double getY()     { // getter for y_coord         return y_coord;     }      double setX(double xCoord)     { // setter for x_coord         x_coord = xCoord;         return x_coord;     }      double setY(double yCoord)     { // setter for y_coord         y_coord = yCoord;         return y_coord;     }      Child *get_next()     { // getting next pointer of the current node         return next;     }      void set_next(Child *next_ptr)     { // setting the next pointer of the current node         next = next_ptr;     }      bool isInFirstQuad(double a, double b)     {         if (a > 0 && b > 0)         {             return true;         }         return false;     }      double distance_from_wolf()     {         return sqrt(pow(x_coord, 2) + pow(y_coord, 2));     }      // double time();      // double calculate_time(double t) {     //     double delta_X = t * cos(std::pow(atan2(y_coord, x_coord),2));     //     double delta_Y = t * sin(std::pow(atan2(y_coord, x_coord),2));      //     double new_X = x_coord - delta_X;     //     double new_Y = y_coord - delta_Y;      //     std::cout << new_X << std::endl;     //     std::cout << new_Y << std::endl;      //     if (t >= 0) {     //         if (this->isInFirstQuad() == true) {     //             // delete child node     //             return 0;     //         }     //     } else {     //         if (this->distance_from_wolf() < 1) {     //             // delete child node     //             return 0;     //         }     //     }     //     return 0;     // } }; have i set my getters and setters properly here?
+*****2=====Why doesn't set_xy() work? #include <iostream> #include <cmath>  class Node // datatype node to define the properties a node objects needs { private:     double x;     double y;     Node *next_;  public:     Node()     {         next = nullptr; // Initialize the list as empty     }     Node *get_next()     {         return next_;     }     void set_next(Node *node)     {         next_ = node;     }     void set_xy(double a, double b) {         a = t*cos(atan2(b,a));         b = t*sin(atan2(b,a));     } }
+*****2=====What kind of linked list should i use for lab 1?
+*****2=====what is a linked list in ece 250

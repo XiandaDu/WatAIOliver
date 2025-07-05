@@ -1,0 +1,3 @@
+<answer>No</answer>
+
+The report mentions three principles, but not all of them are clearly and explicitly stated with the required details. While the formula for standard deviation is provided, the other two principles are not explicitly stated with the required details. For instance, the report mentions "mathematical principles involved in solving systems of linear equations" but does not provide the relevant equations or explain how they will be applied. Similarly, the report mentions "inequality" but does not provide the specific inequalities that will be used or how they will be applied. Therefore, not every principle mentioned in the report meets the criterion of being clearly and explicitly stated.

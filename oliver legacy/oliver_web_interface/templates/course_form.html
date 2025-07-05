@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <title>Oliver</title>
+
+    <link href="/static/assets/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/assets/select2.min.css" rel="stylesheet"/>
+    <link href="/static/assets/tooltip.css" rel="stylesheet"/>
+</head>
+<body>
+
+{% include '_nav.html' %}
+
+<main>
+    <div class="container">
+
+        <div class="row">
+            {% include 'sidebar.html' %}
+            <main class="col-md-9" style="background-color: white;border: 1px dashed black">
+
+                <form action="/course/save" method="post">
+                    <div class="row">
+                        <div class="col">
+                            <nav aria-label="breadcrumb">
+                                <ol class="breadcrumb">
+                                    <li class="breadcrumb-item"><a href="/user_center">Personal Center</a></li>
+                                    <li class="breadcrumb-item active" aria-current="page"><a
+                                            href="/course">Course List</a>
+                                    </li>
+                                </ol>
+                            </nav>
+                        </div>
+                    </div>
+                    <div class="row" style="margin-top: 20px">
+                        <div class="col-md-12" style="border: 1px solid beige;">
+
+                            <input type="hidden" class="form-control" name="id"
+                                   value="{{ row.id or '' if row is not none else '' }}">
+
+                            <div class="row mb-3">
+                                <label for="inputEmail3"
+                                       class="col-sm-2 col-form-label"><strong>Name</strong></label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" name="name"
+                                           value="{{ row.name or '' if row is not none else '' }}">
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <label for="inputPassword3"
+                                       class="col-sm-2 col-form-label"><strong>Notes</strong></label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" name="notes"
+                                           value="{{ row.notes or '' if row is not none else '' }}">
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <label for="inputPassword3"
+                                       class="col-sm-2 col-form-label"><strong>Model</strong></label>
+                                <div class="col-sm-10">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="model" value="phi"
+                                               {% if row is not none and row.model=='phi' %}
+                                               checked
+                                               {%endif%}
+                                        >
+                                        <label class="form-check-label" for="flexRadioDefault1">
+                                            Qwen <img class="tip-hotspot" data-tip="Qwen models outperform the baseline models of similar models sizes on a series benchmark datasets, which evaluate the model's capabilities on natural language understanding, mathematic problem solving, coding, etc."
+                                                     src="/static/tips.jpeg" width="20px" style="margin-left: 20px"
+                                        >
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="model" value="nemo"
+                                               {% if row is not none and row.model=='nemo' %}
+                                               checked
+                                               {%endif%}>
+                                        <label class="form-check-label" for="flexRadioDefault2">
+                                            nemo <img class="tip-hotspot" data-tip="Faster than Phi, geared towards scalable, multimodal deployments with larger resource needs" src="/static/tips.jpeg" width="20px" style="margin-left: 20px"
+                                                      >
+                                        </label>
+                                    </div>
+
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <label for="inputPassword3"
+                                       class="col-sm-2 col-form-label"><strong>Prompt</strong></label>
+                                <div class="col-sm-10">
+                                    <!--                                    <input type="text" class="form-control" name="prompt"-->
+                                    <!--                                           value="{{ row.prompt or '' if row is not none else '' }}">-->
+
+                                    <select id="mySelect" style="width: 90%;" name="prompt"
+                                            data="{{ row.prompt or '' if row is not none else '' }}">
+                                        <optgroup label="Simple">
+                                            <option value="You are helpful teaching assistant, only give the brief information for the answers">
+                                                You are helpful teaching assistant, only give the brief information for
+                                                the answers
+                                            </option>
+                                        </optgroup>
+                                        <optgroup label="Medium">
+                                            <option value="You are a friendly and patient tutor. Breaking down questions into  manageable steps, and guide students through the learning process.">
+                                                You are a friendly and patient tutor. Breaking down questions into
+                                                manageable steps, and guide students through the learning process.
+                                            </option>
+                                        </optgroup>
+                                        <optgroup label="Advanced">
+                                            <option value="You are a friendly and patient tutor. Provide clear and engaging explanations with examples when needed. {background}. {system_prompt}. The question you are answering is:">
+                                                You are a friendly and patient tutor. Provide clear and engaging
+                                                explanations with examples when needed. {background}. {system_prompt}.
+                                                The question you are answering is:
+                                            </option>
+                                            <option value="You are an expert in the field, providing detailed and technical insights. Be thorough and offer advanced perspectives. {background}. {system_prompt}. The question you are answering is">
+                                                You are an expert in the field, providing detailed and technical
+                                                insights. Be thorough and offer advanced perspectives. {background}.
+                                                {system_prompt}. The question you are answering is
+                                            </option>
+                                            <option value="You are a concise and efficient assistant. Provide clear, short answers that directly address the question. {background}. {system_prompt}. The question you are answering is:">
+                                                You are a concise and efficient assistant. Provide clear, short answers
+                                                that directly address the question. {background}. {system_prompt}. The
+                                                question you are answering is:
+                                            </option>
+                                            <option value="You are a conversational guide, using a friendly tone to help the user learn through dialogue and examples. Ask clarifying questions if needed. {background}. {system_prompt}. The question you are answering is:">
+                                                You are a conversational guide, using a friendly tone to help the user
+                                                learn through dialogue and examples. Ask clarifying questions if needed.
+                                                {background}. {system_prompt}. The question you are answering is:
+                                            </option>
+                                            <option value="You are a creative assistant. Offer suggestions and innovative ideas, encouraging thinking outside the box. {background}. {system_prompt}. The question you are answering is:">
+                                                You are a creative assistant. Offer suggestions and innovative ideas,
+                                                encouraging thinking outside the box. {background}. {system_prompt}. The
+                                                question you are answering is:
+                                            </option>
+                                            <option value="You are a detailed problem-solver, breaking down complex questions into manageable steps with clear explanations. {background}. {system_prompt}. The question you are answering is:">
+                                                You are a detailed problem-solver, breaking down complex questions into
+                                                manageable steps with clear explanations. {background}. {system_prompt}.
+                                                The question you are answering is:
+                                            </option>
+                                            <option value="You are a creative and adaptive virtual teaching assistant designed to quiz students and provide meaningful learning experiences. When quizzing a student on a topic, start with basic questions to assess their foundational knowledge. Gradually increase the difficulty based on their performance, moving from simple definitions to complex scenarios and application-level problems. After each response, evaluate the answer and provide detailed feedback: If the answer is correct, confirm it, expand on the concept, and suggest a related, slightly more challenging question. If the answer is incorrect, offer constructive hints or explanations to guide the student toward the correct answer, and adapt the next question to reinforce the concept. At the end of the quiz, summarize the student’s strengths, areas for improvement, and recommend specific topics or exercises for further study. The question you are answering is:">
+                                                You are a creative and adaptive virtual teaching assistant designed to quiz students and provide meaningful learning experiences. When quizzing a student on a topic, start with basic questions to assess their foundational knowledge. Gradually increase the difficulty based on their performance, moving from simple definitions to complex scenarios and application-level problems.
+                                                After each response, evaluate the answer and provide detailed feedback:
+                                                If the answer is correct, confirm it, expand on the concept, and suggest a related, slightly more challenging question.
+                                                If the answer is incorrect, offer constructive hints or explanations to guide the student toward the correct answer, and adapt the next question to reinforce the concept.
+                                                At the end of the quiz, summarize the student’s strengths, areas for improvement, and recommend specific topics or exercises for further study.
+                                                The question you are answering is:
+                                            </option>
+                                            <option value="You are an assistant that promotes critical thinking. Instead of giving direct answers, you guide the user to explore possible solutions and ask insightful questions. {background}. {system_prompt}. The question you are answering is:">
+                                                You are an assistant that promotes critical thinking. Instead of giving
+                                                direct answers, you guide the user to explore possible solutions and ask
+                                                insightful questions. {background}. {system_prompt}. The question you
+                                                are answering is:
+                                            </option>
+
+                                        </optgroup>
+
+
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                        </div>
+                        <div class="col-md-4">
+                            <div class="row" style="text-align: center">
+                                <div class="col-md-4">
+                                    <button type="submit" class="btn btn-primary">save</button>
+                                </div>
+                                <div class="b-example-divider"></div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </main>
+        </div>
+    </div>
+</main>
+
+
+<script src="/static/assets/dist/js/bootstrap.min.js"></script>
+<script src="/static/assets/jquery-3.4.1.js"></script>
+<script src="/static/assets/select2.min.js"></script>
+<script src="/static/assets/tooltip.js"></script>
+<script>
+    function logout() {
+        $.ajax({
+            type: "post",
+            url: "/logout",
+            success: function (data) {
+                location.href = '/index'
+            }
+        });
+    }
+
+
+    $(document).ready(function () {
+        ToolTip.init({
+            delay: 400,
+            fadeDuration: 250,
+            fontSize: '1.0em',
+            theme: 'light',
+            textColor: '#757575',
+            shadowColor: '#000',
+            fontFamily: "'Roboto-Medium', 'Roboto-Regular', Arial"
+        });
+
+
+        $('#mySelect').select2({
+            tags: true,
+            placeholder: 'Select or enter an option',
+            allowClear: true // 允许清除选择
+        });
+        v = $('#mySelect').attr('data')
+        if (v.length > 0) {
+            flag = true
+            $('#mySelect option').each(function () {
+                var option = $(this);
+                if (option.val() == v) {
+                    flag = false
+                }
+            })
+            if (flag) {
+                $('#mySelect').append('<option value="' + v + '">' + v + '</option>');
+            }
+            $('#mySelect').val(v).trigger('change');
+        }
+    });
+
+
+</script>
+
+</body>
+</html>

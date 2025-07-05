@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Processor</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        function validateForm() {
+            var checkboxes = document.getElementsByName("options");
+            var checked = false;
+            for (var i = 0; i < checkboxes.length; i++) {
+                if (checkboxes[i].checked) {
+                    checked = true;
+                    break;
+                }
+            }
+            if (!checked) {
+                alert("Please select at least one option.");
+                return false;
+            }
+            return true;
+        }
+
+        function loadImages(projectName) {
+            $.getJSON(`/images/${projectName}`, function(data) {
+                let carouselInner = $('.carousel-inner');
+                carouselInner.empty();
+                data.images.forEach((image, index) => {
+                    let itemClass = index === 0 ? 'carousel-item active' : 'carousel-item';
+                    carouselInner.append(`
+                        <div class="${itemClass}">
+                            <img src="/image/${projectName}/${image}" class="d-block w-100" alt="Processed Image">
+                        </div>
+                    `);
+                });
+                $('#imageCarousel').carousel();
+                $('#carouselContainer').show();
+                $('#downloadButton').attr('href', `/download/${projectName}`).show();
+            });
+        }
+    </script>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1>Project Processor</h1>
+        {% if error %}
+        <p class="text-danger">{{ error }}</p>
+        {% endif %}
+        {% if result %}
+        <p>{{ result }}</p>
+        <script>loadImages('{{ project_name }}');</script>
+        {% endif %}
+        <form action="/run" method="post" enctype="multipart/form-data" onsubmit="return validateForm()">
+            <div class="mb-3">
+                <label for="project_name" class="form-label">Project Name:</label>
+                <input type="text" class="form-control" id="project_name" name="project_name" required>
+            </div>
+            <div class="mb-3">
+                <label for="question" class="form-label">Yes/no question:</label>
+                <input type="text" class="form-control" id="question" name="question" required>
+            </div>
+            <div class="mb-3">
+                <label for="zip_file" class="form-label">Upload Zip File:</label>
+                <input type="file" class="form-control" id="zip_file" name="zip_file" accept=".zip" required>
+            </div>
+
+            <fieldset class="mb-3">
+                <legend>Options:</legend>
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="option1" name="options" value="option1">
+                    <label class="form-check-label" for="option1">Option 1</label>
+                </div>
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="option2" name="options" value="option2">
+                    <label class="form-check-label" for="option2">Option 2</label>
+                </div>
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="option3" name="options" value="option3">
+                    <label class="form-check-label" for="option3">Option 3</label>
+                </div>
+            </fieldset>
+
+            <button type="submit" class="btn btn-primary">Run</button>
+        </form>
+
+        <div id="carouselContainer" style="display: none;" class="mt-5">
+            <div id="imageCarousel" class="carousel slide" data-bs-ride="carousel">
+                <div class="carousel-inner"></div>
+                <button class="carousel-control-prev" type="button" data-bs-target="#imageCarousel" data-bs-slide="prev">
+                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Previous</span>
+                </button>
+                <button class="carousel-control-next" type="button" data-bs-target="#imageCarousel" data-bs-slide="next">
+                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Next</span>
+                </button>
+            </div>
+        </div>
+
+        <a id="downloadButton" href="#" class="btn btn-success mt-3" style="display: none;">Download All Images</a>
+    </div>
+</body>
+</html>

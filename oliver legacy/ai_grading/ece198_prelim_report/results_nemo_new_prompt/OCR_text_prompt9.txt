@@ -1,0 +1,8 @@
+<answer>yes</answer>
+
+The report lists special interest groups relevant to the client's problem as stakeholders, including:
+
+- Danish Germschi (individual)
+- Employers of the customer
+- Governmental or regulatory bodies
+- Ontario Federation of Agriculture
