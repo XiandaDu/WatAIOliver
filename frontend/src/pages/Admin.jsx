@@ -56,7 +56,7 @@ export default function AdminPage() {
   }
 
   const handleExportLog = (id) => {
-    console.log(`Export Log clicked for id: ${id}`)
+    console.log(`View Log clicked for id: ${id}`)
   }
 
   const handleQandA = (id) => {
@@ -113,7 +113,7 @@ export default function AdminPage() {
                         <Button variant="destructive" size="sm" onClick={() => handleDelete(row.id)}>Delete</Button>
                         <Button variant="outline" size="sm" onClick={() => handleUpload(row.id)}>Upload</Button>
                         <Button variant="outline" size="sm" onClick={() => handleRemoveDocs(row.id)}>Remove Docs</Button>
-                        <Button variant="outline" size="sm" onClick={() => handleExportLog(row.id)}>Export Log</Button>
+                        <Button variant="outline" size="sm" onClick={() => handleExportLog(row.id)}>View Log</Button>
                         <Button variant="outline" size="sm" onClick={() => handleQandA(row.id)}>Q and A</Button>
                       </div>
                     </TableCell>
