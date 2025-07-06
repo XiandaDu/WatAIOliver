@@ -1,0 +1,14 @@
+# Core FastAPI dependencies
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.8.0
+python-multipart>=0.0.12
+
+# PDF Processing - Official Marker
+marker-pdf>=1.7.0
+
+# For async file operations
+aiofiles>=23.0.0
+
+# Utilities
+python-dotenv>=1.0.0 

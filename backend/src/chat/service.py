@@ -1,6 +1,10 @@
 import requests
+import requests.exceptions
 from ..logger import logger
 from .models import ConversationCreate, ConversationUpdate, MessageCreate, MessageUpdate, MessageDelete, ChatRequest
+from .CRUD import get_messages
+import httpx
+from typing import Optional, Dict, Any
 
 BASE_URL = "http://ece-nebula07.eng.uwaterloo.ca:8976"  # This is the stable endpoint
 
@@ -30,8 +34,7 @@ def nebula_text_endpoint(data: ChatRequest) -> str:
     conversation_context = ""
     if data.conversation_id:
         try:
-            from . import CRUD as supabase_crud
-            messages = supabase_crud.get_messages(data.conversation_id)
+            messages = get_messages(data.conversation_id)
             
             if messages and len(messages) > 1:  # More than just the current message
                 # Build conversation history (last 10 messages to avoid token limits)
@@ -58,8 +61,21 @@ def nebula_text_endpoint(data: ChatRequest) -> str:
         "reasoning": True,
     }
     
-    response = requests.post(f"{BASE_URL}/generate", request_data)
-    return response.json().get("result", "No result returned")
+    try:
+        response = requests.post(f"{BASE_URL}/generate", request_data, timeout=120)
+        if response.status_code == 200:
+            return response.json().get("result", "No result returned")
+        else:
+            return f"Error: {response.status_code} - {response.text}"
+    except requests.exceptions.ConnectTimeout:
+        logger.error("Connection timeout to UWaterloo server")
+        return "Sorry, the AI service is currently unavailable due to network timeout. Please try again later."
+    except requests.exceptions.ConnectionError:
+        logger.error("Connection error to UWaterloo server") 
+        return "Sorry, the AI service is currently unavailable. Please check your internet connection."
+    except Exception as e:
+        logger.error(f"Request failed: {e}")
+        return f"Error communicating with model: {str(e)}"
 
 def open_ask(data: ConversationCreate):
     pass
@@ -209,3 +225,80 @@ def summarize_interaction(conversation, max_tokens=150):
     return summary.strip()
 
 # replaced text_text_eval with just the stable nebula endpoint we have at the top since it just redirects based on model name
+
+async def get_most_recent_user_query(conversation_id: str) -> Optional[str]:
+    """
+    Get the most recent user query from the messages table.
+    Returns the content of the last user message in the conversation.
+    """
+    try:
+        messages = get_messages(conversation_id)
+        
+        # Filter for user messages and get the most recent one
+        user_messages = [msg for msg in messages if msg.get('sender') == 'user']
+        
+        if user_messages:
+            # Messages are ordered by created_at, so take the last one
+            most_recent = user_messages[-1]
+            return most_recent.get('content', '')
+        
+        return None
+    except Exception as e:
+        print(f"Error getting recent user query: {e}")
+        return None
+
+async def query_rag_system(conversation_id: str, question: str) -> Optional[Dict[str, Any]]:
+    """
+    Query the RAG system for relevant information based on the user's question.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            rag_payload = {
+                'course_id': conversation_id,  # Using conversation_id as course_id
+                'question': question
+            }
+            
+            response = await client.post(
+                'http://localhost:8002/ask',
+                json=rag_payload
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                print(f"RAG system returned {response.status_code}: {response.text}")
+                return None
+    
+    except Exception as e:
+        print(f"Error querying RAG system: {e}")
+        return None
+
+def enhance_prompt_with_rag_context(original_prompt: str, rag_result: Optional[Dict[str, Any]]) -> str:
+    """
+    Enhance the original prompt with context from RAG system if available.
+    """
+    if not rag_result or not rag_result.get('success'):
+        return original_prompt
+    
+    answer = rag_result.get('answer', '')
+    sources = rag_result.get('sources', [])
+    
+    # Build context from actual document content
+    document_context = ""
+    if sources:
+        document_context = "Relevant document content:\n\n"
+        for i, source in enumerate(sources, 1):
+            content = source.get('content', '')
+            score = source.get('score', 0)
+            document_context += f"Document {i} (relevance: {score:.3f}):\n{content}\n\n"
+    
+    # Create enhanced prompt with actual document content
+    enhanced_prompt = f"""You have access to relevant information from uploaded documents. Use this context to answer the user's question.
+
+{document_context}
+
+User question: {original_prompt}
+
+Please provide a comprehensive answer based on the document content above. Reference specific information from the documents when relevant."""
+    
+    return enhanced_prompt
