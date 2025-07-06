@@ -291,10 +291,7 @@ web_modules/
 .fusebox/
 
 # DynamoDB Local files
-.dynamodb/
-
-# TernJS port file
-.tern-port
+.dynamodb/ 
 
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
