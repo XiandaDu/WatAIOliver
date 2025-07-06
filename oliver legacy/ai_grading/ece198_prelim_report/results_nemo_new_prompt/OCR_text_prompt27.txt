@@ -1,7 +1,0 @@
-<answer>Yes</answer>
-
-The report explicitly states three principles: standard deviation, solving systems of linear equations, and inequality. Here's the direct evidence:
-
-1. **Standard Deviation**: "The project will make use of mathematical principles through the calculation of standard deviation... Deviations in the user's heart rate will be measured by the microcontroller... Standard deviation is computed with the following formula: \[ \sigma = \sqrt{\frac{\sum (x_i - \mu)^2}{N}} \]"
-2. **Solving Systems of Linear Equations**: "The project will use mathematical principles involved in solving systems of linear equations... By modeling body temperature trends with linear equations, we can predict when the user's body temperature will reach an unsafe level..."
-3. **Inequality**: "The final mathematical principle this project would make use of is inequality... When the detected quantity is above the set range, warnings are given."

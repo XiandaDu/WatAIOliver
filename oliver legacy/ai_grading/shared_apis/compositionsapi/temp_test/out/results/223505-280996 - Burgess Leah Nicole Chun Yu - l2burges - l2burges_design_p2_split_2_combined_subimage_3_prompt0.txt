@@ -1,6 +1,0 @@
-```markdown
-# chainingHash Class:
-I have a constructor that takes in an integer x. It then creates a new dynamically allocated array of vectors that hold student objects and sets max size of the array to x. The destructor deletes the array of vectors holding the student objects.
-
-* I did not override any operators and I did not have to pass each parameter by reference or use of the keyword "const".
-```

@@ -1,6 +1,0 @@
-<answer>yes</answer>
-
-Evidence: The project proposal includes the following in-text citations to support how the customer is defined: 
-- Farm workers across Canada are mentioned as being at increasing risk of suffering from heat stress with citations [1] and [2].
-- There is a citation [8] when specifying the number of farm workers in Ontario as of July 2023.
-- The Ontario Federation of Agriculture is referenced to indicate stakeholder needs and concerns with citation [7].

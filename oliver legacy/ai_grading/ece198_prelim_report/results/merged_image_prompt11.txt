@@ -1,5 +1,0 @@
-Yes, both types of requirements are present in the document.
-
-Direct evidence from the report:
-- "Functional requirements" are mentioned in the section titled "Initial Requirements" where it states: "Measures body temperature in the range of 35.6 to 40.6 degrees Celsius and warns user of over-exertion, over-exposure to UV light and dangerous outdoor temperatures."
-- "Technical requirements" are mentioned in the section titled "Technical requirements" where it states: "The project will use mathematical principles through the calculation of standard deviation, which indicates how data is dispersed around the mean (1.3). Deviations in the user's heart rate will be measured by the microcontroller, which will issue a warning to the user if the deviation reaches a certain threshold. Standard deviation (σ) is computed with the following formula: σ = sqrt(sum(xi - x)^2 / N)"

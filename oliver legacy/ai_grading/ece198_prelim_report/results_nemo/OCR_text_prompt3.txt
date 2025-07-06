@@ -1,5 +1,0 @@
-**Standard 1: Is there a statement that clearly describes how the customer's life would be improved if the problem were solved?**
-
-**Answer:** Yes.
-
-**Evidence from the report:** "This device will improve the lives of farm workers by helping them avoid the causes of heat-related illnesses. They will be able to work knowing that they are in safe conditions." (Initial Requirements section)

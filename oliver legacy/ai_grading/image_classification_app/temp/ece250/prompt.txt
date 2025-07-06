@@ -1,5 +1,0 @@
-PREAMBLE: The following image is from a cookbook.
-CATEGORY: ingredients list
-CATEGORY: steps
-CATEGORY: description
-CATEGORY: recipe title

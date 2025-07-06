@@ -1,5 +1,0 @@
-Pillow
-PyMuPDF
-PyPDF2
-pdf2image
-python-docx

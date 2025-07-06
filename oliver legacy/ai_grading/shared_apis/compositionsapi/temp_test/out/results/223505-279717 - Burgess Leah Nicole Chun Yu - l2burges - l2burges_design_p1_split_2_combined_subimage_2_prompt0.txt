@@ -1,9 +1,0 @@
-# Design Decisions:
-
-## Url Class:
-- I have default constructor, and a constructor that takes in a name and value and sets name and value respectively and next and prev pointers to nullptr.
-- I have a destructor that deletes the next pointer and sets the address to nullptr.
-
-## Linked List Class:
-- I have a constructor that sets head and tail to nullptr.
-- I have a destructor that deletes the head pointer and sets its address to nullptr.

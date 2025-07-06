@@ -1,1 +1,0 @@
-Command "print" can't achieve a constant time complexity since it needs to traverse the whole chain to print out all the keys. Hence, assuming uniform hashing, the length of each chain will be n/m. Then, the time complexity would be O(n/m).

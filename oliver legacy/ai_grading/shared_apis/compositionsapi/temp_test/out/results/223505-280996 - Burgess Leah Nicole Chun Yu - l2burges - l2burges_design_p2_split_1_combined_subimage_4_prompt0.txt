@@ -1,9 +1,0 @@
-# ECE250 - Project 2
-
-## Hashing
-
-### Design Document
-
-Leah Burgess, UW UserID:12burgess
-
-November 8th, 2022

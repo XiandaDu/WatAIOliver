@@ -1,7 +1,0 @@
-[project]
-name = "clusterizer"
-version = "0.0.1"
-authors = [
-  { name="Mike Cooper-Stachowsky", email="mstachow@uwaterloo.ca" },
-]
-description = "A small package to cluster documents"
