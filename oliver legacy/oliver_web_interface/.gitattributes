@@ -1,2 +1,0 @@
-web.zip filter=lfs diff=lfs merge=lfs -text
-web[[:space:]]2.zip filter=lfs diff=lfs merge=lfs -text

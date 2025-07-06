@@ -1,1 +1,0 @@
-No, there is no UML diagram included in the provided document. The document consists of textual descriptions of classes, their member variables, and member functions.

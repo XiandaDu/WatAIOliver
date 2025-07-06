@@ -1,9 +1,0 @@
-shared_apis/textextractapi/ocr/
-shared_apis/textextractapi/pdfs/
-shared_apis/textextractapi/imgs/
-shared_apis/textextractapi/small_pdfs/
-shared_apis/textextractapi/small_ocr/
-yes_no_grading
-pdf_ocr_grader/ocr
-pdf_ocr_grader/*.pdf
-shared_apis/textextractapi/flat_text

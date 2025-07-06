@@ -1,3 +1,0 @@
-<answer>yes</answer>
-
-The report clearly defines the customer or group impacted by the project as farm workers in Ontario. This is supported by the statement in the customer problem section: "This project seeks to focus on mitigating the danger of heat stress for farm workers in Ontario, who number over 21000 as of July 2023 [8]."

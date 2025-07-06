@@ -1,3 +1,0 @@
-# Test Cases
-
-*For each test file, I tested instances where the hash table was empty, partially filled, and completely filled.*

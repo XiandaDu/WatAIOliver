@@ -1,3 +1,0 @@
-# 5. Performance
-
-All other member functions except find, clear, print ran at O(1). To achieve O(1), I made it a priority to not use any loops or iterations to perform the tasks for adding and removing elements to the front and back. Since find, clear, and print requires iterating through the deque to complete the purpose of those functions, the runtime for those functions is O(n).

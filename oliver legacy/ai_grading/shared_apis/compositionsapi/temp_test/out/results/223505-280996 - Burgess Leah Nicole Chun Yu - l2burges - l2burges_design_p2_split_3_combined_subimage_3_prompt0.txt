@@ -1,7 +1,0 @@
-# Chaining:
-
-- Tested creating a hash table of size x.
-- Tested inserting multiple elements, including inserting when there is a collision (expect chaining) and inserting the same student number that has already been inserted (expect failure).
-- Tested searching for students that were in the hash table (expect success) and those that weren't (expect failure). As well, tested searching for a student that was inserted and has since been deleted (expect failure).
-- Tested deleting students that were in the hash table (expect success) and those that weren't (expect failure). As well, tested deleting the same student twice (expect success on the first attempt and failure on the second).
-- Tested print, including indexes that have no students, and ones that have multiple. Tested to make sure they are printing in descending order. Tested if you delete a student that it prints out the chain without that student.

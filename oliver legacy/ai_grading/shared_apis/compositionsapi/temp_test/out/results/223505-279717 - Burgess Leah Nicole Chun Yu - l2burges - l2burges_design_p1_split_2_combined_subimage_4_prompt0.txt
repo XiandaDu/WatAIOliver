@@ -1,3 +1,0 @@
-# Test Cases:
-
-We were told that input would be standard and valid. Base case for creating the deque was tested. I tested pushing front and back, popping front and back, when the list was full. I also tested pushing front and back, popping front and back, getting the front url, and clearing the whole deque in multiple different orders. I then verified these inputs by periodically testing the size, printing the deque, checking if it is empty, and searching for specific urls. I tested locally and on ecubuntu.

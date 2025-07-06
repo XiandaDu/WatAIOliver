@@ -1,7 +1,0 @@
-# Separate Chaining:
-
-- **Duplication Test:** Insert a key that is already in the table
-- **Collision Test:** Insert a key that the result of primary hashing gives collision (key should be inserted into the chain in descending order)
-- **Deletion Test:** Delete a key that is in the table or not in the table
-- **Search Test:** Search for a key that is in the table, not in the table or deleted from the table
-- **Print Test:** Print a key from an empty chain / Print to check if the keys are ordered in a descending order

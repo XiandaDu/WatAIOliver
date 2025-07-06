@@ -1,7 +1,0 @@
-Metadata-Version: 2.1
-Name: chromautils
-Version: 0.1
-Summary: A package for working with ChromaDB utilities.
-Author: Haoran Zhu
-Author-email: h287zhu@uwaterloo.ca
-Requires-Dist: chromadb

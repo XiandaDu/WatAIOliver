@@ -1,7 +1,0 @@
-Yes, the report includes clear safety requirements. The safety requirements are listed under the "Safety requirements" section and include:
-
-- No more than 30W of power in any form may be consumed, transferred, discharged, or expended at any point in time.
-- The device must be designed to withstand 500mΩ of energy in any form at any point in time.
-- Electrical insulation will be applied.
-
-These requirements ensure that the device is safe to use and does not pose a risk to the user.
