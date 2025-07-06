@@ -1,8 +1,0 @@
-<answer>yes</answer>
-
-The report clearly lists special interest groups as stakeholders, including:
-
-- Danish Germschi (as an individual)
-- Employers of the customer
-- Governmental or regulatory bodies
-- Ontario Federation of Agriculture

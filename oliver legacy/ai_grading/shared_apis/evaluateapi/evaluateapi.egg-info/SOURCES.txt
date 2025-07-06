@@ -1,7 +1,0 @@
-evaluate_api.py
-setup.py
-evaluateapi.egg-info/PKG-INFO
-evaluateapi.egg-info/SOURCES.txt
-evaluateapi.egg-info/dependency_links.txt
-evaluateapi.egg-info/requires.txt
-evaluateapi.egg-info/top_level.txt

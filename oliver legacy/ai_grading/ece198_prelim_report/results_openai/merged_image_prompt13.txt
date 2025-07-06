@@ -1,8 +1,0 @@
-No, not every functional requirement in the document meets the criterion of having an associated measurement that is quantifiable numerically, and including a range of values with relevant units indicating acceptable measurements.
-
-Evidence:
-1. "The device must be lightweight." - This requirement does not provide a numerical range or units for the acceptable measurement of "lightweight."
-2. "The device must have a battery life long enough to be practical.” - There is no quantitative measurement or range provided with units.
-3. "The device must be weather-resistant." - This is a qualitative measure and lacks a quantifiable numeric range and units.
-
-These requirements do not include quantifiable measurements with relevant units and acceptable ranges, which is the standard being considered.

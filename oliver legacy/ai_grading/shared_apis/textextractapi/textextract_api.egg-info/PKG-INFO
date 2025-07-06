@@ -1,4 +1,0 @@
-Metadata-Version: 2.1
-Name: textextract_api
-Version: 0.1
-Requires-Dist: requests

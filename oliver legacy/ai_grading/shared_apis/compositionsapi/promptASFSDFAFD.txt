@@ -1,3 +1,0 @@
-
-      The image is from an engineering report. Extract all text from the image and output it as valid markdown. Pay special attention to tables. If there are tables in the image, ensure that the output includes proper Markdown tables. Respect headings and other formatting."
-  

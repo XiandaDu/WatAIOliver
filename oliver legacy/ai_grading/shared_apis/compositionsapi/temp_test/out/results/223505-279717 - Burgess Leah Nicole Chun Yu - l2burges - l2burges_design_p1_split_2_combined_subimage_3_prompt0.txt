@@ -1,4 +1,0 @@
-# Deque Class:
-- I have a constructor that creates deque of size m, that inherits the doubly linked list class. I have an empty destructor.
-
-\* I did not override any operators and I did not have to pass each parameter by reference or use of the keyword "const".

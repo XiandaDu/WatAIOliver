@@ -1,5 +1,0 @@
-PREAMBLE: You are readying a report for OCR extraction of text, tables, images, and references. Consider the following portion of a report and classify it.
-CATEGORY: text
-CATEGORY: table
-CATEGORY: image
-CATEGORY: reference

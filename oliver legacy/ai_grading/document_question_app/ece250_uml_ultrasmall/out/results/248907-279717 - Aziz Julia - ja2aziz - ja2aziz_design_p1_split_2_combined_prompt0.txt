@@ -1,1 +1,0 @@
-Yes, there is a UML diagram in the image. It is labeled as "2. UML Class diagram" and it shows the class relationships and methods for the classes `Node`, `LinkedList`, and `deque`.

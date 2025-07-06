@@ -1,7 +1,0 @@
-**Standard 1: The assignment distinguishes between "technical requirements" and "functional requirements".**
-
-- **Answer:** Yes
-- **Evidence:**
-  - The report clearly separates "Functional requirements" and "Technical requirements" in different sections.
-  - Under "Functional requirements", it lists the device's capabilities and behaviors, such as measuring body temperature, heart rate, and UV index, and providing warnings based on these measurements.
-  - Under "Technical requirements", it specifies how the device should respond to these measurements, like turning on lights and sounds, and the speed at which it should update and provide warnings.

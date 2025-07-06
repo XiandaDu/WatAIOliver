@@ -1,9 +1,0 @@
-<answer>Yes</answer>
-
-The report explicitly states three principles: standard deviation, solving systems of linear equations, and inequality. Here's how they are stated:
-
-1. **Standard Deviation**: "The project will make use of mathematical principles through the calculation of standard deviation, which indicates how data is dispersed around the mean [18]."
-2. **Solving Systems of Linear Equations**: "The project will use mathematical principles involved in solving systems of linear equations."
-3. **Inequality**: "The final mathematical principle this project would make use of is inequality."
-
-Each of these principles is clearly and explicitly stated in the report.

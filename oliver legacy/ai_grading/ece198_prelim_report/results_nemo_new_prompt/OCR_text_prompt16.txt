@@ -1,3 +1,0 @@
-<answer>No</answer>
-
-The report does not clearly associate every technical requirement with a citation that supports why it should be included. For example, the requirement for the device to consume no more than 30W of power at any point in time is not supported by any citation.

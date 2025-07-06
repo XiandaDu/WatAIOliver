@@ -1,8 +1,0 @@
-<answer>yes</answer>
-
-The report provides in-text citations to support how the customer (farm workers) is defined. Here are some examples:
-
-- The report cites [1], [2] to support the statement that "farm workers across Canada are at increasing risk of suffering from heat stress" and that "global temperatures continue to reach new highs in 2023".
-- It uses [3] to explain that heat stroke is often caused by a combination of exposure to hot environments and over-exertion through physical activity.
-- The report also cites [7] to support the statement that farm workers face problems related to heat stress such as heat exhaustion, heat cramps, and sunburn.
-- Additionally, it uses [8] to provide the number of farm workers in Ontario, which is over 21000 as of July 2023.

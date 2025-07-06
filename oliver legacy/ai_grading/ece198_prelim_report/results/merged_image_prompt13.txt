@@ -1,4 +1,0 @@
-No, not every functional requirement in the document meets this criterion. 
-
-Direct evidence from the report:
-- The functional requirement "Measures body temperature in the range of 35.6 to 40.6 degrees Celsius and warns user of over-exertion" does not have an associated measurement with a quantifiable range of values and relevant units.

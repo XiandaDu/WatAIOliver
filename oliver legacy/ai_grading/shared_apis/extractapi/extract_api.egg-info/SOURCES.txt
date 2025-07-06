@@ -1,6 +1,0 @@
-setup.py
-extract_api.egg-info/PKG-INFO
-extract_api.egg-info/SOURCES.txt
-extract_api.egg-info/dependency_links.txt
-extract_api.egg-info/requires.txt
-extract_api.egg-info/top_level.txt

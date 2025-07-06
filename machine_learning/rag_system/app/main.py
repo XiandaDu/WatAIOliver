@@ -25,7 +25,27 @@ def get_rag_service() -> RAGService:
             detail=f"RAG service unavailable: {_initialization_error}. Please check your Supabase configuration."
         )
     
+    if _rag_service is None:
+        raise HTTPException(
+            status_code=503, 
+            detail="RAG service not initialized"
+        )
+    
     return _rag_service
+
+@app.get("/")
+def root():
+    return {
+        "message": "RAG System API",
+        "status": "running",
+        "endpoints": {
+            "health": "/health",
+            "health_full": "/health/full",
+            "process_document": "/process_document",
+            "ask": "/ask",
+            "docs": "/docs"
+        }
+    }
 
 @app.get("/health")
 def health():
