@@ -1,0 +1,14 @@
+# Test output files
+*.txt
+*.json
+# Python cache and compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.py[cod]
+*$py.class
+
+# Python cache directories
+.pytest_cache/
+.mypy_cache/
