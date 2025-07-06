@@ -90,15 +90,20 @@ export default function ChatPage() {
     setInput(e.target.value)
   }
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e, { experimental_attachments } = {}) => {
     e.preventDefault()
-    if (!input.trim()) return
+    if (!input.trim() && !experimental_attachments?.length) return
 
     const userMessage = {
       id: Date.now().toString(),
       role: "user",
-      content: input,
-      createdAt: new Date()
+      content: input || (experimental_attachments?.length ? "File uploaded" : ""),
+      createdAt: new Date(),
+      experimental_attachments: experimental_attachments ? Array.from(experimental_attachments).map(file => ({
+        name: file.name,
+        url: URL.createObjectURL(file),
+        type: file.type
+      })) : null
     }
     
     setMessages(prev => [...prev, userMessage])
@@ -116,7 +121,7 @@ export default function ChatPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             user_id: userId,
-            title: input.length > 50 ? input.substring(0, 50) + '...' : input
+            title: input || (experimental_attachments?.length ? 'File Upload' : 'New Chat')
           })
         })
 
@@ -127,7 +132,7 @@ export default function ChatPage() {
           if (currentConversationId) {
             const newConversation = {
               conversation_id: currentConversationId,
-              title: input.length > 50 ? input.substring(0, 50) + '...' : input,
+              title: input || (experimental_attachments?.length ? 'File Upload' : 'New Chat'),
               user_id: userId,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
@@ -135,6 +140,26 @@ export default function ChatPage() {
             setSelectedConversation(newConversation)
             setConversations(prev => [newConversation, ...prev])
           }
+        }
+      }
+
+      // Handle file uploads if present
+      if (experimental_attachments?.length && currentConversationId) {
+        const formData = new FormData()
+        formData.append('conversation_id', currentConversationId)
+        formData.append('user_id', userId)
+        
+        for (const file of experimental_attachments) {
+          formData.append('files', file)
+        }
+        
+        try {
+          await fetch('http://localhost:8000/chat/upload_files', {
+            method: 'POST',
+            body: formData
+          })
+        } catch (uploadError) {
+          console.error('File upload error:', uploadError)
         }
       }
 
@@ -147,7 +172,7 @@ export default function ChatPage() {
             conversation_id: currentConversationId,
             user_id: userId,
             sender: 'user',
-            content: input
+            content: input || (experimental_attachments?.length ? 'File uploaded' : '')
           })
         })
       }
@@ -157,7 +182,7 @@ export default function ChatPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          prompt: input,
+          prompt: input || (experimental_attachments?.length ? 'Please help me analyze the uploaded file.' : ''),
           conversation_id: currentConversationId
         })
       })

@@ -32,10 +32,10 @@ class RAGService:
         )
         
         self.vector_client = SupabaseVectorClient(
-            supabase_url=settings.supabase_url,
-            supabase_key=settings.supabase_api_key,
+            supabase_url=settings.supabase_url or "",
+            supabase_key=settings.supabase_api_key or "",
             embeddings_client=self.embedding_client,
-            table_name="documents"
+            table_name="document_embeddings"
         )
         
         # Create retriever and QA chain
@@ -176,7 +176,7 @@ class RAGService:
             )
             
             # Generate answer using QA chain
-            response = self.qa_chain({"query": question})
+            response = self.qa_chain.invoke({"query": question})
             
             # Format sources
             sources = []

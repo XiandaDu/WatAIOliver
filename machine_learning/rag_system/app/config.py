@@ -17,13 +17,13 @@ class Settings(BaseSettings):
     """Application settings."""
     
     # Google API configuration
-    google_api_key: str
+    google_api_key: str = ""  # Make this optional since we're using service account
     google_cloud_project: str  # Required for Vertex AI - must be set in environment
     google_cloud_location: str = "global"
     
     # Supabase configuration 
-    supabase_url: str
-    supabase_api_key: str
+    supabase_url: str = ""
+    supabase_api_key: str = ""  # Will be read from SUPABASE_SERVICE_KEY
     
     # Server configuration
     host: str = "0.0.0.0"
@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     
     class Config:
         env_file = ".env"
+        extra = "ignore"  # Allow extra fields from .env file
         
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

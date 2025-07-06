@@ -39,10 +39,10 @@ fi
 echo "✅ Setup complete!"
 echo ""
 echo "🌟 Starting FastAPI server..."
-echo "📍 Server will be available at: http://localhost:8000"
-echo "📖 API Documentation: http://localhost:8000/docs"
+echo "📍 Server will be available at: http://localhost:8002"
+echo "📖 API Documentation: http://localhost:8002/docs"
 echo "🛑 Press Ctrl+C to stop the server"
 echo ""
 
 # Start the server within the activated virtual environment
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8002 
