@@ -1,6 +1,7 @@
 import { ChatForm, ChatMessages } from "@/components/ui/chat"
 import { MessageInput } from "@/components/ui/message-input"
 import { CustomSelect } from "@/components/ui/custom-select"
+import { ChatFileAttachment } from "@/components/ui/chat-file-attachment"
 import { transcribeAudio } from "@/lib/utils/audio"
 import { marked } from "marked"
 
@@ -51,17 +52,26 @@ export function ChatInterface({
                 }`}
               >
                 {message.role === "user" ? (
-                  // bubble design for user messsages
-                  <div className="max-w-xs lg:max-w-md px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg">
-                    <span className="text-sm font-medium">{message.content}</span>
+                  <div className="max-w-xs lg:max-w-md">
+                    {/* Display file attachments if present */}
+                    {message.experimental_attachments && message.experimental_attachments.length > 0 && (
+                      <div className="mb-2 flex flex-wrap gap-2">
+                        {message.experimental_attachments.map((attachment, index) => (
+                          <ChatFileAttachment key={index} attachment={attachment} />
+                        ))}
+                      </div>
+                    )}
+                    {/* User message bubble */}
+                    <div className="px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg">
+                      <span className="text-sm font-medium">{message.content}</span>
+                    </div>
                   </div>
                 ) : (
-                  
                   <div className="max-w-4xl w-full">
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
                       <div className="flex items-center mb-4">
                         <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mr-3">
-                          {/* TODO: repolace with oliver logo */}
+                          {/* TODO: replace with oliver logo */}
                           <span className="text-white text-sm font-bold">O</span>
                         </div>
                         <span className="text-sm font-medium text-gray-600">Oliver Assistant</span>

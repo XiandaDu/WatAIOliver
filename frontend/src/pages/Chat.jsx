@@ -14,6 +14,9 @@ export default function ChatPage() {
   const [selectedConversation, setSelectedConversation] = useState(null)
   const [conversations, setConversations] = useState([])
   const [isLoadingConversations, setIsLoadingConversations] = useState(true)
+  // Track loading states per conversation
+  const [conversationLoadingStates, setConversationLoadingStates] = useState({})
+  const [isSendingMessage, setIsSendingMessage] = useState(false)
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
   const [selectedModel, setSelectedModel] = useState("qwen")
@@ -29,12 +32,24 @@ export default function ChatPage() {
   }, [])
 
   useEffect(() => {
+    // Don't load messages if we're currently sending a message
+    if (isSendingMessage) {
+      console.log('Skipping message load - currently sending message')
+      return
+    }
+    
     if (selectedConversation) {
       loadMessages(selectedConversation.conversation_id)
     } else {
       setMessages([])
     }
-  }, [selectedConversation])
+  }, [selectedConversation, isSendingMessage])
+
+  // Get loading state for current conversation
+  const getCurrentConversationLoadingState = () => {
+    if (!selectedConversation) return { isLoading: false, isTyping: false }
+    return conversationLoadingStates[selectedConversation.conversation_id] || { isLoading: false, isTyping: false }
+  }
 
   const loadConversations = async () => {
     setIsLoadingConversations(true)
@@ -94,28 +109,47 @@ export default function ChatPage() {
     e.preventDefault()
     if (!input.trim() && !experimental_attachments?.length) return
 
+    console.log('Submit - Input value:', input)
+    console.log('Submit - Input trimmed:', input.trim())
+    console.log('Submit - Has attachments:', experimental_attachments?.length > 0)
+
+    setIsSendingMessage(true)
+
     const userMessage = {
       id: Date.now().toString(),
       role: "user",
-      content: input || (experimental_attachments?.length ? "File uploaded" : ""),
+      content: input.trim() || (experimental_attachments?.length ? "Please analyze the uploaded file." : ""),
       createdAt: new Date(),
       experimental_attachments: experimental_attachments ? Array.from(experimental_attachments).map(file => ({
         name: file.name,
         url: URL.createObjectURL(file),
-        type: file.type
+        type: file.type,
+        size: file.size
       })) : null
     }
     
+    console.log('User message content:', userMessage.content)
+    
     setMessages(prev => [...prev, userMessage])
     setInput("")
-    setIsLoading(true)
-    setIsTyping(true)
+    
+    // Set loading state for current conversation
+    const currentConversationId = selectedConversation?.conversation_id
+    let newConversationId = currentConversationId // Declare at function level
+    
+    if (currentConversationId) {
+      setConversationLoadingStates(prev => ({
+        ...prev,
+        [currentConversationId]: { isLoading: true, isTyping: true }
+      }))
+    } else {
+      setIsLoading(true)
+      setIsTyping(true)
+    }
 
     try {
-      let currentConversationId = selectedConversation?.conversation_id
-
       // If no conversation is selected, create a new one
-      if (!currentConversationId) {
+      if (!newConversationId) {
         const createResponse = await fetch('http://localhost:8000/chat/create_conversation', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -127,11 +161,11 @@ export default function ChatPage() {
 
         if (createResponse.ok) {
           const conversationData = await createResponse.json()
-          currentConversationId = conversationData[0]?.conversation_id
+          newConversationId = conversationData[0]?.conversation_id
           
-          if (currentConversationId) {
+          if (newConversationId) {
             const newConversation = {
-              conversation_id: currentConversationId,
+              conversation_id: newConversationId,
               title: input || (experimental_attachments?.length ? 'File Upload' : 'New Chat'),
               user_id: userId,
               created_at: new Date().toISOString(),
@@ -139,14 +173,20 @@ export default function ChatPage() {
             }
             setSelectedConversation(newConversation)
             setConversations(prev => [newConversation, ...prev])
+            
+            // Set loading state for the new conversation
+            setConversationLoadingStates(prev => ({
+              ...prev,
+              [newConversationId]: { isLoading: true, isTyping: true }
+            }))
           }
         }
       }
 
-      // Handle file uploads if present
-      if (experimental_attachments?.length && currentConversationId) {
+      // Handle file uploads if present - this can take a long time
+      if (experimental_attachments?.length && newConversationId) {
         const formData = new FormData()
-        formData.append('conversation_id', currentConversationId)
+        formData.append('conversation_id', newConversationId)
         formData.append('user_id', userId)
         
         for (const file of experimental_attachments) {
@@ -154,54 +194,86 @@ export default function ChatPage() {
         }
         
         try {
-          await fetch('http://localhost:8000/chat/upload_files', {
+          console.log('Starting file upload...')
+          const uploadResponse = await fetch('http://localhost:8000/chat/upload_files', {
             method: 'POST',
-            body: formData
+            body: formData,
+            // Add a timeout to prevent hanging
+            signal: AbortSignal.timeout(300000) // 5 minutes timeout
           })
+          
+          if (!uploadResponse.ok) {
+            console.error('File upload failed:', uploadResponse.status, uploadResponse.statusText)
+            // Don't throw error here, continue with the chat
+          } else {
+            console.log('File upload completed successfully')
+          }
         } catch (uploadError) {
           console.error('File upload error:', uploadError)
+          // Don't throw error here, continue with the chat
         }
       }
 
       // Save user message
-      if (currentConversationId) {
-        await fetch('http://localhost:8000/chat/create_message', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            conversation_id: currentConversationId,
-            user_id: userId,
-            sender: 'user',
-            content: input || (experimental_attachments?.length ? 'File uploaded' : '')
+      if (newConversationId) {
+        try {
+          await fetch('http://localhost:8000/chat/create_message', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              conversation_id: newConversationId,
+              user_id: userId,
+              sender: 'user',
+              content: input.trim() || (experimental_attachments?.length ? 'Please analyze the uploaded file.' : '')
+            })
           })
-        })
+        } catch (messageError) {
+          console.error('Failed to save user message:', messageError)
+          // Continue anyway, the message is already in the UI
+        }
       }
 
       // Get AI response
-      const chatResponse = await fetch("http://localhost:8000/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          prompt: input || (experimental_attachments?.length ? 'Please help me analyze the uploaded file.' : ''),
-          conversation_id: currentConversationId
-        })
-      })
-      
-      const chatData = await chatResponse.json()
-      const aiResponse = chatData.result || "No response from AI"
-
-      // Save AI response
-      if (currentConversationId) {
-        await fetch('http://localhost:8000/chat/create_message', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            conversation_id: currentConversationId,
-            user_id: userId,
-            sender: 'assistant',
-            content: aiResponse
+      let aiResponse = "I'm processing your request..."
+      try {
+        const chatResponse = await fetch("http://localhost:8000/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            prompt: input.trim() || (experimental_attachments?.length ? 'Please help me analyze the uploaded file.' : ''),
+            conversation_id: newConversationId
           })
         })
+        
+        if (chatResponse.ok) {
+          const chatData = await chatResponse.json()
+          aiResponse = chatData.result || "No response from AI"
+        } else {
+          console.error('Chat API error:', chatResponse.status, chatResponse.statusText)
+          aiResponse = "I'm sorry, I encountered an error while processing your request. Please try again."
+        }
+      } catch (chatError) {
+        console.error('Chat error:', chatError)
+        aiResponse = "I'm sorry, I encountered an error while processing your request. Please try again."
+      }
+
+      // Save AI response
+      if (newConversationId) {
+        try {
+          await fetch('http://localhost:8000/chat/create_message', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              conversation_id: newConversationId,
+              user_id: userId,
+              sender: 'assistant',
+              content: aiResponse
+            })
+          })
+        } catch (saveError) {
+          console.error('Failed to save AI response:', saveError)
+          // Continue anyway, the response is already in the UI
+        }
       }
 
       // Add AI response to messages
@@ -222,12 +294,28 @@ export default function ChatPage() {
         createdAt: new Date()
       }])
     } finally {
-      setIsLoading(false)
-      setIsTyping(false)
+      // Clear loading state for the conversation that was actually used
+      if (newConversationId) {
+        setConversationLoadingStates(prev => ({
+          ...prev,
+          [newConversationId]: { isLoading: false, isTyping: false }
+        }))
+      } else if (currentConversationId) {
+        setConversationLoadingStates(prev => ({
+          ...prev,
+          [currentConversationId]: { isLoading: false, isTyping: false }
+        }))
+      } else {
+        setIsLoading(false)
+        setIsTyping(false)
+      }
+      setIsSendingMessage(false)
     }
   }
 
   const append = async (message) => {
+    setIsSendingMessage(true)
+    
     const userMessage = {
       id: Date.now().toString(),
       role: "user",
@@ -235,14 +323,24 @@ export default function ChatPage() {
       createdAt: new Date()
     }
     setMessages(prev => [...prev, userMessage])
-    setIsLoading(true)
-    setIsTyping(true)
+    
+    // Set loading state for current conversation
+    const currentConversationId = selectedConversation?.conversation_id
+    let newConversationId = currentConversationId // Declare at function level
+    
+    if (currentConversationId) {
+      setConversationLoadingStates(prev => ({
+        ...prev,
+        [currentConversationId]: { isLoading: true, isTyping: true }
+      }))
+    } else {
+      setIsLoading(true)
+      setIsTyping(true)
+    }
     
     try {
-      let currentConversationId = selectedConversation?.conversation_id
-
       // If no conversation is selected, create a new one
-      if (!currentConversationId) {
+      if (!newConversationId) {
         const createResponse = await fetch('http://localhost:8000/chat/create_conversation', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -254,11 +352,11 @@ export default function ChatPage() {
 
         if (createResponse.ok) {
           const conversationData = await createResponse.json()
-          currentConversationId = conversationData[0]?.conversation_id
+          newConversationId = conversationData[0]?.conversation_id
           
-          if (currentConversationId) {
+          if (newConversationId) {
             const newConversation = {
-              conversation_id: currentConversationId,
+              conversation_id: newConversationId,
               title: message.content.length > 50 ? message.content.substring(0, 50) + '...' : message.content,
               user_id: userId,
               created_at: new Date().toISOString(),
@@ -266,17 +364,23 @@ export default function ChatPage() {
             }
             setSelectedConversation(newConversation)
             setConversations(prev => [newConversation, ...prev])
+            
+            // Set loading state for the new conversation
+            setConversationLoadingStates(prev => ({
+              ...prev,
+              [newConversationId]: { isLoading: true, isTyping: true }
+            }))
           }
         }
       }
 
       // Save user message
-      if (currentConversationId) {
+      if (newConversationId) {
         await fetch('http://localhost:8000/chat/create_message', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            conversation_id: currentConversationId,
+            conversation_id: newConversationId,
             user_id: userId,
             sender: 'user',
             content: message.content
@@ -290,7 +394,7 @@ export default function ChatPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           prompt: message.content,
-          conversation_id: currentConversationId
+          conversation_id: newConversationId
         })
       })
       
@@ -298,12 +402,12 @@ export default function ChatPage() {
       const aiResponse = chatData.result || "No response from AI"
 
       // Save AI response
-      if (currentConversationId) {
+      if (newConversationId) {
         await fetch('http://localhost:8000/chat/create_message', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            conversation_id: currentConversationId,
+            conversation_id: newConversationId,
             user_id: userId,
             sender: 'assistant',
             content: aiResponse
@@ -327,23 +431,46 @@ export default function ChatPage() {
         createdAt: new Date()
       }])
     } finally {
+      // Clear loading state for the conversation that was actually used
+      if (newConversationId) {
+        setConversationLoadingStates(prev => ({
+          ...prev,
+          [newConversationId]: { isLoading: false, isTyping: false }
+        }))
+      } else if (currentConversationId) {
+        setConversationLoadingStates(prev => ({
+          ...prev,
+          [currentConversationId]: { isLoading: false, isTyping: false }
+        }))
+      } else {
+        setIsLoading(false)
+        setIsTyping(false)
+      }
+      setIsSendingMessage(false)
+    }
+  }
+
+  const stop = () => {
+    // Clear loading state for current conversation
+    const currentConversationId = selectedConversation?.conversation_id
+    if (currentConversationId) {
+      setConversationLoadingStates(prev => ({
+        ...prev,
+        [currentConversationId]: { isLoading: false, isTyping: false }
+      }))
+    } else {
       setIsLoading(false)
       setIsTyping(false)
     }
   }
 
-  const stop = () => {
-    setIsLoading(false)
-    setIsTyping(false)
-  }
-
-  const isEmpty = messages.length === 0
+  const isEmpty = messages.length === 0 && !selectedConversation
 
   const handleSelectConversation = (conversation) => {
     console.log('Selecting conversation:', conversation)
     setSelectedConversation(conversation)
     if (conversation === null) {
-      // Clear messages to show welcome screen
+      // Only clear messages if we're explicitly selecting no conversation
       setMessages([])
     }
     // If conversation is selected, loadMessages useEffect will handle loading the messages
@@ -365,6 +492,13 @@ export default function ChatPage() {
       if (response.ok) {
         // Remove from conversations list
         setConversations(prev => prev.filter(conv => conv.conversation_id !== conversationId))
+        
+        // Remove loading state for deleted conversation
+        setConversationLoadingStates(prev => {
+          const newState = { ...prev }
+          delete newState[conversationId]
+          return newState
+        })
         
         // If this was the selected conversation, clear it
         if (selectedConversation?.conversation_id === conversationId) {
@@ -403,6 +537,9 @@ export default function ChatPage() {
     })
   }
 
+  // Get current loading states
+  const currentLoadingState = getCurrentConversationLoadingState()
+
   return (
     <div className="flex h-screen bg-white">
       <Sidebar 
@@ -430,8 +567,8 @@ export default function ChatPage() {
                 handleSubmit={handleSubmit}
                 input={input}
                 handleInputChange={handleInputChange}
-                isLoading={isLoading}
-                isTyping={isTyping}
+                isLoading={currentLoadingState.isLoading}
+                isTyping={currentLoadingState.isTyping}
                 stop={stop}
               />
             ) : (
@@ -441,11 +578,11 @@ export default function ChatPage() {
                 setSelectedModel={setSelectedModel}
                 modelOptions={modelOptions}
                 messages={messages}
-                isTyping={isTyping}
+                isTyping={currentLoadingState.isTyping}
                 handleSubmit={handleSubmit}
                 input={input}
                 handleInputChange={handleInputChange}
-                isLoading={isLoading}
+                isLoading={currentLoadingState.isLoading}
                 stop={stop}
                 messagesContainerRef={messagesContainerRef}
               />

@@ -174,8 +174,13 @@ export const ChatMessage = ({
 
 function dataUrlToUint8Array(data) {
   const base64 = data.split(",")[1]
-  const buf = Buffer.from(base64, "base64")
-  return new Uint8Array(buf);
+  // Use browser-compatible base64 decoding instead of Node.js Buffer
+  const binaryString = atob(base64)
+  const bytes = new Uint8Array(binaryString.length)
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i)
+  }
+  return bytes
 }
 
 const ReasoningBlock = ({

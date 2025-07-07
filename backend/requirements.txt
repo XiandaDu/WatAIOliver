@@ -66,3 +66,5 @@ uvicorn==0.34.3
 watchfiles==1.0.5
 websockets==14.2
 yarl==1.20.1
+pymupdf4llm==0.0.24
+itsdangerous==2.2.0
