@@ -1,0 +1,122 @@
+INFO:     Will watch for changes in these directories: ['/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/backend']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [12028] using WatchFiles
+Process SpawnProcess-1:
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/venv/lib/python3.12/site-packages/uvicorn/_subprocess.py", line 80, in subprocess_started
+    target(sockets=sockets)
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/venv/lib/python3.12/site-packages/uvicorn/server.py", line 66, in run
+    return asyncio.run(self.serve(sockets=sockets))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/venv/lib/python3.12/site-packages/uvicorn/server.py", line 70, in serve
+    await self._serve(sockets)
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/venv/lib/python3.12/site-packages/uvicorn/server.py", line 77, in _serve
+    config.load()
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/venv/lib/python3.12/site-packages/uvicorn/config.py", line 435, in load
+    self.loaded_app = import_from_string(self.app)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/venv/lib/python3.12/site-packages/uvicorn/importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 995, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/backend/src/main.py", line 2, in <module>
+    from src.api import register_routes
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/backend/src/api.py", line 2, in <module>
+    from src.chat.router import router as chat_router
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/backend/src/chat/router.py", line 7, in <module>
+    from . import service
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/backend/src/chat/service.py", line 5, in <module>
+    from .CRUD import get_messages
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/backend/src/chat/CRUD.py", line 1, in <module>
+    from src.supabaseClient import supabase
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/backend/src/supabaseClient.py", line 7, in <module>
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/venv/lib/python3.12/site-packages/supabase/_sync/client.py", line 339, in create_client
+    return SyncClient.create(
+           ^^^^^^^^^^^^^^^^^^
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/venv/lib/python3.12/site-packages/supabase/_sync/client.py", line 103, in create
+    client = cls(supabase_url, supabase_key, options)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/venv/lib/python3.12/site-packages/supabase/_sync/client.py", line 54, in __init__
+    raise SupabaseException("supabase_key is required")
+supabase._sync.client.SupabaseException: supabase_key is required
+WARNING:  WatchFiles detected changes in 'src/supabaseClient.py'. Reloading...
+Process SpawnProcess-2:
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/venv/lib/python3.12/site-packages/uvicorn/_subprocess.py", line 80, in subprocess_started
+    target(sockets=sockets)
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/venv/lib/python3.12/site-packages/uvicorn/server.py", line 66, in run
+    return asyncio.run(self.serve(sockets=sockets))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/venv/lib/python3.12/site-packages/uvicorn/server.py", line 70, in serve
+    await self._serve(sockets)
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/venv/lib/python3.12/site-packages/uvicorn/server.py", line 77, in _serve
+    config.load()
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/venv/lib/python3.12/site-packages/uvicorn/config.py", line 435, in load
+    self.loaded_app = import_from_string(self.app)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/venv/lib/python3.12/site-packages/uvicorn/importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 995, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/backend/src/main.py", line 2, in <module>
+    from src.api import register_routes
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/backend/src/api.py", line 2, in <module>
+    from src.chat.router import router as chat_router
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/backend/src/chat/router.py", line 7, in <module>
+    from . import service
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/backend/src/chat/service.py", line 5, in <module>
+    from .CRUD import get_messages
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/backend/src/chat/CRUD.py", line 1, in <module>
+    from src.supabaseClient import supabase
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/backend/src/supabaseClient.py", line 10, in <module>
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/venv/lib/python3.12/site-packages/supabase/_sync/client.py", line 339, in create_client
+    return SyncClient.create(
+           ^^^^^^^^^^^^^^^^^^
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/venv/lib/python3.12/site-packages/supabase/_sync/client.py", line 103, in create
+    client = cls(supabase_url, supabase_key, options)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/venv/lib/python3.12/site-packages/supabase/_sync/client.py", line 54, in __init__
+    raise SupabaseException("supabase_key is required")
+supabase._sync.client.SupabaseException: supabase_key is required
