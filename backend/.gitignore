@@ -1,7 +1,3 @@
-.venv
-venv
-
-.vscode
-node_modules
-
-__pycache__
+__pycache__/
+app.log
+.env
