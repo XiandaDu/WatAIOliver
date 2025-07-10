@@ -1,4 +1,4 @@
-# __pycache__/
+rag_system/app/__pycache__/*
 venv/
 groovy-bonus-454823-i5-53ed89aee2cb.json
 rag_system/.env
