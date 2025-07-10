@@ -1,2 +1,3 @@
 force-sync.sh
 venv/
+machine_learning/rag_system/app/__pycache__/*

@@ -19,3 +19,5 @@ python-multipart==0.0.20
 
 # Core Dependencies (auto-installed with above packages)
 typing_extensions==4.14.0
+pymupdf4llm
+itsdangerous
