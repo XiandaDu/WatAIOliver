@@ -12,20 +12,30 @@ pkill -f "vite" || true
 # Create logs directory
 mkdir -p logs
 
-# Check for Python 3.10+ (required for backend dependencies)
 PYTHON_CMD=""
+
 if command -v python3.12 &> /dev/null; then
     PYTHON_CMD="python3.12"
-elif command -v python3.11 &> /dev/null; then
-    PYTHON_CMD="python3.11"
-elif command -v python3.10 &> /dev/null; then
-    PYTHON_CMD="python3.10"
+    PYTHON_VERSION=$($PYTHON_CMD -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')
+    if [[ "$PYTHON_VERSION" != "3.12.2" ]]; then
+        echo "Python 3.12 is found but not version 3.12.2 (found $PYTHON_VERSION)."
+        echo "Please install Python 3.12.2 specifically."
+        exit 1
+    fi
 else
-    echo "ERROR: Python 3.10+ required! Install via:"
-    echo "   brew install python@3.10"
-    exit 1
+    echo "Python 3.12.2 not found. Attempting to install using Homebrew..."
+    if command -v brew &> /dev/null; then
+        brew install pyenv
+        pyenv install 3.12.2
+        pyenv shell 3.12.2
+        PYTHON_CMD="$(pyenv which python)"
+    else
+        echo "ERROR: Homebrew not found. Please install Python 3.12.2 manually from https://www.python.org/downloads/release/python-3122/"
+        exit 1
+    fi
 fi
 
+echo "Using Python command: $PYTHON_CMD"
 # Create virtual environment if it doesn't exist
 if [ ! -d "venv" ]; then
     echo "Creating virtual environment..."
