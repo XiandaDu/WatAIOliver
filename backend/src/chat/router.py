@@ -117,7 +117,7 @@ async def chat(data: ChatRequest):
     # Check if we should use RAG enhancement
     if hasattr(data, 'conversation_id') and data.conversation_id:
         # Try to enhance the prompt with RAG context
-        rag_result = await service.query_rag_system(data.conversation_id, data.prompt)
+        rag_result = await service.query_rag_system(data.conversation_id, data.prompt, data.model or "gemini-2.5-pro")
         
         if rag_result and rag_result.get('success'):
             # Enhance the prompt with RAG context
@@ -126,7 +126,8 @@ async def chat(data: ChatRequest):
             # Create a new request with enhanced prompt
             enhanced_data = ChatRequest(
                 prompt=enhanced_prompt,
-                conversation_id=data.conversation_id if hasattr(data, 'conversation_id') else None
+                conversation_id=data.conversation_id if hasattr(data, 'conversation_id') else None,
+                model=data.model
             )
             result = service.nebula_text_endpoint(enhanced_data)
         else:
@@ -150,7 +151,7 @@ async def chat_root(data: ChatRequest):
     # Check if we should use RAG enhancement
     if hasattr(data, 'conversation_id') and data.conversation_id:
         # Try to enhance the prompt with RAG context
-        rag_result = await service.query_rag_system(data.conversation_id, data.prompt)
+        rag_result = await service.query_rag_system(data.conversation_id, data.prompt, data.model or "gemini-2.5-pro")
         
         if rag_result and rag_result.get('success'):
             # Enhance the prompt with RAG context
@@ -159,7 +160,8 @@ async def chat_root(data: ChatRequest):
             # Create a new request with enhanced prompt
             enhanced_data = ChatRequest(
                 prompt=enhanced_prompt,
-                conversation_id=data.conversation_id if hasattr(data, 'conversation_id') else None
+                conversation_id=data.conversation_id if hasattr(data, 'conversation_id') else None,
+                model=data.model
             )
             result = service.nebula_text_endpoint(enhanced_data)
         else:

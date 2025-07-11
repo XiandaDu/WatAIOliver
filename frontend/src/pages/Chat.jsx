@@ -22,6 +22,7 @@ export default function ChatPage() {
   const [selectedModel, setSelectedModel] = useState("qwen")
   const modelOptions = [
     { label: "Qwen 3", value: "qwen" },
+    { label: "Gemini 2.5 Pro", value: "gemini-2.5-pro" },
     { label: "Model 2", value: "model-2" }
   ]
 
@@ -241,7 +242,8 @@ export default function ChatPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
             prompt: input.trim() || (experimental_attachments?.length ? 'Please help me analyze the uploaded file.' : ''),
-            conversation_id: newConversationId
+            conversation_id: newConversationId,
+            model: selectedModel
           })
         })
         
@@ -394,7 +396,8 @@ export default function ChatPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           prompt: message.content,
-          conversation_id: newConversationId
+          conversation_id: newConversationId,
+          model: selectedModel
         })
       })
       

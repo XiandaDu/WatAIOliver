@@ -82,6 +82,7 @@ class DocumentIn(BaseModel):
 class QuestionIn(BaseModel):
     course_id: str
     question: str
+    model: Optional[str] = "gemini-2.5-pro"  # Default to Gemini 2.5 Pro
 
 @app.post("/process_document")
 def process_document(doc: DocumentIn):
@@ -92,7 +93,13 @@ def process_document(doc: DocumentIn):
 
 @app.post("/ask")
 def ask_question(data: QuestionIn):
-    result = get_rag_service().answer_question(data.course_id, data.question)
+    rag_service = get_rag_service()
+    
+    # Set the model if specified
+    if data.model:
+        rag_service.set_model(data.model)
+    
+    result = rag_service.answer_question(data.course_id, data.question)
     if not result["success"]:
         raise HTTPException(status_code=500, detail=result.get("error"))
     return result

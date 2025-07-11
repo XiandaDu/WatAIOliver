@@ -27,7 +27,7 @@ class RAGService:
         
         self.llm_client = GeminiClient(
             api_key=settings.google_api_key,
-            model="gemini-1.5-flash",
+            model="gemini-2.5-pro",
             temperature=0.1
         )
         
@@ -49,8 +49,23 @@ class RAGService:
             retriever=self.retriever,
             return_source_documents=True
         )
+    
+    def set_model(self, model_name: str) -> None:
+        """Set the LLM model and recreate the QA chain."""
+        self.llm_client = GeminiClient(
+            api_key=self.settings.google_api_key,
+            model=model_name,
+            temperature=0.1
+        )
+        
+        # Recreate the QA chain with the new model
+        self.qa_chain = RetrievalQA.from_chain_type(
+            llm=self.llm_client.get_llm_client(),
+            retriever=self.retriever,
+            return_source_documents=True
+        )
 
-    def process_document(self, course_id: str, content: str, doc_id: str = None) -> Dict[str, Any]:
+    def process_document(self, course_id: str, content: str, doc_id: Optional[str] = None) -> Dict[str, Any]:
         """Process and store a document in the vector database."""
         try:
             doc_id = doc_id or f"doc_{hash(content) % 10**10}"

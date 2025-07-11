@@ -247,7 +247,7 @@ async def get_most_recent_user_query(conversation_id: str) -> Optional[str]:
         print(f"Error getting recent user query: {e}")
         return None
 
-async def query_rag_system(conversation_id: str, question: str) -> Optional[Dict[str, Any]]:
+async def query_rag_system(conversation_id: str, question: str, model: str = "gemini-2.5-pro") -> Optional[Dict[str, Any]]:
     """
     Query the RAG system for relevant information based on the user's question.
     """
@@ -255,7 +255,8 @@ async def query_rag_system(conversation_id: str, question: str) -> Optional[Dict
         async with httpx.AsyncClient(timeout=30.0) as client:
             rag_payload = {
                 'course_id': conversation_id,  # Using conversation_id as course_id
-                'question': question
+                'question': question,
+                'model': model
             }
             
             response = await client.post(
