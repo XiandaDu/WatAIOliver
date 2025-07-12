@@ -1,3 +1,11 @@
-__pycache__/*
+
+__pycache__
+
 app.log
 .env
+
+.venv
+venv
+
+.vscode
+node_modules

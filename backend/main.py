@@ -5,7 +5,14 @@ import requests
 from src.api import register_routes
 
 # Qwen model endpoint (from legacy uw_llm.py)
-BASE_URL = "http://ece-nebula07.eng.uwaterloo.ca:8976"
+import sys
+import os
+
+# Add the project root to the path so we can import config
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from config.constants import ServiceConfig
+
+BASE_URL = ServiceConfig.NEBULA_BASE_URL
 
 app = FastAPI()
 

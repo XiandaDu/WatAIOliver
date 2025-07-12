@@ -4,6 +4,12 @@ from typing import List
 import tempfile
 import os
 import httpx
+import sys
+
+# Add the project root to the path so we can import config
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../..'))
+from config.constants import TimeoutConfig, ServiceConfig
+
 from . import service
 from .models import ConversationCreate, ConversationUpdate, ConversationDelete, MessageCreate, MessageUpdate, MessageDelete, ConversationOut, MessageOut, ChatRequest
 from . import CRUD as supabase_crud
@@ -365,11 +371,11 @@ async def process_pdf_file(file_content: bytes, filename: str) -> dict:
         
         try:
             # Send to PDF processor service
-            async with httpx.AsyncClient(timeout=300.0) as client:
+            async with httpx.AsyncClient(timeout=TimeoutConfig.PDF_PROCESSING_TIMEOUT) as client:
                 with open(tmp_file_path, 'rb') as f:
                     files = {'file': (filename, f, 'application/pdf')}
                     response = await client.post(
-                        'http://localhost:8001/convert',
+                        f'http://{ServiceConfig.LOCALHOST}:{ServiceConfig.PDF_PROCESSOR_PORT}/convert',
                         files=files
                     )
                 
@@ -398,14 +404,14 @@ async def process_document_with_rag(conversation_id: str, content: str, filename
     RAG system will be running on port 8002 to avoid conflicts with backend.
     """
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=TimeoutConfig.RAG_PROCESSING_TIMEOUT) as client:
             rag_payload = {
                 'course_id': conversation_id,  # Using conversation_id as course_id
                 'content': content
             }
             
             response = await client.post(
-                'http://localhost:8002/process_document',
+                f'http://{ServiceConfig.LOCALHOST}:{ServiceConfig.RAG_SYSTEM_PORT}/process_document',
                 json=rag_payload
             )
             

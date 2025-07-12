@@ -5,8 +5,14 @@ from .models import ConversationCreate, ConversationUpdate, MessageCreate, Messa
 from .CRUD import get_messages
 import httpx
 from typing import Optional, Dict, Any
+import sys
+import os
 
-BASE_URL = "http://ece-nebula07.eng.uwaterloo.ca:8976"  # This is the stable endpoint
+# Add the project root to the path so we can import config
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../..'))
+from config.constants import TimeoutConfig, ServiceConfig
+
+BASE_URL = ServiceConfig.NEBULA_BASE_URL
 
 def generate(data: ChatRequest) -> str:
     response = requests.post(f"{BASE_URL}/generate", data={"prompt": data.prompt, "reasoning": True})
@@ -62,7 +68,7 @@ def nebula_text_endpoint(data: ChatRequest) -> str:
     }
     
     try:
-        response = requests.post(f"{BASE_URL}/generate", request_data, timeout=120)
+        response = requests.post(f"{BASE_URL}/generate", request_data, timeout=TimeoutConfig.CHAT_REQUEST_TIMEOUT)
         if response.status_code == 200:
             return response.json().get("result", "No result returned")
         else:
@@ -252,14 +258,14 @@ async def query_rag_system(conversation_id: str, question: str) -> Optional[Dict
     Query the RAG system for relevant information based on the user's question.
     """
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=TimeoutConfig.RAG_QUERY_TIMEOUT) as client:
             rag_payload = {
                 'course_id': conversation_id,  # Using conversation_id as course_id
                 'question': question
             }
             
             response = await client.post(
-                'http://localhost:8002/ask',
+                f'http://{ServiceConfig.LOCALHOST}:{ServiceConfig.RAG_SYSTEM_PORT}/ask',
                 json=rag_payload
             )
             
@@ -290,7 +296,12 @@ def enhance_prompt_with_rag_context(original_prompt: str, rag_result: Optional[D
         for i, source in enumerate(sources, 1):
             content = source.get('content', '')
             score = source.get('score', 0)
-            document_context += f"Document {i} (relevance: {score:.3f}):\n{content}\n\n"
+            # Convert score to float if it's a string
+            try:
+                score_float = float(score)
+            except (ValueError, TypeError):
+                score_float = 0.0
+            document_context += f"Document {i} (relevance: {score_float:.3f}):\n{content}\n\n"
     
     # Create enhanced prompt with actual document content
     enhanced_prompt = f"""You have access to relevant information from uploaded documents. Use this context to answer the user's question.
