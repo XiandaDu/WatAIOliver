@@ -1,15 +1,20 @@
 import os
 from typing import List
+import sys
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 from google import genai
 from google.genai.types import EmbedContentConfig
 
+# Add the project root to the path so we can import config
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../..'))
+from config.constants import TextProcessingConfig, ModelConfig
+
 
 class GoogleEmbeddingClient:
     """Google AI embeddings client using gemini-embedding-001 following official documentation."""
     
-    def __init__(self, google_cloud_project: str, model: str = "gemini-embedding-001", output_dimensionality: int = 512):
+    def __init__(self, google_cloud_project: str, model: str = "gemini-embedding-001", output_dimensionality: int = ModelConfig.DEFAULT_OUTPUT_DIMENSIONALITY):
         """Initialize the embedding client with gemini-embedding-001.
         
         Args:
@@ -25,9 +30,9 @@ class GoogleEmbeddingClient:
         self.client = genai.Client()
         
         self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=800,
-            chunk_overlap=150,
-            separators=["\n\n", "\n", ". ", " ", ""]
+            chunk_size=TextProcessingConfig.DEFAULT_CHUNK_SIZE,
+            chunk_overlap=TextProcessingConfig.DEFAULT_CHUNK_OVERLAP,
+            separators=TextProcessingConfig.CHUNK_SEPARATORS
         )
     
     def split_documents(self, documents: List[Document]) -> List[Document]:
@@ -45,7 +50,7 @@ class GoogleEmbeddingClient:
             ),
         )
         
-        return response.embeddings[0].values
+        return response.embeddings[0].values if response.embeddings else []
     
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         """Generate embeddings for multiple documents."""
@@ -60,7 +65,8 @@ class GoogleEmbeddingClient:
                     output_dimensionality=self.output_dimensionality,
                 ),
             )
-            results.append(response.embeddings[0].values)
+            if response.embeddings:
+                results.append(response.embeddings[0].values)
         return results
     
     def get_model_info(self) -> dict:

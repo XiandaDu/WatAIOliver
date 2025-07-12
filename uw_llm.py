@@ -1,6 +1,12 @@
 import requests
+import sys
+import os
 
-BASE_URL = "http://ece-nebula07.eng.uwaterloo.ca:8976"  # This is the stable endpoint
+# Add the project root to the path so we can import config
+sys.path.append(os.path.dirname(__file__))
+from config.constants import ServiceConfig
+
+BASE_URL = ServiceConfig.NEBULA_BASE_URL  # This is the stable endpoint
 
 def generate(prompt: str, reasoning: bool = False) -> str:
     response = requests.post(f"{BASE_URL}/generate", data={"prompt": prompt, "reasoning": reasoning})

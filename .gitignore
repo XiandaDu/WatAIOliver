@@ -1,3 +1,11 @@
 force-sync.sh
 venv/
-machine_learning/rag_system/app/__pycache__/*
+pre_prompt.txt
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Log files
+logs/*.log
