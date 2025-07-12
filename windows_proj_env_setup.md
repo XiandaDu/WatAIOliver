@@ -2,7 +2,9 @@
 
 This guide outlines the steps to set up and run the WatAIOliver project on Windows (VS Code environment).
 
-Please note: Lines surrounded by "<>" should be replaced with relevant lines specific to your computer
+Please note: 
+- Lines surrounded by "<>" should be replaced with relevant lines specific to your computer
+- Please ensure that you have included a .env file in the backend folder and in the machine_learning folder with the right setup info. If you have not or are not sure if you have written your .env file correctly, please ask for help
 
 ---
 

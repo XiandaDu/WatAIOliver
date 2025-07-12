@@ -50,6 +50,10 @@ class PDFConversionService:
     """
 
     def __init__(self, settings: Settings):
+        """
+        Initialize the PDFConversionService with provided settings.
+        Raises RuntimeError if Marker is not available.
+        """
         self.settings = settings
         self.logger = logging.getLogger(__name__)
 
@@ -59,11 +63,12 @@ class PDFConversionService:
     async def convert_pdf_to_markdown(self, pdf_path: str) -> ConversionResult:
         """
         Convert a PDF file to markdown using the official Marker pattern.
+        Returns a ConversionResult dataclass.
         """
         start_time = time.time()
 
         try:
-            # Validate input
+            # Validate input PDF path
             if not os.path.exists(pdf_path):
                 return ConversionResult(
                     markdown_content="",
@@ -80,7 +85,7 @@ class PDFConversionService:
             # Force MPS for Apple Silicon GPU acceleration
             os.environ['TORCH_DEVICE'] = 'mps'
 
-            # Check if API key is loaded
+            # Load Gemini API key for LLM if available
             api_key = os.getenv("GEMINI_API_KEY")
             if api_key:
                 self.logger.info(f"🤖 LLM enabled with API key: {api_key[:10]}...")
@@ -102,6 +107,7 @@ class PDFConversionService:
             self.logger.info(f"📋 Config: {accuracy_config}")
             config_parser = ConfigParser(accuracy_config)
 
+            # Create PDF converter with parsed config
             converter = PdfConverter(
                 config=config_parser.generate_config_dict(),
                 artifact_dict=create_model_dict(),
@@ -109,6 +115,7 @@ class PDFConversionService:
                 renderer=config_parser.get_renderer(),
                 llm_service=config_parser.get_llm_service()
             )
+            # Perform conversion
             rendered = converter(pdf_path)
             text, metadata, images = text_from_rendered(rendered)
 
@@ -124,6 +131,7 @@ class PDFConversionService:
             )
 
         except Exception as e:
+            # Handle conversion errors and log them
             error_msg = f"Conversion failed: {str(e)}"
             self.logger.error(f"❌ {error_msg}")
             return ConversionResult(
@@ -136,8 +144,12 @@ class PDFConversionService:
             )
 
     async def convert_pdf_bytes(self, pdf_bytes: bytes, filename: str = "document.pdf") -> ConversionResult:
-        """Convert PDF bytes to markdown format."""
-        # Create temporary file
+        """
+        Convert PDF bytes to markdown format.
+        Saves the markdown file if conversion is successful.
+        Cleans up temporary PDF file after processing.
+        """
+        # Create temporary file for PDF bytes
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_file:
             temp_file.write(pdf_bytes)
             temp_path = temp_file.name
@@ -150,7 +162,7 @@ class PDFConversionService:
                 result.metadata = {}
             result.metadata["original_filename"] = filename
 
-            # Always save markdown to file
+            # Save markdown to file if conversion succeeded
             if result.success and result.markdown_content:
                 saved_path = await self.save_markdown(result.markdown_content, filename)
                 result.metadata["saved_to"] = saved_path
@@ -163,7 +175,10 @@ class PDFConversionService:
                 os.unlink(temp_path)
 
     async def save_markdown(self, markdown_content: str, filename: str, output_dir: str = "output") -> str:
-        """Save markdown content to file."""
+        """
+        Save markdown content to file in the specified output directory.
+        Returns the path to the saved file.
+        """
         import aiofiles
 
         # Create output directory if it doesn't exist

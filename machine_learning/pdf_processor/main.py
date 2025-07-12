@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 # Get settings
 settings = get_settings()
 
-# Create FastAPI app
+# Create FastAPI app with metadata
 app = FastAPI(
     title="PDF to Markdown Converter",
     description="Convert PDF documents to Markdown with high-quality formula preservation using Marker",
@@ -28,7 +28,7 @@ app = FastAPI(
     docs_url="/docs"
 )
 
-# Add CORS middleware
+# Add CORS middleware to allow cross-origin requests
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -42,7 +42,10 @@ _pdf_service: Optional[PDFConversionService] = None
 
 
 def get_pdf_service() -> PDFConversionService:
-    """Get or create PDF conversion service instance."""
+    """
+    Get or create PDF conversion service instance.
+    Ensures only one instance is used throughout the app.
+    """
     global _pdf_service
     if _pdf_service is None:
         _pdf_service = PDFConversionService(settings)
@@ -72,12 +75,14 @@ async def root():
     }
 
 
+# Health check endpoint
 @app.get("/health")
 async def health():
     """Health check endpoint."""
     return {"status": "healthy", "service": "PDF to Markdown Converter"}
 
 
+# PDF conversion endpoint
 @app.post("/convert", response_model=ConversionResponse)
 async def convert_pdf_upload(file: UploadFile = File(...)):
     """
@@ -99,7 +104,7 @@ async def convert_pdf_upload(file: UploadFile = File(...)):
         # Convert PDF (automatically saves to file)
         result = await get_pdf_service().convert_pdf_bytes(pdf_bytes, file.filename)
         
-        # Prepare response
+        # Prepare and return API response
         return ConversionResponse(
             success=result.success,
             markdown_content=result.markdown_content,
@@ -116,6 +121,7 @@ async def convert_pdf_upload(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Conversion failed: {str(exc)}")
 
 
+# Run the app with Uvicorn if executed directly
 if __name__ == "__main__":
     import uvicorn
     
