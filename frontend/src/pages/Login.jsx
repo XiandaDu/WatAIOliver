@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useGoogleLogin } from '@react-oauth/google';
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -17,6 +18,40 @@ export default function Login() {
     const allowedDomains = ["@gmail.com", "@uwaterloo.ca"];
     return allowedDomains.some(domain => email.toLowerCase().endsWith(domain));
   };
+
+  const handleGoogleSuccess = async (response) => {
+    try {
+      // Fetch user info from Google
+      const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${response.access_token}` },
+      });
+      const userInfo = await userInfoResponse.json();
+      
+      // Validate email domain
+      if (!validateEmail(userInfo.email)) {
+        setError("Please use a valid @gmail.com or @uwaterloo.ca email address");
+        return;
+      }
+
+      // TODO: Send this info to your backend for verification and user creation/login
+      console.log("Google login success for", activeTab, "with email:", userInfo.email);
+      
+      // Navigate based on user type
+      if (activeTab === "instructor") {
+        navigate("/admin");
+      } else {
+        navigate("/chat");
+      }
+    } catch (err) {
+      setError("Failed to login with Google. Please try again.");
+      console.error("Google login error:", err);
+    }
+  };
+
+  const loginWithGoogle = useGoogleLogin({
+    onSuccess: handleGoogleSuccess,
+    onError: () => setError("Failed to login with Google. Please try again."),
+  });
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -80,6 +115,31 @@ export default function Login() {
           >
             Instructor
           </button>
+        </div>
+
+        {/* Google SSO Button */}
+        <div>
+          <Button
+            type="button"
+            onClick={() => loginWithGoogle()}
+            className="w-full bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+          >
+            <img
+              src="https://www.google.com/favicon.ico"
+              alt="Google"
+              className="w-5 h-5 mr-2"
+            />
+            Continue with Google as {activeTab === "instructor" ? "Instructor" : "Student"}
+          </Button>
+        </div>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-white text-gray-500">Or continue with email</span>
+          </div>
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
