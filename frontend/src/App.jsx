@@ -5,6 +5,7 @@ import AdminPage from "./pages/Admin.jsx"
 import EditAdminEntry from "./pages/EditAdminEntry.jsx"
 import Log from "./pages/Log.jsx"
 import Login from "./pages/Login.jsx"
+import CourseSelection from "./pages/CourseSelection.jsx"
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
       <Route path="/admin" element={<AdminPage />} />
       <Route path="/admin/edit" element={<EditAdminEntry />} />
       <Route path="/admin/logs" element={<Log />} />
+      <Route path="/courses" element={<CourseSelection />} />
       <Route path="/" element={<Login />} />
     </Routes>
   )
