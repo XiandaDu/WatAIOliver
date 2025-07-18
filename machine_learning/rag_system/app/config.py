@@ -35,12 +35,16 @@ class Settings(BaseSettings):
         extra = "ignore"  # Allow extra fields from .env file
         
     def __init__(self, **kwargs):
+        # Initialize settings and set Vertex AI environment var
         super().__init__(**kwargs)
-        # Set Vertex AI environment variable as per Google documentation
+        # Set Vertex AI environment var as per Google documentation
         os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "True"
 
 
 def get_settings() -> Settings:
+    """
+    Function to create Settings instance with environment vars.
+    """
     return Settings(
         google_api_key=os.getenv("GOOGLE_API_KEY", ""),
         google_cloud_project=os.getenv("GOOGLE_CLOUD_PROJECT", ""),  # Must be set for Vertex AI

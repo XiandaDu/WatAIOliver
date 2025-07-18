@@ -1,8 +1,10 @@
 import os
 from typing import List
 import sys
+# Import text splitter for chunking documents
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.schema import Document
+# Import Google GenAI SDK for embedding
 from google import genai
 from google.genai.types import EmbedContentConfig
 
@@ -12,8 +14,11 @@ from config.constants import TextProcessingConfig, ModelConfig
 
 
 class GoogleEmbeddingClient:
-    """Google AI embeddings client using gemini-embedding-001 following official documentation."""
+    """Google AI embeddings client using gemini-embedding-001 following official documentation.
     
+    Handles text chunking and embedding generation for queries and documents.
+    """
+
     def __init__(self, google_cloud_project: str, model: str = "gemini-embedding-001", output_dimensionality: int = ModelConfig.DEFAULT_OUTPUT_DIMENSIONALITY):
         """Initialize the embedding client with gemini-embedding-001.
         
@@ -29,6 +34,7 @@ class GoogleEmbeddingClient:
         # Use Vertex AI with service account credentials for gemini-embedding-001
         self.client = genai.Client()
         
+        # Initialize text splitter for document chunking
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=TextProcessingConfig.DEFAULT_CHUNK_SIZE,
             chunk_overlap=TextProcessingConfig.DEFAULT_CHUNK_OVERLAP,
@@ -36,11 +42,28 @@ class GoogleEmbeddingClient:
         )
     
     def split_documents(self, documents: List[Document]) -> List[Document]:
-        """Split documents into chunks."""
+        """
+        Split documents into chunks for embedding.
+        Uses langchain's RecursiveCharacterTextSplitter.
+        
+        Args:
+            documents: List of langchain Document objects
+        
+        Returns:
+            List of chunked Document objects
+        """
         return self.text_splitter.split_documents(documents)
     
     def embed_query(self, text: str) -> List[float]: 
-        """Generate embedding for a single query."""
+        """
+        Generate embedding for a single query string.
+        
+        Args:
+            text: Query text
+        
+        Returns:
+            Embedding vector as a list of floats
+        """
         response = self.client.models.embed_content(
             model=self.model,
             contents=text,
@@ -49,12 +72,19 @@ class GoogleEmbeddingClient:
                 output_dimensionality=self.output_dimensionality,
             ),
         )
-        
+        # Return embedding vals if present, else empty list
         return response.embeddings[0].values if response.embeddings else []
     
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
-        """Generate embeddings for multiple documents."""
-        # gemini-embedding-001 supports one instance per request
+        """
+        Generate embeddings for multiple documents.
+        
+        Args:
+            texts: List of document strings
+        
+        Returns:
+            List of embedding vectors
+        """
         results = []
         for text in texts:
             response = self.client.models.embed_content(
@@ -70,7 +100,12 @@ class GoogleEmbeddingClient:
         return results
     
     def get_model_info(self) -> dict:
-        """Get information about the current model configuration."""
+        """
+        Get information about the current model configuration.
+        
+        Returns:
+            Dictionary with model details
+        """
         return {
             "model": self.model,
             "expected_dimensionality": self.output_dimensionality,

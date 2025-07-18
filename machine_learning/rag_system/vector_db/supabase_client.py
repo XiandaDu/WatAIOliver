@@ -1,6 +1,8 @@
 from typing import List, Dict, Any, Tuple, Optional
+# Import Supabase vector store integration for LangChain
 from langchain_community.vectorstores import SupabaseVectorStore
 from langchain.schema import Document
+# Import Supabase Python client for database connection
 from supabase import create_client
 
 
@@ -8,7 +10,8 @@ class SupabaseVectorClient:
     """Supabase vector database client optimized for 512-dimensional vectors."""
     
     def __init__(self, supabase_url: str, supabase_key: str, embeddings_client, table_name: str = "document_embeddings"):
-        """Initialize Supabase vector client.
+        """
+        Initialize Supabase vector client and vector store.
         
         Args:
             supabase_url: Supabase project URL
@@ -20,7 +23,7 @@ class SupabaseVectorClient:
         self.embeddings_client = embeddings_client
         self.table_name = table_name
         
-        # Create vector store with enhanced configuration
+        # Create vector store with enhanced configuration for 512D vectors
         self.vector_store = SupabaseVectorStore(
             client=self.supabase,
             embedding=embeddings_client,
@@ -35,7 +38,11 @@ class SupabaseVectorClient:
         )
     
     def add_documents(self, documents: List[Document]) -> List[str]:
-        """Add documents to the vector store with bulk operation.
+        """
+        Add documents to the vector store with bulk operation.
+        
+        Args:
+            documents: List of Document objects
         
         Returns:
             List of document IDs that were added
@@ -50,7 +57,17 @@ class SupabaseVectorClient:
             raise
     
     def similarity_search(self, query: str, k: int = 4, filter: Optional[Dict[str, Any]] = None) -> List[Document]:
-        """Search for similar documents."""
+        """
+        Search for similar documents using vector similarity.
+        
+        Args:
+            query: Query string
+            k: Number of results to return
+            filter: Optional metadata filter
+        
+        Returns:
+            List of Document objects
+        """
         try:
             if filter:
                 return self.vector_store.similarity_search(query, k=k, filter=filter)
@@ -91,7 +108,17 @@ class SupabaseVectorClient:
             raise
     
     def as_retriever(self, search_type: str = "similarity_score_threshold", search_kwargs: Optional[Dict[str, Any]] = None):
-        """Get retriever for the vector store with enhanced configuration."""
+        """
+        Get retriever for the vector store with enhanced configuration.
+        Allows for custom search type and keyword arguments.
+        
+        Args:
+            search_type: Type of search (default: similarity_score_threshold)
+            search_kwargs: Additional search parameters
+        
+        Returns:
+            Retriever object
+        """
         if search_kwargs is None:
             # Optimized for 512-dimensional vectors
             search_kwargs = {
@@ -111,7 +138,12 @@ class SupabaseVectorClient:
         return self.vector_store
     
     def get_table_info(self) -> Dict[str, Any]:
-        """Get information about the vector table configuration."""
+        """
+        Get information about the vector table configuration.
+        
+        Returns:
+            Dictionary with table details and expected configuration
+        """
         return {
             "table_name": self.table_name,
             "expected_dimensions": 512,
