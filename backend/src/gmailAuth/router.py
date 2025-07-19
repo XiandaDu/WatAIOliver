@@ -33,7 +33,7 @@ async def google_signin(redirect_to: Optional[str] = None):
     try:
         logger.info(f"Starting Google sign-in, redirect_to: {redirect_to}")
         
-        # Make sure we have a valid redirect URL
+        # Change the URL as needed for your frontend
         if not redirect_to:
             redirect_to = "http://localhost:5173/login"
         
