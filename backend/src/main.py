@@ -8,6 +8,7 @@ app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key="your_secret_key",
                    max_age=3600)
 
+# Added middleware to add headers to all requests
 @app.middleware("http")
 async def add_custom_header(request: Request, call_next):
     response = await call_next(request)
