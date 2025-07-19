@@ -34,8 +34,7 @@ class GoogleEmbeddingClient:
         """Split documents into chunks."""
         return self.text_splitter.split_documents(documents)
     
-    def embed_query(self, text: str) -> List[float]:
-        print("I WAS HERE")
+    def embed_query(self, text: str) -> List[float]: 
         """Generate embedding for a single query."""
         response = self.client.models.embed_content(
             model=self.model,
