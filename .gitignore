@@ -9,3 +9,8 @@ __pycache__/
 
 # Log files
 logs/*.log
+
+# Google Cloud Service Account Keys
+*.json
+watai-test-*.json
+*credentials*.json
