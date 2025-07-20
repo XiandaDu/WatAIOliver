@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     google_api_key: str = ""  # Make this optional since we're using service account
     google_cloud_project: str  # Required for Vertex AI - must be set in environment
     google_cloud_location: str = "global"
+    cerebras_api_key: str # Required, taken from .env file
     
     # Supabase configuration 
     supabase_url: str = ""
@@ -47,6 +48,7 @@ def get_settings() -> Settings:
         google_cloud_location=os.getenv("GOOGLE_CLOUD_LOCATION", "global"),
         supabase_url=os.getenv("SUPABASE_URL", ""),
         supabase_api_key=os.getenv("SUPABASE_SERVICE_KEY", ""),
+        cerebras_api_key=os.getenv("CEREBRAS_API_KEY", ""),
     )
 
 # Settings instance will be created when needed with proper environment variables

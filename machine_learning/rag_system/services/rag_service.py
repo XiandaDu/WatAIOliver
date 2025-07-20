@@ -15,6 +15,7 @@ from langchain.schema import Document
 from app.config import Settings
 from embedding.google_embedding_client import GoogleEmbeddingClient
 from llm_clients.gemini_client import GeminiClient
+from llm_clients.cerebras_client import CerebrasClient
 from vector_db.supabase_client import SupabaseVectorClient
 
 
@@ -31,10 +32,21 @@ class RAGService:
             output_dimensionality=ModelConfig.DEFAULT_OUTPUT_DIMENSIONALITY
         )
         
-        self.llm_client = GeminiClient(
-            api_key=settings.google_api_key,
-            model="gemini-2.5-pro",
-            temperature=ModelConfig.DEFAULT_TEMPERATURE
+        # Note: Currently using Cerebras as the LLM client, can switch to Gemini by commenting 
+        # out the CerebrasClient and uncommenting GeminiClient
+        # Will need to implement feature to switch between LLM clients dynamically in the future
+
+        # self.llm_client = GeminiClient(
+        #     api_key=settings.google_api_key,
+        #     model="gemini-2.5-pro",
+        #     temperature=ModelConfig.DEFAULT_TEMPERATURE
+        # )
+
+        self.llm_client = CerebrasClient(
+            api_key=settings.cerebras_api_key,
+            model="qwen-3-235b-a22b",
+            temperature=0.6,
+            top_p=0.95
         )
         
         self.vector_client = SupabaseVectorClient(

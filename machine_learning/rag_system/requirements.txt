@@ -43,3 +43,6 @@ aiofiles>=24.0.0
 # Testing (optional but recommended)
 pytest>=7.0.0
 pytest-asyncio>=0.23.0
+
+# Cerebras AI dependencies
+cerebras-cloud-sdk==1.35.0
