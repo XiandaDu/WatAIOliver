@@ -39,7 +39,8 @@ class ModelConfig:
     
     # Model Parameters
     DEFAULT_TEMPERATURE = 0.1
-    DEFAULT_OUTPUT_DIMENSIONALITY = 512
+    # DEFAULT_OUTPUT_DIMENSIONALITY = 512  # 旧
+    DEFAULT_OUTPUT_DIMENSIONALITY = 768   # 新的
 
 # =============================================================================
 # TEXT PROCESSING CONFIGURATION

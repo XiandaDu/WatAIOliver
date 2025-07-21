@@ -9,8 +9,9 @@ CREATE TABLE IF NOT EXISTS document_embeddings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     content TEXT NOT NULL,
     metadata JSONB,
-    embedding vector(512)
+    embedding vector(768)  -- 新的
 );
+-- embedding vector(512)  -- 旧的，注释掉
 
 -- Create an index for vector similarity search
 CREATE INDEX IF NOT EXISTS document_embeddings_embedding_idx 

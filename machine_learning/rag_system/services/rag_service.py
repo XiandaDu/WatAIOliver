@@ -36,9 +36,14 @@ class RAGService:
         # Initialize Google embedding client for document chunking and vectorization
         self.embedding_client = GoogleEmbeddingClient(
             google_cloud_project=settings.google_cloud_project,
-            model="gemini-embedding-001",
+            model="text-embedding-004",  # 新的
             output_dimensionality=ModelConfig.DEFAULT_OUTPUT_DIMENSIONALITY
         )
+        # self.embedding_client = GoogleEmbeddingClient(
+        #     google_cloud_project=settings.google_cloud_project,
+        #     model="gemini-embedding-001",  # 旧的，注释掉
+        #     output_dimensionality=ModelConfig.DEFAULT_OUTPUT_DIMENSIONALITY
+        # )
         
         # Initialize Gemini LLM client for question answering
         self.llm_client = GeminiClient(
