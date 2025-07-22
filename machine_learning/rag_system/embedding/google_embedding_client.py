@@ -16,7 +16,7 @@ from config.constants import TextProcessingConfig, ModelConfig
 class GoogleEmbeddingClient:
     """Google AI embeddings client using gemini text-embedding-004 following official documentation."""
     
-    def __init__(self, google_cloud_project: str, model: str = "text-embedding-004", output_dimensionality: int = 768):
+    def __init__(self, google_cloud_project: str, model: str = "text-embedding-004", output_dimensionality: int = ModelConfig.DEFAULT_OUTPUT_DIMENSIONALITY):
         """Initialize the embedding client with gemini text-embedding-004.
         
         Args:

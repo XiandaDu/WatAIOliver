@@ -36,12 +36,12 @@ class RAGService:
         # Initialize Google embedding client for document chunking and vectorization
         self.embedding_client = GoogleEmbeddingClient(
             google_cloud_project=settings.google_cloud_project,
-            model="text-embedding-004",  # 新的
+            model="text-embedding-004",  # new
             output_dimensionality=ModelConfig.DEFAULT_OUTPUT_DIMENSIONALITY
         )
         # self.embedding_client = GoogleEmbeddingClient(
         #     google_cloud_project=settings.google_cloud_project,
-        #     model="gemini-embedding-001",  # 旧的，注释掉
+        #     model="gemini-embedding-001",  # old，commented
         #     output_dimensionality=ModelConfig.DEFAULT_OUTPUT_DIMENSIONALITY
         # )
         
