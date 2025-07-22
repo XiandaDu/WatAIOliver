@@ -60,7 +60,7 @@ class TextProcessingConfig:
     
     # Retrieval Settings
     DEFAULT_RETRIEVAL_K = 4
-    DEFAULT_SCORE_THRESHOLD = 0.7
+    DEFAULT_SCORE_THRESHOLD = 0.1
     FETCH_K_MULTIPLIER = 5  # fetch_k = k * 5
     
     # Context Limits

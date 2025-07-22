@@ -1,5 +1,6 @@
 import { PromptSuggestions } from "@/components/ui/prompt-suggestions"
 import { CustomSelect } from "@/components/ui/custom-select"
+import { CourseSelector } from "@/components/ui/course-selector"
 import { ChatForm } from "@/components/ui/chat"
 import { MessageInput } from "@/components/ui/message-input"
 import { transcribeAudio } from "@/lib/utils/audio"
@@ -8,6 +9,8 @@ export function WelcomeScreen({
   selectedModel, 
   setSelectedModel, 
   modelOptions, 
+  selectedCourseId,
+  setSelectedCourseId,
   append, 
   handleSubmit, 
   input, 
@@ -25,7 +28,7 @@ export function WelcomeScreen({
         <p className="text-gray-600">
           Ask me anything about your course!
         </p>
-        <div className="mt-4 flex flex-col items-center">
+        <div className="mt-4 flex flex-col items-center space-y-3">
           <CustomSelect
             value={selectedModel}
             onChange={setSelectedModel}
@@ -33,6 +36,13 @@ export function WelcomeScreen({
             placeholder="Select a model"
             className="w-48"
           />
+          {selectedModel === "rag" && (
+            <CourseSelector
+              value={selectedCourseId}
+              onChange={setSelectedCourseId}
+              className="w-64"
+            />
+          )}
         </div>
       </div>
       <PromptSuggestions

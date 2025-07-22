@@ -55,7 +55,7 @@ class RAGService:
         # Initialize Supabase vector database client for storing and retrieving embeddings
         self.vector_client = SupabaseVectorClient(
             supabase_url=settings.supabase_url or "",
-            supabase_key=settings.supabase_api_key or "",
+            supabase_service_role_key=settings.supabase_api_key or "",
             embeddings_client=self.embedding_client,
             table_name="document_embeddings"
         )
@@ -207,24 +207,78 @@ class RAGService:
         Returns:
             A dictionary with the answer, source information, and success status
         """
+
         try:
-            # Use modular components
+            print(f"DEBUG: Starting RAG query for course_id='{course_id}', question='{question[:100]}...'")
+            
+            # First, check what vectors exist in the database without any filters
+            print("DEBUG: Checking all vectors in database...")
+            try:
+                all_vectors = self.vector_client.vector_store.similarity_search_with_relevance_scores(
+                    query=question,
+                    k=20  # Get more results to see what's in the database
+                )
+                print(f"DEBUG: Found {len(all_vectors)} total vectors in database (no filters):")
+                for i, (doc, score) in enumerate(all_vectors):
+                    print(f"  Vector {i+1}: score={score:.4f}, course_id='{doc.metadata.get('course_id', 'MISSING')}', content='{doc.page_content[:100]}...'")
+            except Exception as e:
+                print(f"DEBUG: Error checking all vectors: {e}")
+            
+            # Now try with course filter
+            print(f"DEBUG: Searching for vectors with course_id='{course_id}'...")
+            search_results = self.vector_client.similarity_search_with_score(
+                query=question,
+                k=TextProcessingConfig.DEFAULT_RETRIEVAL_K,
+                filter={"course_id": course_id}
+            )
+            
+            print(f"DEBUG: Retrieved {len(search_results)} vectors for course_id '{course_id}':")
+            for i, (doc, score) in enumerate(search_results):
+                print(f"  Vector {i+1}: score={score:.4f}, content='{doc.page_content[:100]}...'")
+                if hasattr(doc, 'metadata') and doc.metadata:
+                    print(f"    Metadata: {doc.metadata}")
+            
+            if len(search_results) == 0:
+                print(f"DEBUG: No vectors found for course_id '{course_id}'. Trying without course filter...")
+                # If no results with course filter, try without it
+                search_results = self.vector_client.vector_store.similarity_search_with_relevance_scores(
+                    query=question,
+                    k=TextProcessingConfig.DEFAULT_RETRIEVAL_K
+                )
+                print(f"DEBUG: Found {len(search_results)} vectors without course filter:")
+                for i, (doc, score) in enumerate(search_results):
+                    print(f"  Vector {i+1}: score={score:.4f}, course_id='{doc.metadata.get('course_id', 'MISSING')}', content='{doc.page_content[:100]}...'")
+            
+            # Create retriever and QA chain
             qa_chain = self.create_course_qa_chain(course_id)
             
             # Generate answer using modular QA chain
             response = qa_chain.invoke({"query": question})
             
-            # Format sources from retrieved documents
-            sources = self._format_sources(response.get("source_documents", []))
+            # Format sources with detailed debug information
+            sources = self._format_sources_with_debug(response.get("source_documents", []))
+            
+            debug_info = {
+                "query": question,
+                "course_id": course_id,
+                "vectors_retrieved": len(search_results),
+                "vector_scores": [{"index": i, "score": score, "content_preview": doc.page_content[:100]} 
+                                 for i, (doc, score) in enumerate(search_results)]
+            }
             
             return {
                 "answer": response["result"],
                 "sources": sources,
+                "debug_info": debug_info,
                 "success": True
             }
         except Exception as e:
+            print(f"DEBUG: RAG query failed: {str(e)}")
+            import traceback
+            print(f"DEBUG: Full error traceback: {traceback.format_exc()}")
             return {"error": str(e), "success": False}
     
+
     def _format_sources(self, source_documents):
         """
         Format source documents for response.
@@ -237,11 +291,14 @@ class RAGService:
             A list of formatted source information dictionaries
         """
         sources = []
-        for doc in source_documents:
+        for i, doc in enumerate(source_documents):
+            similarity_score = doc.metadata.get('similarity_score', 'N/A') if hasattr(doc, 'metadata') and doc.metadata else 'N/A'
             sources.append({
-                "content": doc.page_content[:200],
-                "score": "Retrieved by QA chain",
-                "metadata": doc.metadata
+                "index": i,
+                "content": doc.page_content[:500],
+                "score": similarity_score,
+                "metadata": doc.metadata if hasattr(doc, 'metadata') else {},
+                "content_length": len(doc.page_content)
             })
         return sources
 

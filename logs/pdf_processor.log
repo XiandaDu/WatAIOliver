@@ -1,7 +1,0 @@
-INFO:     Will watch for changes in these directories: ['/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/machine_learning/pdf_processor']
-INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
-INFO:     Started reloader process [12029] using WatchFiles
-INFO:service.pdf_conversion_service:✅ Marker loaded successfully
-INFO:     Started server process [12081]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.

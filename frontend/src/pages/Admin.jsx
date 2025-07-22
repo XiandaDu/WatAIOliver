@@ -9,6 +9,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { CourseSelector } from "@/components/ui/course-selector"
+import { DragDropZone } from "@/components/ui/drag-drop-zone"
 import AdminSidebar from "@/components/AdminSidebar"
 
 const data = [
@@ -35,6 +37,7 @@ const data = [
 export default function AdminPage() {
   const fileInputRef = useRef(null)
   const navigate = useNavigate()
+  const [selectedCourseId, setSelectedCourseId] = useState("")
 
   const handleUpdate = (row) => {
     // Navigate to edit page with row data
@@ -71,6 +74,41 @@ export default function AdminPage() {
     }
   }
 
+  const handleFilesDrop = async (files) => {
+    if (!selectedCourseId) {
+      alert('Please select a course first')
+      return
+    }
+
+    try {
+      const uploadFormData = new FormData()
+      uploadFormData.append('course_id', selectedCourseId)
+      uploadFormData.append('user_id', 'admin')
+      
+      for (const file of files) {
+        uploadFormData.append('files', file)
+      }
+      
+      const uploadResponse = await fetch('http://localhost:8000/chat/upload_files_for_rag', {
+        method: 'POST',
+        body: uploadFormData,
+        signal: AbortSignal.timeout(300000)
+      })
+      
+      if (uploadResponse.ok) {
+        const uploadData = await uploadResponse.json()
+        console.log('RAG upload completed successfully:', uploadData)
+        alert(`Successfully uploaded ${uploadData.results.filter(r => r.status === 'completed').length} files to RAG`)
+      } else {
+        console.error('RAG upload failed:', uploadResponse.status, uploadResponse.statusText)
+        alert('Upload failed')
+      }
+    } catch (error) {
+      console.error("Error uploading files to RAG:", error)
+      alert('Upload error')
+    }
+  }
+
   return (
     <div className="flex h-screen bg-gray-50">
       <AdminSidebar title="Admin Panel" />
@@ -85,6 +123,19 @@ export default function AdminPage() {
           </div>
         </header>
         <main className="flex-1 overflow-y-auto p-6">
+          <div className="mb-6 bg-white rounded-lg border p-6 space-y-4">
+            <h2 className="text-lg font-semibold">Upload Files to RAG System</h2>
+            <CourseSelector
+              value={selectedCourseId}
+              onChange={setSelectedCourseId}
+            />
+            <DragDropZone
+              onFilesDrop={handleFilesDrop}
+              acceptedFileTypes={["pdf", "doc", "docx", "txt", "tex", "md", "json", "csv"]}
+              multiple={true}
+            />
+          </div>
+
           <div className="rounded-lg border">
             <Table>
               <TableHeader>

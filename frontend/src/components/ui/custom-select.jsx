@@ -11,7 +11,7 @@ export function CustomSelect({
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [selectedOption, setSelectedOption] = useState(
-    options.find(option => option.label === value) || null
+    options.find(option => option.value === value) || null
   )
   const selectRef = useRef(null)
 
@@ -27,12 +27,12 @@ export function CustomSelect({
   }, [])
 
   useEffect(() => {
-    setSelectedOption(options.find(option => option.label === value) || null)
+    setSelectedOption(options.find(option => option.value === value) || null)
   }, [value, options])
 
   const handleSelect = (option) => {
     setSelectedOption(option)
-    onChange(option.label)
+    onChange(option.value)
     setIsOpen(false)
   }
 

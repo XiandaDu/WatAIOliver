@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { DragDropZone } from "@/components/ui/drag-drop-zone"
 import { FileList } from "@/components/ui/file-list"
+import { CourseSelector } from "@/components/ui/course-selector"
 import AdminSidebar from "@/components/AdminSidebar"
 
 export default function EditAdminEntry() {
@@ -19,6 +20,7 @@ export default function EditAdminEntry() {
     prompt: ""
   })
   const [uploadedFiles, setUploadedFiles] = useState([])
+  const [selectedCourseId, setSelectedCourseId] = useState("")
 
   // GET ENTRY DATA HERE
   useEffect(() => {
@@ -40,24 +42,53 @@ export default function EditAdminEntry() {
   }
 
   const handleFilesDrop = async (files) => {
+    if (!selectedCourseId) {
+      alert('Please select a course first')
+      return
+    }
+
     try {
-      // Simulate file upload - in real app, you'd upload to server
-      const newFiles = files.map(file => ({
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        path: `/uploads/${file.name}` // Simulated path
-      }))
+      // Upload files to RAG system via backend
+      const uploadFormData = new FormData()
+      uploadFormData.append('course_id', selectedCourseId)
+      uploadFormData.append('user_id', 'admin')
       
-      setUploadedFiles(prev => [...prev, ...newFiles])
+      for (const file of files) {
+        uploadFormData.append('files', file)
+      }
       
-      // Update the doc field with new file paths
-      const allPaths = [...uploadedFiles, ...newFiles].map(file => file.path)
-      handleInputChange('doc', allPaths.join(','))
+      const uploadResponse = await fetch('http://localhost:8000/chat/upload_files_for_rag', {
+        method: 'POST',
+        body: uploadFormData,
+        signal: AbortSignal.timeout(300000)
+      })
       
-      console.log("Files uploaded:", newFiles)
+      if (uploadResponse.ok) {
+        const uploadData = await uploadResponse.json()
+        console.log('RAG upload completed successfully:', uploadData)
+        
+        // Add successfully uploaded files to the UI
+        const newFiles = uploadData.results
+          .filter(result => result.status === 'completed')
+          .map(result => ({
+            name: result.filename,
+            size: 0,
+            type: result.type,
+            path: `/uploads/${result.filename}`
+          }))
+        
+        setUploadedFiles(prev => [...prev, ...newFiles])
+        
+        // Update the doc field with new file paths
+        const allPaths = [...uploadedFiles, ...newFiles].map(file => file.path)
+        handleInputChange('doc', allPaths.join(','))
+        
+        console.log("Files uploaded to RAG:", newFiles)
+      } else {
+        console.error('RAG upload failed:', uploadResponse.status, uploadResponse.statusText)
+      }
     } catch (error) {
-      console.error("Error uploading files:", error)
+      console.error("Error uploading files to RAG:", error)
     }
   }
 
@@ -130,6 +161,11 @@ export default function EditAdminEntry() {
                   rows={3}
                 />
               </div>
+
+              <CourseSelector
+                value={selectedCourseId}
+                onChange={setSelectedCourseId}
+              />
 
               <div className="space-y-4">
                 <Label>Documents</Label>

@@ -61,11 +61,7 @@ def upload_file(data: FileUpload):
     # return ok(data=d)
     pass
 
-def ingest_pdf(file_path, print_output=False):
-    md_text = pymupdf4llm.to_markdown(file_path)
-    if print_output:
-        print(md_text)
-    return md_text
+
 
 # Business logic functions using Supabase CRUD
 

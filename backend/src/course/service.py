@@ -1,10 +1,6 @@
 from fastapi import HTTPException, Request, status
-# from .CRUD import (
-#     create_course, get_courses, get_courses_by_user, get_all_courses,
-#     update_course, delete_course, search_courses, get_course_count
-# )
 from .CRUD import (
-    create_course, update_course, delete_course
+    create_course, update_course, delete_course, get_courses, get_course, get_all_courses
 )
 from .models import CourseCreate, CourseUpdate, CourseResponse
 from typing import List, Optional, Dict, Any
@@ -18,16 +14,14 @@ def get_current_user(request: Request):
 
 # Business logic functions using Supabase CRUD
 
-def create_course_service(user_id: int, course_data: CourseCreate) -> CourseResponse:
+def create_course_service(created_by: str, course_data: CourseCreate) -> CourseResponse:
     """Create a new course with business logic validation"""
     try:
         course = create_course(
-            user_id=user_id,
-            name=course_data.name,
-            notes=course_data.notes,
-            doc=course_data.doc,
-            model=course_data.model,
-            prompt=course_data.prompt
+            created_by=created_by,
+            title=course_data.title,
+            description=course_data.description,
+            term=course_data.term
         )
         if not course:
             raise HTTPException(status_code=400, detail="Failed to create course")
@@ -35,27 +29,28 @@ def create_course_service(user_id: int, course_data: CourseCreate) -> CourseResp
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating course: {str(e)}")
 
-def get_course_service(course_id: int, user_id: int) -> CourseResponse:
+def get_course_service(course_id: str, created_by: str) -> CourseResponse:
     """Get a course with ownership validation"""
     course = get_course(course_id)
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
     
-    if course['user_id'] != user_id:
+    if course['created_by'] != created_by:
         raise HTTPException(status_code=403, detail="Access denied")
     
     return CourseResponse(**course)
 
-def list_courses_service(user_id: int, limit: Optional[int] = None, 
+def list_courses_service(created_by: str, limit: Optional[int] = None, 
                         offset: Optional[int] = None, search: Optional[str] = None) -> List[CourseResponse]:
-    """Get courses for a user with optional filtering and pagination"""
+    """Get all courses for a user with optional filtering"""
     try:
-        if search:
-            courses = search_courses(user_id, search)
-        else:
-            courses = get_courses_by_user(user_id)
+        courses = get_courses(created_by)
         
-        # Apply pagination
+        # Apply search filter if provided
+        if search:
+            courses = [course for course in courses if search.lower() in course.get('title', '').lower()]
+        
+        # Apply pagination if provided
         if offset:
             courses = courses[offset:]
         if limit:
@@ -65,51 +60,56 @@ def list_courses_service(user_id: int, limit: Optional[int] = None,
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching courses: {str(e)}")
 
-def update_course_service(course_id: int, user_id: int, course_data: CourseUpdate) -> CourseResponse:
+def update_course_service(course_id: str, created_by: str, course_data: CourseUpdate) -> CourseResponse:
     """Update a course with ownership validation"""
-    # Check ownership first
+    # First check if course exists and user has access
     existing_course = get_course(course_id)
     if not existing_course:
         raise HTTPException(status_code=404, detail="Course not found")
     
-    if existing_course['user_id'] != user_id:
+    if existing_course['created_by'] != created_by:
         raise HTTPException(status_code=403, detail="Access denied")
     
+    # Update the course
     try:
-        update_data = course_data.dict(exclude_unset=True)
-        if not update_data:
-            raise HTTPException(status_code=400, detail="No fields to update")
-        
+        update_data = {k: v for k, v in course_data.dict().items() if v is not None}
         updated_course = update_course(course_id, **update_data)
         if not updated_course:
             raise HTTPException(status_code=400, detail="Failed to update course")
-        
         return CourseResponse(**updated_course)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating course: {str(e)}")
 
-def delete_course_service(course_id: int, user_id: int) -> bool:
+def delete_course_service(course_id: str, created_by: str) -> bool:
     """Delete a course with ownership validation"""
-    # Check ownership first
+    # First check if course exists and user has access
     existing_course = get_course(course_id)
     if not existing_course:
         raise HTTPException(status_code=404, detail="Course not found")
     
-    if existing_course['user_id'] != user_id:
+    if existing_course['created_by'] != created_by:
         raise HTTPException(status_code=403, detail="Access denied")
     
+    # Delete the course
     try:
-        success = delete_course(course_id)
-        if not success:
-            raise HTTPException(status_code=400, detail="Failed to delete course")
-        return True
+        result = delete_course(course_id)
+        return bool(result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting course: {str(e)}")
 
-def get_course_count_service(user_id: int) -> Dict[str, int]:
+def get_course_count_service(created_by: str) -> Dict[str, int]:
     """Get course count for a user"""
     try:
-        count = get_course_count(user_id)
+        from .CRUD import get_course_count
+        count = get_course_count(created_by)
         return {"count": count}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting course count: {str(e)}")
+
+def list_all_courses_service() -> List[CourseResponse]:
+    """Get all courses - admin only"""
+    try:
+        courses = get_all_courses()
+        return [CourseResponse(**course) for course in courses]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching all courses: {str(e)}")

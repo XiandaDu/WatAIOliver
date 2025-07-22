@@ -6,7 +6,7 @@ This is the **Oliver** repo for **WatAI** — an LLM-based RAG (Retrieval-Augmen
 
 Oliver is an intelligent assistant who helps instructors and students interact with course materials through conversational AI. This is a new implementation based on the legacy Oliver project.
 
-Instructors can upload course content, and Oliver will use an RAG pipeline to generate better, more context-aware answers when students ask questions about their courses.
+Instructors can upload course content, and Oliver will use an RAG pipeline to generate better, more context-aware answers when students ask questions about their courses. Current scheduled course for deployment is MTE 182 by Albert Jiang in Fall term.
 
 ## Technology Stack
 

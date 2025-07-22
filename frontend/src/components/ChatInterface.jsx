@@ -1,6 +1,7 @@
 import { ChatForm, ChatMessages } from "@/components/ui/chat"
 import { MessageInput } from "@/components/ui/message-input"
 import { CustomSelect } from "@/components/ui/custom-select"
+import { CourseSelector } from "@/components/ui/course-selector"
 import { ChatFileAttachment } from "@/components/ui/chat-file-attachment"
 import { transcribeAudio } from "@/lib/utils/audio"
 import { marked } from "marked"
@@ -10,6 +11,8 @@ export function ChatInterface({
   selectedModel,
   setSelectedModel,
   modelOptions,
+  selectedCourseId,
+  setSelectedCourseId,
   messages,
   isTyping,
   handleSubmit,
@@ -26,7 +29,7 @@ export function ChatInterface({
           <h1 className="text-xl font-semibold text-gray-900">
             {selectedConversation ? selectedConversation.title : 'Oliver Chat'}
           </h1>
-          <div className="mt-2">
+          <div className="mt-2 space-y-3">
             <CustomSelect
               value={selectedModel}
               onChange={setSelectedModel}
@@ -34,6 +37,13 @@ export function ChatInterface({
               placeholder="Select a model"
               className="w-40"
             />
+            {selectedModel === "rag" && (
+              <CourseSelector
+                value={selectedCourseId}
+                onChange={setSelectedCourseId}
+                className="w-64"
+              />
+            )}
           </div>
         </div>
       </div>

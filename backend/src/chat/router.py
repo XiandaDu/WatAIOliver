@@ -120,27 +120,7 @@ async def upload_files_options():
 
 @router.post("/")
 async def chat(data: ChatRequest):
-    # Check if we should use RAG enhancement
-    if hasattr(data, 'conversation_id') and data.conversation_id:
-        # Try to enhance the prompt with RAG context
-        rag_result = await service.query_rag_system(data.conversation_id, data.prompt)
-        
-        if rag_result and rag_result.get('success'):
-            # Enhance the prompt with RAG context
-            enhanced_prompt = service.enhance_prompt_with_rag_context(data.prompt, rag_result)
-            
-            # Create a new request with enhanced prompt
-            enhanced_data = ChatRequest(
-                prompt=enhanced_prompt,
-                conversation_id=data.conversation_id if hasattr(data, 'conversation_id') else None
-            )
-            result = service.nebula_text_endpoint(enhanced_data)
-        else:
-            # Fall back to regular processing
-            result = service.nebula_text_endpoint(data)
-    else:
-        # No conversation ID, use regular processing
-        result = service.nebula_text_endpoint(data)
+    result = await service.generate_response(data)
     
     return JSONResponse(
         content={"result": result},
@@ -153,27 +133,7 @@ async def chat(data: ChatRequest):
 
 @router.post("")
 async def chat_root(data: ChatRequest):
-    # Check if we should use RAG enhancement
-    if hasattr(data, 'conversation_id') and data.conversation_id:
-        # Try to enhance the prompt with RAG context
-        rag_result = await service.query_rag_system(data.conversation_id, data.prompt)
-        
-        if rag_result and rag_result.get('success'):
-            # Enhance the prompt with RAG context
-            enhanced_prompt = service.enhance_prompt_with_rag_context(data.prompt, rag_result)
-            
-            # Create a new request with enhanced prompt
-            enhanced_data = ChatRequest(
-                prompt=enhanced_prompt,
-                conversation_id=data.conversation_id if hasattr(data, 'conversation_id') else None
-            )
-            result = service.nebula_text_endpoint(enhanced_data)
-        else:
-            # Fall back to regular processing
-            result = service.nebula_text_endpoint(data)
-    else:
-        # No conversation ID, use regular processing
-        result = service.nebula_text_endpoint(data)
+    result = await service.generate_response(data)
     
     return JSONResponse(
         content={"result": result},
@@ -275,7 +235,90 @@ async def upload_files(
     user_id: str = Form(...)
 ):
     """
-    Upload and process files through the ML services pipeline:
+    Upload and process files for chat context:
+    PDF files: Convert to markdown and attach as context (NOT sent to RAG)
+    Text files: Attach directly as context (NOT sent to RAG)
+    """
+    try:
+        results = []
+        
+        for file in files:
+            filename = file.filename or 'unknown_file'
+            
+            # Read file content
+            file_content = await file.read()
+            
+            # Process based on file type
+            if filename.lower().endswith('.pdf'):
+                # Convert PDF to markdown for chat context
+                pdf_result = await process_pdf_file(file_content, filename)
+                
+                if pdf_result.get('success'):
+                    # Store markdown content as chat context, NOT in RAG
+                    markdown_content = pdf_result.get('markdown_content', '')
+                    
+                    results.append({
+                        'filename': filename,
+                        'type': 'pdf',
+                        'markdown_content': markdown_content,
+                        'content_length': len(markdown_content),
+                        'status': 'completed'
+                    })
+                else:
+                    results.append({
+                        'filename': filename,
+                        'type': 'pdf',
+                        'error': pdf_result.get('error_message', 'PDF processing failed'),
+                        'status': 'failed'
+                    })
+            
+            elif filename.lower().endswith(('.txt', '.md', '.mdx')):
+                # Direct text processing for chat context
+                text_content = file_content.decode('utf-8')
+                
+                results.append({
+                    'filename': filename,
+                    'type': 'text',
+                    'text_content': text_content,
+                    'content_length': len(text_content),
+                    'status': 'completed'
+                })
+            
+            else:
+                results.append({
+                    'filename': filename,
+                    'type': 'unsupported',
+                    'error': 'Unsupported file type. Please upload PDF, TXT, MD, or MDX files.',
+                    'status': 'failed'
+                })
+        
+        return JSONResponse(
+            content={
+                'message': 'Files processed for chat context',
+                'results': results,
+                'conversation_id': conversation_id
+            },
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "POST, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type",
+            }
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"File upload and processing failed: {str(e)}"
+        )
+
+@router.post("/upload_files_for_rag")
+async def upload_files_for_rag(
+    files: List[UploadFile] = File(...),
+    course_id: str = Form(...),
+    user_id: str = Form(...)
+):
+    """
+    Upload and process files for RAG knowledge base (admin only):
     PDF files: Backend → PDF Processor (port 8001) → RAG System (port 8002)
     Text files: Backend → RAG System (port 8002)
     """
@@ -296,7 +339,7 @@ async def upload_files(
                 if pdf_result.get('success'):
                     # Stage 2: Send processed markdown to RAG system
                     rag_result = await process_document_with_rag(
-                        conversation_id, 
+                        course_id,  # Use the course_id parameter from the form
                         pdf_result.get('markdown_content', ''),
                         filename
                     )
@@ -320,7 +363,7 @@ async def upload_files(
                 # Direct text processing - send to RAG system
                 text_content = file_content.decode('utf-8')
                 rag_result = await process_document_with_rag(
-                    conversation_id, 
+                    course_id,  # Use the course_id parameter from the form
                     text_content,
                     filename
                 )
@@ -342,9 +385,9 @@ async def upload_files(
         
         return JSONResponse(
             content={
-                'message': 'Files processed successfully',
+                'message': 'Files processed for RAG knowledge base',
                 'results': results,
-                'conversation_id': conversation_id
+                'course_id': course_id
             },
             headers={
                 "Access-Control-Allow-Origin": "*",
@@ -356,8 +399,47 @@ async def upload_files(
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"File upload and processing failed: {str(e)}"
+            detail=f"RAG file upload and processing failed: {str(e)}"
         )
+
+@router.get("/courses")
+async def get_courses():
+    """Get all courses for course selection"""
+    try:
+        from src.course.CRUD import get_all_courses
+        courses = get_all_courses()
+        return JSONResponse(
+            content={"courses": courses},
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type",
+            }
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching courses: {str(e)}")
+
+@router.post("/courses")
+async def create_course(data: dict):
+    """Create a new course"""
+    try:
+        from src.course.CRUD import create_course
+        course = create_course(
+            created_by=data.get('created_by', 'admin'),
+            title=data.get('title', ''),
+            description=data.get('description', ''),
+            term=data.get('term', '')
+        )
+        return JSONResponse(
+            content={"course": course},
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "POST, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type",
+            }
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating course: {str(e)}")
 
 async def process_pdf_file(file_content: bytes, filename: str) -> dict:
     """
@@ -398,7 +480,7 @@ async def process_pdf_file(file_content: bytes, filename: str) -> dict:
             'error_message': f'PDF processing failed: {str(e)}'
         }
 
-async def process_document_with_rag(conversation_id: str, content: str, filename: str) -> dict:
+async def process_document_with_rag(course_id: str, content: str, filename: str) -> dict:
     """
     Send processed document content to the RAG system for embedding and vector storage.
     RAG system will be running on port 8002 to avoid conflicts with backend.
@@ -406,9 +488,11 @@ async def process_document_with_rag(conversation_id: str, content: str, filename
     try:
         async with httpx.AsyncClient(timeout=TimeoutConfig.RAG_PROCESSING_TIMEOUT) as client:
             rag_payload = {
-                'course_id': conversation_id,  # Using conversation_id as course_id
+                'course_id': course_id,  # Use the actual course_id parameter
                 'content': content
             }
+            
+            print(f"DEBUG: Processing document '{filename}' for course_id='{course_id}'")
             
             response = await client.post(
                 f'http://{ServiceConfig.LOCALHOST}:{ServiceConfig.RAG_SYSTEM_PORT}/process_document',

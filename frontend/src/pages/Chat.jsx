@@ -20,9 +20,10 @@ export default function ChatPage() {
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
   const [selectedModel, setSelectedModel] = useState("qwen")
+  const [selectedCourseId, setSelectedCourseId] = useState("")
   const modelOptions = [
     { label: "Qwen 3", value: "qwen" },
-    { label: "Model 2", value: "model-2" }
+    { label: "RAG System", value: "rag" }
   ]
 
   const userId = 'A1' // Using TEST user from database
@@ -184,6 +185,8 @@ export default function ChatPage() {
       }
 
       // Handle file uploads if present - this can take a long time
+      // Handle file attachments and extract content for context
+      let fileContext = ""
       if (experimental_attachments?.length && newConversationId) {
         const formData = new FormData()
         formData.append('conversation_id', newConversationId)
@@ -198,19 +201,33 @@ export default function ChatPage() {
           const uploadResponse = await fetch('http://localhost:8000/chat/upload_files', {
             method: 'POST',
             body: formData,
-            // Add a timeout to prevent hanging
-            signal: AbortSignal.timeout(300000) // 5 minutes timeout
+            signal: AbortSignal.timeout(300000)
           })
           
-          if (!uploadResponse.ok) {
-            console.error('File upload failed:', uploadResponse.status, uploadResponse.statusText)
-            // Don't throw error here, continue with the chat
-          } else {
+          if (uploadResponse.ok) {
+            const uploadData = await uploadResponse.json()
             console.log('File upload completed successfully')
+            
+            // Extract file content for context
+            const fileContents = []
+            for (const result of uploadData.results) {
+              if (result.status === 'completed') {
+                if (result.type === 'pdf' && result.markdown_content) {
+                  fileContents.push(`File: ${result.filename}\nContent:\n${result.markdown_content}`)
+                } else if (result.type === 'text' && result.text_content) {
+                  fileContents.push(`File: ${result.filename}\nContent:\n${result.text_content}`)
+                }
+              }
+            }
+            
+            if (fileContents.length > 0) {
+              fileContext = fileContents.join('\n\n---\n\n')
+            }
+          } else {
+            console.error('File upload failed:', uploadResponse.status, uploadResponse.statusText)
           }
         } catch (uploadError) {
           console.error('File upload error:', uploadError)
-          // Don't throw error here, continue with the chat
         }
       }
 
@@ -241,7 +258,10 @@ export default function ChatPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
             prompt: input.trim() || (experimental_attachments?.length ? 'Please help me analyze the uploaded file.' : ''),
-            conversation_id: newConversationId
+            conversation_id: newConversationId,
+            file_context: fileContext || null,
+            model: selectedModel,
+            course_id: selectedModel === "rag" ? selectedCourseId : null
           })
         })
         
@@ -394,7 +414,9 @@ export default function ChatPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           prompt: message.content,
-          conversation_id: newConversationId
+          conversation_id: newConversationId,
+          model: selectedModel,
+          course_id: selectedModel === "rag" ? selectedCourseId : null
         })
       })
       
@@ -563,6 +585,8 @@ export default function ChatPage() {
                 selectedModel={selectedModel}
                 setSelectedModel={setSelectedModel}
                 modelOptions={modelOptions}
+                selectedCourseId={selectedCourseId}
+                setSelectedCourseId={setSelectedCourseId}
                 append={append}
                 handleSubmit={handleSubmit}
                 input={input}
@@ -577,6 +601,8 @@ export default function ChatPage() {
                 selectedModel={selectedModel}
                 setSelectedModel={setSelectedModel}
                 modelOptions={modelOptions}
+                selectedCourseId={selectedCourseId}
+                setSelectedCourseId={setSelectedCourseId}
                 messages={messages}
                 isTyping={currentLoadingState.isTyping}
                 handleSubmit={handleSubmit}

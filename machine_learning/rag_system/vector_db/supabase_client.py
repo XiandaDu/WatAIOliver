@@ -9,17 +9,18 @@ from supabase import create_client
 class SupabaseVectorClient:
     """Supabase vector database client optimized for 512-dimensional vectors."""
     
+
     def __init__(self, supabase_url: str, supabase_key: str, embeddings_client, table_name: str = "document_embeddings"):
         """
         Initialize Supabase vector client and vector store.
         
         Args:
             supabase_url: Supabase project URL
-            supabase_key: Supabase service key
+            supabase_service_role_key: Supabase service key
             embeddings_client: Embedding client (should output 512-dimensional vectors)
             table_name: Vector table name (default: "documents")
         """
-        self.supabase = create_client(supabase_url, supabase_key)
+        self.supabase = create_client(supabase_url, supabase_service_role_key)
         self.embeddings_client = embeddings_client
         self.table_name = table_name
         
