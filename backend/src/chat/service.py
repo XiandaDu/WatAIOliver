@@ -10,7 +10,7 @@ import os
 
 # Add the project root to the path so we can import config
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../..'))
-from config.constants import TimeoutConfig, ServiceConfig, ErrorMessages
+from config.constants import TimeoutConfig, ServiceConfig
 
 BASE_URL = ServiceConfig.NEBULA_BASE_URL
 
@@ -343,7 +343,7 @@ async def generate_response(data: ChatRequest) -> str:
     if data.model == "rag" or data.model == "agents":
         # Use Multi-agent system (includes RAG as Agent 2 + reasoning)
         if not data.course_id:
-            return ErrorMessages.AGENTS_COURSE_REQUIRED
+            return "Agent System requires a course selection to identify the knowledge base."
         
         try:
             speculative_result = await query_agents_system(
@@ -370,11 +370,11 @@ async def generate_response(data: ChatRequest) -> str:
                 
                 return formatted_answer
             else:
-                error_msg = speculative_result.get('error', {}).get('message', ErrorMessages.UNKNOWN_ERROR)
-                return f"{ErrorMessages.AGENTS_SYSTEM_ERROR}\n\nDetails: {error_msg}"
+                            error_msg = speculative_result.get('error', {}).get('message', "An unexpected error occurred.")
+            return f"The Agent System encountered an error while processing your request.\n\nDetails: {error_msg}"
         
         except Exception as e:
-            return f"{ErrorMessages.AGENTS_SYSTEM_UNAVAILABLE}\n\nTechnical details: {str(e)}"
+            return f"The Agent System is currently unavailable. Please try again later.\n\nTechnical details: {str(e)}"
     
     else:
         # Default: Use qwen3 directly without RAG

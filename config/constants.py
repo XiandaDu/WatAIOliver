@@ -86,21 +86,4 @@ class TimeoutConfig:
     DB_QUERY_TIMEOUT = 30
     VECTOR_SEARCH_TIMEOUT = 10
 
-# =============================================================================
-# ERROR MESSAGES
-# =============================================================================
-
-class ErrorMessages:
-    """Standardized error messages for user-facing responses"""
-    
-    # Agent System Errors
-    AGENTS_SYSTEM_UNAVAILABLE = "The Agent System is currently unavailable. Please try again later or contact support."
-    AGENTS_SYSTEM_ERROR = "The Agent System encountered an error while processing your request."
-    AGENTS_COURSE_REQUIRED = "Agent System requires a course selection to identify the knowledge base."
-    
-    # Connection Errors
-    CONNECTION_TIMEOUT = "Request timed out. The system is processing complex queries and may need more time."
-    SERVICE_UNAVAILABLE = "Service temporarily unavailable. Please try again in a few moments."
-    
-    # General Errors
-    UNKNOWN_ERROR = "An unexpected error occurred. Please try again or contact support." 
+ 
