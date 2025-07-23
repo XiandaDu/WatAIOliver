@@ -23,7 +23,7 @@ export default function ChatPage() {
   const [selectedCourseId, setSelectedCourseId] = useState("")
   const modelOptions = [
     { label: "Qwen 3", value: "qwen" },
-    { label: "RAG System", value: "rag" }
+    { label: "Agent System", value: "rag" }
   ]
 
   const userId = 'A1' // Using TEST user from database

@@ -10,7 +10,7 @@ import os
 
 # Add the project root to the path so we can import config
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../..'))
-from config.constants import TimeoutConfig, ServiceConfig
+from config.constants import TimeoutConfig, ServiceConfig, ErrorMessages
 
 BASE_URL = ServiceConfig.NEBULA_BASE_URL
 
@@ -336,47 +336,147 @@ Please provide a comprehensive answer based on the document content above. Refer
 
 async def generate_response(data: ChatRequest) -> str:
     """
-    Generate a response using either RAG system directly or qwen with optional RAG enhancement.
+    Generate a response using either:
+    1. qwen3 (default) - Pure qwen without any RAG
+    2. agents - Multi-agent system with built-in RAG as Agent 2
     """
-    if data.model == "rag":
-        # Use RAG system directly
+    if data.model == "rag" or data.model == "agents":
+        # Use Multi-agent system (includes RAG as Agent 2 + reasoning)
         if not data.course_id:
-            return "RAG mode requires a course selection to identify the knowledge base."
+            return ErrorMessages.AGENTS_COURSE_REQUIRED
         
         try:
-            rag_result = await query_rag_system(data.conversation_id or "", data.prompt, data.course_id)
+            speculative_result = await query_agents_system(
+                data.conversation_id or "", 
+                data.prompt, 
+                data.course_id
+            )
 
-            if rag_result and rag_result.get('success'):
-                answer = rag_result.get('answer', 'No answer provided by RAG system.')
-                debug_info = rag_result.get('debug_info', {})
+            if speculative_result and speculative_result.get('success'):
+                answer_data = speculative_result.get('answer', {})
                 
-                # Include debug information in response
-                if debug_info.get('vectors_retrieved', 0) > 0:
-                    debug_summary = f"\n\nDEBUG: Retrieved {debug_info['vectors_retrieved']} vectors"
-                    for score_info in debug_info.get('vector_scores', []):
-                        debug_summary += f"\n  Vector {score_info['index'] + 1}: score={score_info['score']:.4f}"
-                    answer += debug_summary
+                # Format the structured answer
+                formatted_answer = format_agents_response(answer_data)
                 
-                return answer
+                # Add debug information if available
+                debug_info = speculative_result.get('debug_info', {})
+                if debug_info:
+                    debug_summary = f"\n\n**Reasoning Process:**"
+                    debug_summary += f"\n- Debate Status: {speculative_result.get('metadata', {}).get('debate_status', 'unknown')}"
+                    debug_summary += f"\n- Debate Rounds: {speculative_result.get('metadata', {}).get('debate_rounds', 'unknown')}"
+                    debug_summary += f"\n- Quality Score: {speculative_result.get('metadata', {}).get('convergence_score', 'unknown'):.3f}"
+                    debug_summary += f"\n- Context Items: {debug_info.get('context_items', 'unknown')}"
+                    formatted_answer += debug_summary
+                
+                return formatted_answer
             else:
-                return "No relevant information found in the knowledge base for this query."
+                error_msg = speculative_result.get('error', {}).get('message', ErrorMessages.UNKNOWN_ERROR)
+                return f"{ErrorMessages.AGENTS_SYSTEM_ERROR}\n\nDetails: {error_msg}"
         
         except Exception as e:
-            return f"RAG system error: {str(e)}"
+            return f"{ErrorMessages.AGENTS_SYSTEM_UNAVAILABLE}\n\nTechnical details: {str(e)}"
     
     else:
-        # Use qwen with optional RAG enhancement (existing behavior)
-        if data.conversation_id:
-            rag_result = await query_rag_system(data.conversation_id, data.prompt, data.course_id)
-
-            if rag_result and rag_result.get('success'):
-                enhanced_prompt = enhance_prompt_with_rag_context(data.prompt, rag_result)
-                enhanced_data = ChatRequest(
-                    prompt=enhanced_prompt,
-                    conversation_id=data.conversation_id,
-                    file_context=data.file_context,
-                    model=data.model
-                )
-                return nebula_text_endpoint(enhanced_data)
-        
+        # Default: Use qwen3 directly without RAG
         return nebula_text_endpoint(data)
+
+
+async def query_agents_system(conversation_id: str, query: str, course_id: str) -> dict:
+    """Query the multi-agent system"""
+    
+    try:
+        async with httpx.AsyncClient(timeout=TimeoutConfig.RAG_QUERY_TIMEOUT) as client:
+            payload = {
+                "query": query,
+                "course_id": course_id,
+                "session_id": conversation_id,
+                "metadata": {"source": "chat_interface"}
+            }
+            
+            response = await client.post(
+                f'http://{ServiceConfig.LOCALHOST}:{ServiceConfig.AGENTS_SYSTEM_PORT}/query',
+                json=payload
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return {
+                    'success': False,
+                    'error': {
+                        'type': 'http_error',
+                        'message': f'Agents service returned {response.status_code}: {response.text}'
+                    }
+                }
+    
+    except Exception as e:
+        return {
+            'success': False,
+            'error': {
+                'type': 'connection_error',
+                'message': f'Failed to connect to Agents service: {str(e)}'
+            }
+        }
+
+
+def format_agents_response(answer_data: dict) -> str:
+    """Format the structured agents system response for display"""
+    
+    if not answer_data:
+        return "No answer provided by the Speculative AI system."
+    
+    formatted_sections = []
+    
+    # Handle different response formats based on debate status
+    if "partial_solution" in answer_data:
+        # Deadlock format
+        formatted_sections.append("## Partial Solution")
+        formatted_sections.append(answer_data.get("partial_solution", ""))
+        
+        if answer_data.get("areas_of_uncertainty"):
+            formatted_sections.append("\n## Areas of Uncertainty")
+            formatted_sections.append(answer_data["areas_of_uncertainty"])
+        
+        if answer_data.get("what_we_can_conclude"):
+            formatted_sections.append("\n## What We Can Conclude")
+            formatted_sections.append(answer_data["what_we_can_conclude"])
+        
+        if answer_data.get("recommendations_for_further_exploration"):
+            formatted_sections.append("\n## Recommendations for Further Exploration")
+            formatted_sections.append(answer_data["recommendations_for_further_exploration"])
+    
+    else:
+        # Standard approved format
+        if answer_data.get("introduction"):
+            formatted_sections.append("## Introduction")
+            formatted_sections.append(answer_data["introduction"])
+        
+        if answer_data.get("step_by_step_solution"):
+            formatted_sections.append("\n## Solution")
+            formatted_sections.append(answer_data["step_by_step_solution"])
+        
+        if answer_data.get("key_takeaways"):
+            formatted_sections.append("\n## Key Takeaways")
+            formatted_sections.append(answer_data["key_takeaways"])
+        
+        if answer_data.get("important_notes"):
+            formatted_sections.append("\n## Important Notes")
+            formatted_sections.append(answer_data["important_notes"])
+    
+    # Add quality indicators
+    quality_indicators = answer_data.get("quality_indicators", {})
+    if quality_indicators:
+        formatted_sections.append("\n## Quality Assessment")
+        verification_level = quality_indicators.get("verification_level", "unknown")
+        context_support = quality_indicators.get("context_support", "unknown")
+        formatted_sections.append(f"- Verification Level: {verification_level}")
+        formatted_sections.append(f"- Context Support: {context_support}")
+    
+    # Add sources if available
+    sources = answer_data.get("sources", [])
+    if sources:
+        formatted_sections.append("\n## Sources")
+        for i, source in enumerate(sources[:5], 1):  # Limit to 5 sources
+            formatted_sections.append(f"{i}. {source}")
+        
+    return "\n".join(formatted_sections) if formatted_sections else "No structured content available."

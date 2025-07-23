@@ -27,10 +27,10 @@ try:
     from marker.output import text_from_rendered
     from marker.config.parser import ConfigParser
     MARKER_AVAILABLE = True
-    logger.info("✅ Marker loaded successfully")
+    logger.info("Marker loaded successfully")
 except ImportError as e:
     MARKER_AVAILABLE = False
-    logger.error(f"❌ Marker not available: {e}")
+    logger.error(f"Marker not available: {e}")
 
 
 @dataclass
@@ -79,7 +79,7 @@ class PDFConversionService:
                     error_message=f"PDF file not found: {pdf_path}"
                 )
 
-            self.logger.info(f"🔄 Converting PDF: {pdf_path}")
+            self.logger.info(f"Converting PDF: {pdf_path}")
 
             # Official Marker pattern with accuracy-first configuration from README
             # Force MPS for Apple Silicon GPU acceleration
@@ -88,9 +88,9 @@ class PDFConversionService:
             # Load Gemini API key for LLM if available
             api_key = os.getenv("GEMINI_API_KEY")
             if api_key:
-                self.logger.info(f"🤖 LLM enabled with API key: {api_key[:10]}...")
+                self.logger.info(f"LLM enabled with API key: {api_key[:10]}...")
             else:
-                self.logger.warning("⚠️ No GEMINI_API_KEY found, LLM disabled")
+                self.logger.warning("️ No GEMINI_API_KEY found, LLM disabled")
 
             # Maximum accuracy configuration from Marker README
             accuracy_config = {
@@ -104,7 +104,7 @@ class PDFConversionService:
             if api_key:
                 accuracy_config["gemini_api_key"] = api_key
 
-            self.logger.info(f"📋 Config: {accuracy_config}")
+            self.logger.info(f"Config: {accuracy_config}")
             config_parser = ConfigParser(accuracy_config)
 
             # Create PDF converter with parsed config
@@ -120,7 +120,7 @@ class PDFConversionService:
             text, metadata, images = text_from_rendered(rendered)
 
             processing_time = time.time() - start_time
-            self.logger.info(f"✅ Conversion completed in {processing_time:.2f}s")
+            self.logger.info(f"Conversion completed in {processing_time:.2f}s")
 
             return ConversionResult(
                 markdown_content=text or "",
@@ -133,7 +133,7 @@ class PDFConversionService:
         except Exception as e:
             # Handle conversion errors and log them
             error_msg = f"Conversion failed: {str(e)}"
-            self.logger.error(f"❌ {error_msg}")
+            self.logger.error(f"{error_msg}")
             return ConversionResult(
                 markdown_content="",
                 metadata={"error": str(e)},
@@ -166,7 +166,7 @@ class PDFConversionService:
             if result.success and result.markdown_content:
                 saved_path = await self.save_markdown(result.markdown_content, filename)
                 result.metadata["saved_to"] = saved_path
-                self.logger.info(f"📁 Automatically saved to: {saved_path}")
+                self.logger.info(f"Automatically saved to: {saved_path}")
 
             return result
         finally:
@@ -192,5 +192,5 @@ class PDFConversionService:
         async with aiofiles.open(output_path, 'w', encoding='utf-8') as f:
             await f.write(markdown_content)
 
-        self.logger.info(f"💾 Saved markdown to: {output_path}")
+        self.logger.info(f"Saved markdown to: {output_path}")
         return output_path 

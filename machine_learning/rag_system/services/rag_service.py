@@ -5,7 +5,9 @@ import sys
 import os
 
 # Add the project root to the path so we can import config
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../..'))
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 from config.constants import ModelConfig, TextProcessingConfig
 
 # Import document loaders for different file types
@@ -13,11 +15,10 @@ from langchain_community.document_loaders import TextLoader, PyPDFLoader, Docx2t
 from langchain.chains import RetrievalQA
 from langchain.schema import Document
 
-# Import application settings and modular service clients
-from app.config import Settings
-from embedding.google_embedding_client import GoogleEmbeddingClient
-from llm_clients.gemini_client import GeminiClient
-from vector_db.supabase_client import SupabaseVectorClient
+from rag_system.app.config import Settings
+from rag_system.embedding.google_embedding_client import GoogleEmbeddingClient
+from rag_system.llm_clients.gemini_client import GeminiClient
+from rag_system.vector_db.supabase_client import SupabaseVectorClient
 
 
 class RAGService:
@@ -128,15 +129,15 @@ class RAGService:
             Processing result with statistics
         """
         try:
-            print(f"🚀 Starting stateless processing flow for file: {file_identifier}")
+            print(f"Starting stateless processing flow for file: {file_identifier}")
             
             # Step 1: Load - Pull raw file from Supabase Storage
-            print("📁 Step 1: Loading file from storage...")
+            print("Step 1: Loading file from storage...")
             # Note: In production, this would pull from Supabase Storage
             # For now, we'll work with the content directly
             
             # Step 2: Split - Use preset text splitting strategy
-            print("✂️ Step 2: Splitting document into chunks...")
+            print("️Step 2: Splitting document into chunks...")
             document = Document(
                 page_content="Sample content for processing",  # Replace with actual file content
                 metadata={
@@ -150,7 +151,7 @@ class RAGService:
             print(f"   Created {len(chunks)} chunks")
             
             # Step 3: Embed - Convert text chunks to 512D vectors
-            print("🧠 Step 3: Generating embeddings with gemini-embedding-001...")
+            print("Step 3: Generating embeddings with gemini-embedding-001...")
             
             # Add enhanced metadata to chunks
             for i, chunk in enumerate(chunks):
@@ -163,7 +164,7 @@ class RAGService:
                 })
             
             # Step 4: Write Back - Bulk-write to Supabase PG vector table
-            print("💾 Step 4: Bulk-writing vectors to Supabase...")
+            print("Step 4: Bulk-writing vectors to Supabase...")
             document_ids = self.vector_client.add_documents(chunks)
             
             # Get model info for response
@@ -181,13 +182,13 @@ class RAGService:
                 "success": True
             }
             
-            print("✅ Stateless processing flow completed successfully")
-            print(f"   📊 Statistics: {len(chunks)} chunks, {model_info['output_dimensionality']}D vectors")
+            print("Stateless processing flow completed successfully")
+            print(f"Statistics: {len(chunks)} chunks, {model_info['output_dimensionality']}D vectors")
             
             return result
             
         except Exception as e:
-            error_msg = f"❌ Processing flow failed: {str(e)}"
+            error_msg = f"Processing flow failed: {str(e)}"
             print(error_msg)
             return {
                 "file_identifier": file_identifier,
@@ -209,73 +210,59 @@ class RAGService:
         """
 
         try:
-            print(f"DEBUG: Starting RAG query for course_id='{course_id}', question='{question[:100]}...'")
-            
-            # First, check what vectors exist in the database without any filters
-            print("DEBUG: Checking all vectors in database...")
-            try:
-                all_vectors = self.vector_client.vector_store.similarity_search_with_relevance_scores(
-                    query=question,
-                    k=20  # Get more results to see what's in the database
-                )
-                print(f"DEBUG: Found {len(all_vectors)} total vectors in database (no filters):")
-                for i, (doc, score) in enumerate(all_vectors):
-                    print(f"  Vector {i+1}: score={score:.4f}, course_id='{doc.metadata.get('course_id', 'MISSING')}', content='{doc.page_content[:100]}...'")
-            except Exception as e:
-                print(f"DEBUG: Error checking all vectors: {e}")
-            
-            # Now try with course filter
-            print(f"DEBUG: Searching for vectors with course_id='{course_id}'...")
+            # Get search results with course filter AND scores
             search_results = self.vector_client.similarity_search_with_score(
                 query=question,
                 k=TextProcessingConfig.DEFAULT_RETRIEVAL_K,
                 filter={"course_id": course_id}
             )
             
-            print(f"DEBUG: Retrieved {len(search_results)} vectors for course_id '{course_id}':")
-            for i, (doc, score) in enumerate(search_results):
-                print(f"  Vector {i+1}: score={score:.4f}, content='{doc.page_content[:100]}...'")
-                if hasattr(doc, 'metadata') and doc.metadata:
-                    print(f"    Metadata: {doc.metadata}")
-            
-            if len(search_results) == 0:
-                print(f"DEBUG: No vectors found for course_id '{course_id}'. Trying without course filter...")
-                # If no results with course filter, try without it
+            # Results will be logged by retrieve agent
+            if not search_results:
+                print(f"No results for course {course_id}, trying global search...")
                 search_results = self.vector_client.vector_store.similarity_search_with_relevance_scores(
                     query=question,
                     k=TextProcessingConfig.DEFAULT_RETRIEVAL_K
                 )
-                print(f"DEBUG: Found {len(search_results)} vectors without course filter:")
-                for i, (doc, score) in enumerate(search_results):
-                    print(f"  Vector {i+1}: score={score:.4f}, course_id='{doc.metadata.get('course_id', 'MISSING')}', content='{doc.page_content[:100]}...'")
+                if search_results:
+                    print(f"Global search found {len(search_results)} chunks")
             
-            # Create retriever and QA chain
-            qa_chain = self.create_course_qa_chain(course_id)
+            # Extract documents and preserve scores in metadata
+            documents_with_scores = []
+            for doc, score in search_results:
+                # Ensure the document has metadata
+                if not hasattr(doc, 'metadata') or doc.metadata is None:
+                    doc.metadata = {}
+                # Store the actual similarity score
+                doc.metadata['similarity_score'] = float(score)
+                documents_with_scores.append(doc)
             
-            # Generate answer using modular QA chain
-            response = qa_chain.invoke({"query": question})
+            # Generate answer using LLM directly with context
+            if documents_with_scores:
+                context = "\n\n".join([doc.page_content for doc in documents_with_scores[:4]])
+                prompt = f"""Based on the following context, answer the question:
+
+Context:
+{context}
+
+Question: {question}
+
+Answer:"""
+                
+                answer = self.llm_client.generate(prompt)
+            else:
+                answer = "I couldn't find relevant information to answer your question."
             
-            # Format sources with detailed debug information
-            sources = self._format_sources_with_debug(response.get("source_documents", []))
-            
-            debug_info = {
-                "query": question,
-                "course_id": course_id,
-                "vectors_retrieved": len(search_results),
-                "vector_scores": [{"index": i, "score": score, "content_preview": doc.page_content[:100]} 
-                                 for i, (doc, score) in enumerate(search_results)]
-            }
+            # Format sources with preserved scores
+            sources = self._format_sources_with_debug(documents_with_scores)
             
             return {
-                "answer": response["result"],
+                "answer": answer,
                 "sources": sources,
-                "debug_info": debug_info,
                 "success": True
             }
         except Exception as e:
-            print(f"DEBUG: RAG query failed: {str(e)}")
-            import traceback
-            print(f"DEBUG: Full error traceback: {traceback.format_exc()}")
+            print(f"RAG Error: {str(e)}")
             return {"error": str(e), "success": False}
     
 

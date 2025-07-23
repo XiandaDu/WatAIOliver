@@ -4,6 +4,7 @@ FRONTEND_PORT=5173
 BACKEND_PORT=8000
 PDF_PROCESSOR_PORT=8001
 RAG_SYSTEM_PORT=8002
+SPECULATIVE_AI_PORT=8003
 DEFAULT_HOST="0.0.0.0"
 
 echo "Starting WatAIOliver..."
@@ -19,6 +20,17 @@ else
     pkill -f "vite" || true
 fi
 
+# Kill processes using our specific ports
+lsof -ti:$FRONTEND_PORT | xargs kill -9 2>/dev/null || true
+lsof -ti:$BACKEND_PORT | xargs kill -9 2>/dev/null || true
+lsof -ti:$PDF_PROCESSOR_PORT | xargs kill -9 2>/dev/null || true
+lsof -ti:$RAG_SYSTEM_PORT | xargs kill -9 2>/dev/null || true
+lsof -ti:$SPECULATIVE_AI_PORT | xargs kill -9 2>/dev/null || true
+
+# Wait a moment for ports to be freed
+sleep 2
+
+# Create logs directory
 mkdir -p logs
 
 PYTHON_CMD=""
@@ -75,6 +87,10 @@ pip install -r machine_learning/rag_system/requirements.txt || true
 
 echo "Installing PDF processor dependencies..."
 pip install -r machine_learning/pdf_processor/requirements.txt || true
+
+# Install Agents system dependencies
+echo "Installing Agents system dependencies..."
+pip install -r machine_learning/ai_agents/requirements.txt
 
 echo "All dependencies installed successfully"
 
@@ -149,16 +165,27 @@ fi
 
 # Start RAG System
 echo "Starting RAG system..."
-cd machine_learning/rag_system
-source ../../venv/bin/activate
-uvicorn app.main:app --reload --host $DEFAULT_HOST --port $RAG_SYSTEM_PORT > ../../logs/rag_system.log 2>&1 &
+cd machine_learning
+source ../venv/bin/activate
+uvicorn rag_system.app.main:app --reload --host $DEFAULT_HOST --port $RAG_SYSTEM_PORT > ../logs/rag_system.log 2>&1 &
 RAG_PID=$!
-cd ../..
+cd ..
+
+# Start Agents System
+echo "Starting Agents system..."
+cd machine_learning
+source ../venv/bin/activate
+uvicorn ai_agents.app.main:app --reload --host $DEFAULT_HOST --port $SPECULATIVE_AI_PORT > ../logs/agents.log 2>&1 &
+SPECULATIVE_AI_PID=$!
+cd ..
 
 # Cleanup trap
 cleanup() {
     echo "Stopping all services..."
-    kill $FRONTEND_PID $BACKEND_PID $PDF_PROCESSOR_PID $RAG_PID 2>/dev/null || true
+    kill $FRONTEND_PID $BACKEND_PID $PDF_PROCESSOR_PID $RAG_PID $SPECULATIVE_AI_PID 2>/dev/null || true
+    pkill -f "uvicorn" || true
+    pkill -f "vite" || true
+}
 
     if [[ "$OS" == "Windows_NT" ]]; then
         taskkill //IM uvicorn.exe //F 2>nul || true
@@ -172,15 +199,17 @@ trap cleanup EXIT
 
 echo ""
 echo "All services running successfully!"
-echo "Frontend:       http://localhost:$FRONTEND_PORT"
-echo "Backend:        http://localhost:$BACKEND_PORT"
-echo "PDF Processor:  http://localhost:$PDF_PROCESSOR_PORT"
-echo "RAG System:     http://localhost:$RAG_SYSTEM_PORT"
+echo "Frontend:         http://localhost:$FRONTEND_PORT"
+echo "Backend:          http://localhost:$BACKEND_PORT"
+echo "PDF Processor:    http://localhost:$PDF_PROCESSOR_PORT"
+echo "RAG System:       http://localhost:$RAG_SYSTEM_PORT"
+echo "Agents System:    http://localhost:$SPECULATIVE_AI_PORT"
 echo ""
 echo "Logs: tail -f logs/frontend.log"
 echo "Logs: tail -f logs/backend.log"
 echo "Logs: tail -f logs/pdf_processor.log"
 echo "Logs: tail -f logs/rag_system.log"
+echo "Logs: tail -f logs/agents.log"
 echo ""
 echo "Press Ctrl+C to stop all services"
 

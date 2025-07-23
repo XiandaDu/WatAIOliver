@@ -3,8 +3,16 @@ from pydantic import BaseModel
 import logging
 from typing import Optional
 
-from app.config import get_settings
-from services.rag_service import RAGService
+# Configure logging to suppress noisy external libraries
+logging.basicConfig(level=logging.INFO)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("google").setLevel(logging.WARNING)
+logging.getLogger("google_genai").setLevel(logging.WARNING)
+logging.getLogger("supabase").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+
+from rag_system.app.config import get_settings
+from rag_system.services.rag_service import RAGService
 
 # Initialize FastAPI app
 app = FastAPI(title="RAG Backend")

@@ -46,7 +46,7 @@ pip install -r machine_learning/pdf_processor/requirements.txt
 pip install -r machine_learning/rag_system/requirements.txt
 ```
 
-> ✅ Note: If there are package conflicts, resolve them manually by installing the correct versions as shown by pip error messages.
+> Note: If there are package conflicts, resolve them manually by installing the correct versions as shown by pip error messages.
 
 ---
 
@@ -103,7 +103,7 @@ cd <Path to project root>\machine_learning\rag_system
 
 ---
 
-## ✅ Tips:
+## Tips:
 
 * Always **cd into the correct directory** for backend, PDF processor, and RAG system before running Uvicorn.
 * Always use the **absolute path** to Python executable inside your venv to avoid path issues.
