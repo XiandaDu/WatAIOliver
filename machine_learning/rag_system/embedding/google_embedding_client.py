@@ -1,13 +1,10 @@
 import os
 from typing import List
-import sys
+
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 from google import genai
 from google.genai.types import EmbedContentConfig
-
-# Add the project root to the path so we can import config
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../..'))
 from config.constants import TextProcessingConfig, ModelConfig
 
 
