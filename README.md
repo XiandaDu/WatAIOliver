@@ -39,7 +39,7 @@ Example:
 
 Make a PR when a feature is implemented — as it is easier for peer review and debug.
 
-## Week 2 
+## Week 2 🚀
 I hope you guys have some understanding of the legacy workflow. Let's ship some code now.
 
 ### Frontend Team
@@ -68,7 +68,7 @@ There are two directions:
 
 * The other direction is, while going through the legacy code, check whether any useful APIs can be reused in the new repo. Move them here.
 
-## First Mission 
+## First Mission 🚀
 Those tasks are for the first (few) weeks. I've included all the first steps I thought of, so it's okay if you can't complete them all in a week.
 ### Frontend Team
 
