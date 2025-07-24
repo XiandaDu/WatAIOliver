@@ -10,7 +10,7 @@ class SupabaseVectorClient:
     """Supabase vector database client optimized for 512-dimensional vectors."""
     
 
-    def __init__(self, supabase_url: str, supabase_key: str, embeddings_client, table_name: str = "document_embeddings"):
+    def __init__(self, supabase_url: str, supabase_service_role_key: str, embeddings_client, table_name: str = "document_embeddings"):
         """
         Initialize Supabase vector client and vector store.
         

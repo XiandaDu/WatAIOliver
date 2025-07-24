@@ -183,10 +183,7 @@ cd ..
 cleanup() {
     echo "Stopping all services..."
     kill $FRONTEND_PID $BACKEND_PID $PDF_PROCESSOR_PID $RAG_PID $SPECULATIVE_AI_PID 2>/dev/null || true
-    pkill -f "uvicorn" || true
-    pkill -f "vite" || true
-}
-
+    
     if [[ "$OS" == "Windows_NT" ]]; then
         taskkill //IM uvicorn.exe //F 2>nul || true
         taskkill //IM vite.exe //F 2>nul || true
