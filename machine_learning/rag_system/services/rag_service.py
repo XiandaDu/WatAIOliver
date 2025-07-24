@@ -180,11 +180,28 @@ class RAGService:
                 "success": False
             }
 
-    def answer_question(self, course_id: str, question: str) -> Dict[str, Any]:
-        
-        """Answer a question using RAG with detailed debug logging."""
+    def answer_question(self, course_id: str, question: str, model: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Answer a question using RAG with detailed debug logging.
+        Selects LLM client based on model parameter: 'qwen' uses Cerebras, 'gemini' uses Gemini.
+        """
         try:
-            print(f"DEBUG: Starting RAG query for course_id='{course_id}', question='{question[:100]}...'")
+            print(f"DEBUG: Starting RAG query for course_id='{course_id}', question='{question[:100]}...', model='{model}'")
+            # Select LLM client based on model
+            print("Model being used:", model)
+            if model == "gemini":
+                llm_client = GeminiClient(
+                    api_key=self.settings.google_api_key,
+                    model="gemini-2.5-pro",
+                    temperature=ModelConfig.DEFAULT_TEMPERATURE
+                )
+            else:
+                llm_client = CerebrasClient(
+                    api_key=self.settings.cerebras_api_key,
+                    model="qwen-3-235b-a22b",
+                    temperature=0.6,
+                    top_p=0.95
+                )
             
             # First, check what vectors exist in the database without any filters
             print("DEBUG: Checking all vectors in database...")
@@ -224,8 +241,8 @@ class RAGService:
                 for i, (doc, score) in enumerate(search_results):
                     print(f"  Vector {i+1}: score={score:.4f}, course_id='{doc.metadata.get('course_id', 'MISSING')}', content='{doc.page_content[:100]}...'")
             
-            # Create retriever and QA chain
-            qa_chain = self.create_course_qa_chain(course_id)
+            # Create retriever and QA chain using selected llm_client
+            qa_chain = self.create_course_qa_chain(course_id, llm_client)
             
             # Generate answer using modular QA chain
             response = qa_chain.invoke({"query": question})
@@ -288,12 +305,13 @@ class RAGService:
         
         return self.vector_client.as_retriever(**config)
     
-    def create_course_qa_chain(self, course_id: str):
-        """Create a course-specific QA chain."""
+    def create_course_qa_chain(self, course_id: str, llm_client=None):
+        """Create a course-specific QA chain, using provided llm_client if given."""
         retriever = self.create_course_retriever(course_id)
-        
+        # Use provided llm_client if given, else fallback to self.llm_client
+        llm = llm_client.get_llm_client() if llm_client else self.llm_client.get_llm_client()
         return RetrievalQA.from_chain_type(
-            llm=self.llm_client.get_llm_client(),
+            llm=llm,
             retriever=retriever,
             return_source_documents=True
         )

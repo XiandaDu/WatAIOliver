@@ -23,7 +23,7 @@ export default function ChatPage() {
   const [selectedCourseId, setSelectedCourseId] = useState("")
   const modelOptions = [
     { label: "Qwen 3", value: "qwen" },
-    { label: "RAG System", value: "rag" }
+    { label: "Gemini", value: "gemini" }
   ]
 
   const userId = 'A1' // Using TEST user from database
@@ -261,7 +261,7 @@ export default function ChatPage() {
             conversation_id: newConversationId,
             file_context: fileContext || null,
             model: selectedModel,
-            course_id: selectedModel === "rag" ? selectedCourseId : null
+            course_id: selectedCourseId
           })
         })
         
@@ -416,7 +416,7 @@ export default function ChatPage() {
           prompt: message.content,
           conversation_id: newConversationId,
           model: selectedModel,
-          course_id: selectedModel === "rag" ? selectedCourseId : null
+          course_id: selectedCourseId
         })
       })
       

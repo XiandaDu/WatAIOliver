@@ -258,9 +258,9 @@ async def get_most_recent_user_query(conversation_id: str) -> Optional[str]:
         print(f"Error getting recent user query: {e}")
         return None
 
-async def query_rag_system(conversation_id: str, question: str, course_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+async def query_rag_system(conversation_id: str, question: str, course_id: Optional[str] = None, model: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
-    Query the RAG system for relevant information based on the user's question.
+    Query the RAG system for relevant information based on the user's question and selected model.
     """
     try:
         # Use provided course_id or fall back to first available course
@@ -279,7 +279,8 @@ async def query_rag_system(conversation_id: str, question: str, course_id: Optio
         async with httpx.AsyncClient(timeout=TimeoutConfig.RAG_QUERY_TIMEOUT) as client:
             rag_payload = {
                 'course_id': target_course_id,
-                'question': question
+                'question': question,
+                'model': model  # Pass model to RAG backend
             }
             
             print(f"DEBUG: Querying RAG with course_id='{target_course_id}' instead of conversation_id='{conversation_id}'")
@@ -336,47 +337,27 @@ Please provide a comprehensive answer based on the document content above. Refer
 
 async def generate_response(data: ChatRequest) -> str:
     """
-    Generate a response using either RAG system directly or qwen with optional RAG enhancement.
+    (OLD: Generate a response using either RAG system directly or qwen with optional RAG enhancement.)
+    Always use RAG system for response generation, selecting LLM client based on model.
     """
-    if data.model == "rag":
-        # Use RAG system directly
-        if not data.course_id:
-            return "RAG mode requires a course selection to identify the knowledge base."
-        
-        try:
-            rag_result = await query_rag_system(data.conversation_id or "", data.prompt, data.course_id)
-
-            if rag_result and rag_result.get('success'):
-                answer = rag_result.get('answer', 'No answer provided by RAG system.')
-                debug_info = rag_result.get('debug_info', {})
-                
-                # Include debug information in response
-                if debug_info.get('vectors_retrieved', 0) > 0:
-                    debug_summary = f"\n\nDEBUG: Retrieved {debug_info['vectors_retrieved']} vectors"
-                    for score_info in debug_info.get('vector_scores', []):
-                        debug_summary += f"\n  Vector {score_info['index'] + 1}: score={score_info['score']:.4f}"
-                    answer += debug_summary
-                
-                return answer
-            else:
-                return "No relevant information found in the knowledge base for this query."
-        
-        except Exception as e:
-            return f"RAG system error: {str(e)}"
-    
-    else:
-        # Use qwen with optional RAG enhancement (existing behavior)
-        if data.conversation_id:
-            rag_result = await query_rag_system(data.conversation_id, data.prompt, data.course_id)
-
-            if rag_result and rag_result.get('success'):
-                enhanced_prompt = enhance_prompt_with_rag_context(data.prompt, rag_result)
-                enhanced_data = ChatRequest(
-                    prompt=enhanced_prompt,
-                    conversation_id=data.conversation_id,
-                    file_context=data.file_context,
-                    model=data.model
-                )
-                return nebula_text_endpoint(enhanced_data)
-        
-        return nebula_text_endpoint(data)
+    if not data.course_id:
+        return "RAG mode requires a course selection to identify the knowledge base."
+    try:
+        # Always call RAG system, passing model
+        rag_result = await query_rag_system(data.conversation_id or "", data.prompt, data.course_id, data.model)
+        if rag_result and rag_result.get('success'):
+            answer = rag_result.get('answer', 'No answer provided by RAG system.')
+            debug_info = rag_result.get('debug_info', {})
+            
+            # Include debug information in response
+            if debug_info.get('vectors_retrieved', 0) > 0:
+                debug_summary = f"\n\nDEBUG: Retrieved {debug_info['vectors_retrieved']} vectors"
+                for score_info in debug_info.get('vector_scores', []):
+                    debug_summary += f"\n  Vector {score_info['index'] + 1}: score={score_info['score']:.4f}"
+                answer += debug_summary
+            
+            return answer
+        else:
+            return "No relevant information found in the knowledge base for this query."
+    except Exception as e:
+        return f"RAG system error: {str(e)}"
