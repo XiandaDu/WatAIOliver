@@ -17,10 +17,12 @@ WatAIOliver combines a React frontend with a FastAPI backend and a modern RAG sy
 ## Quick Start
 
 1. **Install dependencies**
-   On macOS/Linux you can run the helper script:
-   ```bash
-   ./setup.sh
-   ```
+   // On macOS/Linux you can run the helper script:
+   // ```bash
+   // ./setup.sh
+   // ```
+   // do ont use this for now. it will not work.
+   
    Or install manually:
    ```bash
    pip install -r backend/requirements.txt
@@ -29,13 +31,14 @@ WatAIOliver combines a React frontend with a FastAPI backend and a modern RAG sy
    pip install -r machine_learning/ai_agents/requirements.txt
    ```
    Windows users should follow `windows_proj_env_setup.md`.
-2. **Environment files** – copy the provided examples to `.env` inside `backend/` and `machine_learning/rag_system/` and update credentials.
-3. **Run services**
+3. **Environment files** – copy the provided examples to `.env` inside `backend/` and `machine_learning/rag_system/` and update credentials.
+4. **Run services**
    ```bash
    # Backend
    PYTHONPATH=backend python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
    # Frontend
-   cd frontend && npm run dev
+   cd frontend && npm ci
+   npm run dev
    ```
    Optional services:
    ```bash
