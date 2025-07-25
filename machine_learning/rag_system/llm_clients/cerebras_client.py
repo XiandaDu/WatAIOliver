@@ -45,3 +45,10 @@ class CerebrasClient:
     def get_llm_client(self):
         return self.llm
 
+    def generate(self, prompt: str) -> str:
+        """
+        Generate response from prompt using Cerebras LLM.
+        """
+        # Delegate to the underlying LangChain LLM instance
+        return self.llm(prompt)
+       
