@@ -11,7 +11,7 @@ from typing import Dict, Optional
 from dataclasses import dataclass
 from dotenv import load_dotenv
 
-from config import Settings
+from machine_learning.pdf_processor.config import Settings
 
 # Load environment variables from .env file
 load_dotenv()
