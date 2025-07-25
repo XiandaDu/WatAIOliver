@@ -20,10 +20,32 @@ export default function ChatPage() {
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
   const [selectedModel, setSelectedModel] = useState("qwen")
+  const [selectedBaseModel, setSelectedBaseModel] = useState("qwen-3-235b-a22b")
+  const [selectedRagModel, setSelectedRagModel] = useState("text-embedding-004")
+  const [selectedHeavyModel, setSelectedHeavyModel] = useState("")
   const [selectedCourseId, setSelectedCourseId] = useState("")
+  const [useAgents, setUseAgents] = useState(false)
   const modelOptions = [
     { label: "Qwen 3", value: "qwen" },
-    { label: "RAG System", value: "rag" }
+    { label: "Agent System", value: "rag" }
+  ]
+  const ragModelOptions = [
+    { label: "Gemini 004", value: "text-embedding-004" },
+    { label: "Gemini 001", value: "gemini-embedding-001" },
+    { label: "OpenAI Small", value: "text-embedding-3-small" },
+    { label: "OpenAI Large", value: "text-embedding-3-large" },
+    { label: "OpenAI Ada", value: "text-embedding-ada-002" }
+  ]
+  const baseModelOptions = [
+    { label: "Cerebras Qwen MoE", value: "qwen-3-235b-a22b" },
+    { label: "GPT-4.1 Mini", value: "gpt-4.1-mini" },
+    { label: "Gemini Flash", value: "gemini-2.5-flash" }
+  ]
+  const heavyModelOptions = [
+    { label: "Default", value: "" },
+    { label: "Gemini Pro", value: "gemini-2.5-pro" },
+    { label: "GPT-4o", value: "gpt-4o" },
+    { label: "Claude Sonnet", value: "claude-3-sonnet-20240229" }
   ]
 
   const userId = 'A1' // Using TEST user from database
@@ -256,12 +278,15 @@ export default function ChatPage() {
         const chatResponse = await fetch("http://localhost:8000/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             prompt: input.trim() || (experimental_attachments?.length ? 'Please help me analyze the uploaded file.' : ''),
             conversation_id: newConversationId,
             file_context: fileContext || null,
-            model: selectedModel,
-            course_id: selectedModel === "rag" ? selectedCourseId : null
+            model: selectedBaseModel,
+            course_id: selectedModel === "rag" ? selectedCourseId : null,
+            rag_model: selectedRagModel,
+            heavy_model: useAgents ? selectedHeavyModel : null,
+            use_agents: useAgents
           })
         })
         
@@ -412,11 +437,14 @@ export default function ChatPage() {
       const chatResponse = await fetch("http://localhost:8000/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           prompt: message.content,
           conversation_id: newConversationId,
-          model: selectedModel,
-          course_id: selectedModel === "rag" ? selectedCourseId : null
+          model: selectedBaseModel,
+          course_id: selectedModel === "rag" ? selectedCourseId : null,
+          rag_model: selectedRagModel,
+          heavy_model: useAgents ? selectedHeavyModel : null,
+          use_agents: useAgents
         })
       })
       
@@ -575,18 +603,26 @@ export default function ChatPage() {
         formatTimestamp={formatTimestamp}
       />
       <div className="flex-1 flex flex-col items-center justify-center w-full h-screen">
-        <div
-          className="flex flex-col min-h-0 w-full h-full items-center justify-center"
-          style={{ aspectRatio: '16/10', maxWidth: '100vw', maxHeight: '100vh' }}
-        >
+        <div className="flex flex-col min-h-0 w-full h-full items-center justify-center max-w-full">
           <ChatContainer className="flex flex-col h-full w-full">
             {isEmpty ? (
               <WelcomeScreen
                 selectedModel={selectedModel}
                 setSelectedModel={setSelectedModel}
                 modelOptions={modelOptions}
+                selectedBaseModel={selectedBaseModel}
+                setSelectedBaseModel={setSelectedBaseModel}
+                baseModelOptions={baseModelOptions}
+                selectedRagModel={selectedRagModel}
+                setSelectedRagModel={setSelectedRagModel}
+                ragModelOptions={ragModelOptions}
+                selectedHeavyModel={selectedHeavyModel}
+                setSelectedHeavyModel={setSelectedHeavyModel}
+                heavyModelOptions={heavyModelOptions}
                 selectedCourseId={selectedCourseId}
                 setSelectedCourseId={setSelectedCourseId}
+                useAgents={useAgents}
+                setUseAgents={setUseAgents}
                 append={append}
                 handleSubmit={handleSubmit}
                 input={input}
@@ -601,8 +637,19 @@ export default function ChatPage() {
                 selectedModel={selectedModel}
                 setSelectedModel={setSelectedModel}
                 modelOptions={modelOptions}
+                selectedBaseModel={selectedBaseModel}
+                setSelectedBaseModel={setSelectedBaseModel}
+                baseModelOptions={baseModelOptions}
+                selectedRagModel={selectedRagModel}
+                setSelectedRagModel={setSelectedRagModel}
+                ragModelOptions={ragModelOptions}
+                selectedHeavyModel={selectedHeavyModel}
+                setSelectedHeavyModel={setSelectedHeavyModel}
+                heavyModelOptions={heavyModelOptions}
                 selectedCourseId={selectedCourseId}
                 setSelectedCourseId={setSelectedCourseId}
+                useAgents={useAgents}
+                setUseAgents={setUseAgents}
                 messages={messages}
                 isTyping={currentLoadingState.isTyping}
                 handleSubmit={handleSubmit}

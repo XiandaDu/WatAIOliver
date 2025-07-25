@@ -2,7 +2,9 @@
 
 This guide outlines the steps to set up and run the WatAIOliver project on Windows (VS Code environment).
 
-Please note: Lines surrounded by "<>" should be replaced with relevant lines specific to your computer
+Please note: 
+- Lines surrounded by "<>" should be replaced with relevant lines specific to your computer
+- Please ensure that you have included a .env file in the backend folder and in the machine_learning folder with the right setup info. If you have not or are not sure if you have written your .env file correctly, please ask for help
 
 ---
 
@@ -41,10 +43,16 @@ pip install -r machine_learning/pdf_processor/requirements.txt
 ### c. Install RAG system dependencies
 
 ```powershell
-pip install -r machine_learning/rag_system/requirements.txt
+pip install -r machine_learning/rag_system/requirements.txt -c constraints.txt --upgrade --upgrade-strategy eager
 ```
 
-> ✅ Note: If there are package conflicts, resolve them manually by installing the correct versions as shown by pip error messages.
+### d. Install Agent system dependencies
+
+```powershell
+pip install -r machine_learning/ai_agents/requirements.txt
+```
+
+> Note: If there are package conflicts, resolve them manually by installing the correct versions as shown by pip error messages.
 
 ---
 
@@ -99,9 +107,16 @@ cd <Path to project root>\machine_learning\rag_system
 & "<Path to project root>\venv\Scripts\python.exe" -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8002
 ```
 
+### e. Tab 5: Agent System
+
+```powershell
+cd <Path to project root>\machine_learning\ai_agents
+& "<Path to project root>\venv\Scripts\python.exe" -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8003
+```
+
 ---
 
-## ✅ Tips:
+## Tips:
 
 * Always **cd into the correct directory** for backend, PDF processor, and RAG system before running Uvicorn.
 * Always use the **absolute path** to Python executable inside your venv to avoid path issues.
@@ -119,6 +134,3 @@ cd <Path to project root>\machine_learning\rag_system
 .\venv\Scripts\activate
 ```
 
-You're done! Your entire project should now run successfully.
-
----
