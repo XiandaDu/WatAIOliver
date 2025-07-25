@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "wataioliver",
+  "private_key_id": "1b495a0d43d485a8dd4655f55685476100ef10f6",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDeXkKrpAzMWovC\nT/imnFfFdbg0AHDCyDpiau1ItclWOUmpErR2D96hBcoil4YYXLLkIk9ZYwKZ7JCa\n+UeoRe8wOowB0Z63qeTSwXkrb8ngJZEP1o82y2n0smjAxy/yXRAhxt1xw2P7sJ54\nJByiTkfh4u8UzOOZCl6bTSp6C0ui4zD2MAjCLODhl1Y70K3yibbQyZ+qOk1nbnvV\nDnKX/BMDC7NGEOFMDLcpEfcf+7zZ61BDVUnmZYcbVt3QeWZYzYxo1CHGxQ2p4r07\nCtdjeZPaEkrHHUUEIOlT+OU3ury5DUzksRbs6OVxXEywaYmJiCoOb3OJO3ixAcXU\nNj2t77zJAgMBAAECggEAam+Bx/hA6/uXE84FfXIuDOS446MmVgVS9NKrevcQRMYs\n/NFoMW6NKFPGGeKfG8AbHFlT07wxfY2e9Z7F7sRypYoQg7pbFxwp27shjWn3neM9\nWPBhImAg+i//Ne7hg0eKNjCixBY7IDi80VKvpfyEKZnex/z+H7235Ov9necUMAVc\nXOTKIJIQ45AsGu41OtG5yoj+2kQtbD8D6pWIzuQ57Rb+XZFBz+E2c9jAGXnPSihW\nTGfJpmzgkuhV/g+6O9wLKjM/80Dfcipor6guc9124wpdTTxkWVjHCUWtxUefZ1rG\nd3xgPVsdw6vnLoMvzbYqWSAyBs8vug/WuaFLpEPWpQKBgQD2quqL8seB6g8QJYAj\nUpCmWotWbdKj7oW8QO35zWaV+Gv8cTHWPWdhECmK6Hv/FU4gbBXCToNeE0e/4aPb\nOZkq2i8MQxFRffASr5nGKKY+ZerQNxBVYR6axXIrcfb2gN+eRc2LX63SdemyGAnR\nfRT5HqqlPhdFekhqndXXsvkTAwKBgQDmx/5bVMKdKhKJ8cR3UveAJnB7EpR3z0O1\na+oPTL4CSEWrxu1lKS1DDrBTMYzoIbNXDl/e9l/c7KnfknRtEY6qSQ2j+9cqAEWX\nLaQfA2GB3IGB3KCBWifJb3OpUggPL7r9bbZgbGNnig3qZcHA53DAJGC4Ej/3oPuZ\nqgREeaRBQwKBgBe6GRWdJNO6T/idotXC+2cFDqIhrkFWkEareDivKU8Dtl9yA/k3\nrtoHU/eopUTEJ9+2heFK7BgAgsZSThCoWbNliWEEkoXkN1OU0JXfEx6tbwjYQxnz\nXZ5Fn9XOAJN1kg0Had4eNfoonXIkHc2o2nucF44Niu+D87NNu2QkMxFBAoGAZ2bs\nfJd5q1mSfOQqlxxBcNXISByHETd4quzzLm/AIt2m+dRjwZO1h/oo3t2wuMGAzVzP\nb+MMCLyxUE8ag1P+jCW3SuYn/dWpWJdGle653amjDUCBWfO/J+4b8J2kpslICw0B\nTirCTz34BjIZogkQ58Zk35StvJIQqUUYLGYkRmkCgYByRcW9tElRfX7Io4Wf2B5f\n5kjGl0+PK5DUBmMBp+2cYCRNCtU7Uzns9chI2MD2IOxAxxzGvR3d4XrTheMaB+F8\nuDusGNtG4nNVuHUakQLz4HbG+Y2ToXdgv9/k1+Gd/DxuUaXEwH2Sjp3u+0OrPfsI\n9m/gAI5OMo8K3AF8ZNZZLg==\n-----END PRIVATE KEY-----\n",
+  "client_email": "wataioliver@wataioliver.iam.gserviceaccount.com",
+  "client_id": "115545739652055431635",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/wataioliver%40wataioliver.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
