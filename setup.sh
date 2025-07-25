@@ -76,6 +76,14 @@ source "$ACTIVATE_PATH"
 echo "Upgrading pip..."
 python -m pip install --upgrade pip
 
+PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+
+# Make all packages importable from anywhere
+export PYTHONPATH="$PROJECT_ROOT:$PROJECT_ROOT/backend:$PROJECT_ROOT/machine_learning:$PYTHONPATH"
+
+echo "PYTHONPATH = $PYTHONPATH"
+
+
 # Install all dependencies
 echo "Installing all dependencies..."
 
@@ -123,19 +131,15 @@ cd ..
 
 # Start Backend
 echo "Starting backend API..."
-cd backend
-source ../venv/bin/activate
-uvicorn src.main:app --reload --port $BACKEND_PORT --host $DEFAULT_HOST > ../logs/backend.log 2>&1 &
+
+python -m uvicorn backend.src.main:app --reload --host $DEFAULT_HOST --port $BACKEND_PORT > logs/backend.log 2>&1 &
 BACKEND_PID=$!
-cd ..
+
 
 # Start PDF Processor
 echo "Starting PDF processor..."
-cd machine_learning/pdf_processor
-source ../../venv/bin/activate
-uvicorn main:app --reload --host $DEFAULT_HOST --port $PDF_PROCESSOR_PORT > ../../logs/pdf_processor.log 2>&1 &
+python -m uvicorn machine_learning.pdf_processor.main:app --reload --host $DEFAULT_HOST --port $PDF_PROCESSOR_PORT > logs/pdf_processor.log 2>&1 &
 PDF_PROCESSOR_PID=$!
-cd ../..
 
 # Load GCP env
 echo "Loading Google Cloud credentials from .env..."
@@ -165,19 +169,15 @@ fi
 
 # Start RAG System
 echo "Starting RAG system..."
-cd machine_learning
-source ../venv/bin/activate
-uvicorn rag_system.app.main:app --reload --host $DEFAULT_HOST --port $RAG_SYSTEM_PORT > ../logs/rag_system.log 2>&1 &
+python -m uvicorn machine_learning.rag_system.app.main:app --reload --host $DEFAULT_HOST --port $RAG_SYSTEM_PORT > logs/rag_system.log 2>&1 &
 RAG_PID=$!
-cd ..
+
 
 # Start Agents System
 echo "Starting Agents system..."
-cd machine_learning
-source ../venv/bin/activate
-uvicorn ai_agents.app.main:app --reload --host $DEFAULT_HOST --port $SPECULATIVE_AI_PORT > ../logs/agents.log 2>&1 &
+python -m uvicorn machine_learning.ai_agents.app.main:app --reload --host $DEFAULT_HOST --port $SPECULATIVE_AI_PORT > logs/agents.log 2>&1 &
 SPECULATIVE_AI_PID=$!
-cd ..
+
 
 # Cleanup trap
 cleanup() {

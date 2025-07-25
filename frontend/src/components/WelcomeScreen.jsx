@@ -6,13 +6,24 @@ import { MessageInput } from "@/components/ui/message-input"
 import { transcribeAudio } from "@/lib/utils/audio"
 
 export function WelcomeScreen({ 
-  selectedModel, 
-  setSelectedModel, 
-  modelOptions, 
+  selectedModel,
+  setSelectedModel,
+  modelOptions,
+  selectedBaseModel,
+  setSelectedBaseModel,
+  baseModelOptions,
+  selectedRagModel,
+  setSelectedRagModel,
+  ragModelOptions,
+  selectedHeavyModel,
+  setSelectedHeavyModel,
+  heavyModelOptions,
   selectedCourseId,
   setSelectedCourseId,
-  append, 
-  handleSubmit, 
+  useAgents,
+  setUseAgents,
+  append,
+  handleSubmit,
   input, 
   handleInputChange, 
   isLoading, 
@@ -36,12 +47,44 @@ export function WelcomeScreen({
             placeholder="Select a model"
             className="w-48"
           />
+          <CustomSelect
+            value={selectedBaseModel}
+            onChange={setSelectedBaseModel}
+            options={baseModelOptions}
+            placeholder="Base model"
+            className="w-48"
+          />
           {selectedModel === "rag" && (
-            <CourseSelector
-              value={selectedCourseId}
-              onChange={setSelectedCourseId}
-              className="w-64"
-            />
+            <>
+              <CustomSelect
+                value={selectedRagModel}
+                onChange={setSelectedRagModel}
+                options={ragModelOptions}
+                placeholder="RAG model"
+                className="w-48"
+              />
+              <CustomSelect
+                value={selectedHeavyModel}
+                onChange={setSelectedHeavyModel}
+                options={heavyModelOptions}
+                placeholder="Debate model"
+                className="w-48"
+              />
+              <CourseSelector
+                value={selectedCourseId}
+                onChange={setSelectedCourseId}
+                className="w-64"
+              />
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  className="form-checkbox h-4 w-4 text-blue-600"
+                  checked={useAgents}
+                  onChange={(e) => setUseAgents(e.target.checked)}
+                />
+                <span className="text-sm text-gray-700">Enable agent mode</span>
+              </label>
+            </>
           )}
         </div>
       </div>

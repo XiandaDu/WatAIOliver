@@ -1,9 +1,4 @@
 import requests
-import sys
-import os
-
-# Add the project root to the path so we can import config
-sys.path.append(os.path.dirname(__file__))
 from config.constants import ServiceConfig
 
 BASE_URL = ServiceConfig.NEBULA_BASE_URL  # This is the stable endpoint
