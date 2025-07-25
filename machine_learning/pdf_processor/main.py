@@ -10,8 +10,8 @@ from pydantic import BaseModel
 from typing import Optional, Dict, Any
 import logging
 
-from config import get_settings
-from service.pdf_conversion_service import PDFConversionService
+from machine_learning.pdf_processor.config import get_settings
+from machine_learning.pdf_processor.service.pdf_conversion_service import PDFConversionService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
