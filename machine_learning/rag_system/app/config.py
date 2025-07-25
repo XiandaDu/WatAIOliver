@@ -56,7 +56,7 @@ def get_settings() -> Settings:
     Function to create Settings instance with environment vars.
     """
     return Settings(
-        google_api_key=os.getenv("GOOGLE_API_KEY", ""),
+        google_api_key=os.getenv("GOOGLE_API_KEY", os.getenv("GEMINI_API_KEY", "")),  # use GEMINI_API_KEY as fallback for Gemini client
         google_cloud_project=os.getenv("GOOGLE_CLOUD_PROJECT", ""),  # Must be set for Vertex AI
         google_cloud_location=os.getenv("GOOGLE_CLOUD_LOCATION", "global"),
         supabase_url=os.getenv("SUPABASE_URL", ""),
