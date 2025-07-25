@@ -16,6 +16,7 @@ from ai_agents.orchestrator import MultiAgentOrchestrator
 from ai_agents.config import SpeculativeAIConfig
 from rag_system.services.rag_service import RAGService
 from rag_system.llm_clients.gemini_client import GeminiClient
+from rag_system.llm_clients.cerebras_client import CerebrasClient
 from rag_system.app.config import get_settings
 
 # Configure logging
@@ -50,9 +51,11 @@ async def lifespan(app: FastAPI):
         # Initialize dependencies
         rag_settings = get_settings()
         rag_service = RAGService(rag_settings)
-        llm_client = GeminiClient(
-            api_key=rag_settings.google_api_key,
-            model="gemini-2.5-pro"
+        llm_client = CerebrasClient(
+            api_key=rag_settings.cerebras_api_key,
+            model="qwen-3-235b-a22b",
+            temperature=0.6,
+            top_p=0.95,
         )
         
         # Initialize orchestrator
@@ -92,6 +95,7 @@ class QueryRequest(BaseModel):
     course_id: str = Field(..., description="Course identifier for context retrieval")
     session_id: Optional[str] = Field(default=None, description="Optional session identifier")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Additional metadata")
+    heavy_model: Optional[str] = Field(default=None, description="Optional heavy model for debate agents")
     config_overrides: Optional[Dict[str, Any]] = Field(default=None, description="Configuration overrides")
 
 
@@ -255,7 +259,8 @@ async def process_query(request: QueryRequest):
             query=request.query,
             course_id=request.course_id,
             session_id=session_id,
-            metadata=request.metadata or {}
+            metadata=request.metadata or {},
+            heavy_model=request.heavy_model,
         )
         
         return QueryResponse(**result)
@@ -334,11 +339,6 @@ async def get_debug_config():
 
 if __name__ == "__main__":
     import uvicorn
-    import sys
-    import os
-    
-    # Add the project root to the path so we can import config
-    sys.path.append(os.path.join(os.path.dirname(__file__), '../../../'))
     from config.constants import ServiceConfig
     
     uvicorn.run(

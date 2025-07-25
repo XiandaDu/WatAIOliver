@@ -51,6 +51,7 @@ class CriticAgent(BaseAgent):
         - Identify specific issues with precise references
         - Classify issues by severity: critical, high, medium, low
         - Do NOT provide corrections, only identify problems
+        - Think methodically and document reasoning for each critique
 
         Your output should be a structured critique report suitable for revision guidance.
         """

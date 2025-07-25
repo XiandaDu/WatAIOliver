@@ -18,6 +18,8 @@ from ai_agents.agents.critic_agent import CriticAgent
 from ai_agents.agents.moderator_agent import ModeratorAgent
 from ai_agents.agents.reporter_agent import ReporterAgent
 from ai_agents.agents.tutor_agent import TutorAgent
+from rag_system.llm_clients.cerebras_client import CerebrasClient
+from rag_system.llm_clients.gemini_client import GeminiClient
 
 
 class MultiAgentOrchestrator:
@@ -64,7 +66,6 @@ class MultiAgentOrchestrator:
         
         self.logger.info("Multi-Agent System Orchestrator initialized")
         self.logger.info(f"Config: max_rounds={self.config.max_debate_rounds}, retrieval_k={self.config.retrieval_k}")
-        
     def _setup_agents(self):
         """Initialize all agents directly"""
         
@@ -107,6 +108,24 @@ class MultiAgentOrchestrator:
         )
         
         self.logger.info(f"Initialized 6 agents (Retrieve, Strategist, Critic, Moderator, Reporter, Tutor)")
+
+    def _create_llm_client(self, model_name: str):
+        """Create an LLM client based on model name."""
+        try:
+            if model_name.startswith("gemini"):
+                return GeminiClient(
+                    api_key=self.rag_service.settings.google_api_key,
+                    model=model_name,
+                    temperature=0.6,
+                )
+            if model_name.startswith("qwen") or model_name.startswith("cerebras"):
+                return CerebrasClient(
+                    api_key=self.rag_service.settings.cerebras_api_key,
+                    model=model_name,
+                )
+        except Exception as e:
+            self.logger.error(f"Failed to create llm client for {model_name}: {e}")
+        return None
     
     def _log_agent_conversation(self, agent_name: str, input_data: Any, output_data: Any, stage: str = ""):
         """Log agent input/output as conversation history"""
@@ -181,11 +200,12 @@ class MultiAgentOrchestrator:
         self.logger.info("=" * 80)
     
     async def process_query(
-        self, 
-        query: str, 
-        course_id: str, 
+        self,
+        query: str,
+        course_id: str,
         session_id: str,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        heavy_model: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Process a user query through the complete speculative AI workflow
@@ -202,10 +222,22 @@ class MultiAgentOrchestrator:
         
         start_time = datetime.now()
         self.execution_stats["total_queries"] += 1
-        
+
         # Clear conversation history for new query
         self.conversation_history = []
-        
+
+        heavy_llm = None
+        original_strategist_llm = None
+        original_critic_llm = None
+
+        if heavy_model:
+            heavy_llm = self._create_llm_client(heavy_model)
+            if heavy_llm:
+                original_strategist_llm = self.strategist_agent.llm_client
+                original_critic_llm = self.critic_agent.llm_client
+                self.strategist_agent.llm_client = heavy_llm
+                self.critic_agent.llm_client = heavy_llm
+
         try:
             self.logger.info(f"QUERY: '{query[:80]}...' | Course: {course_id[:8]}...")
             
@@ -269,10 +301,16 @@ class MultiAgentOrchestrator:
             self.logger.info(f"Query completed successfully in {processing_time:.2f}s")
             
             return response
-            
+
         except Exception as e:
             self.logger.error(f"Query processing failed: {str(e)}")
             return self._create_error_response("System error", str(e))
+        finally:
+            if heavy_llm:
+                if original_strategist_llm:
+                    self.strategist_agent.llm_client = original_strategist_llm
+                if original_critic_llm:
+                    self.critic_agent.llm_client = original_critic_llm
     
     async def _execute_retrieval(
         self, 

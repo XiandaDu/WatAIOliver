@@ -37,11 +37,21 @@ class ServiceConfig:
 
 class ModelConfig:
     """LLM and embedding model configuration parameters"""
-    
+
     # Model Parameters
     DEFAULT_TEMPERATURE = 0.1
-    # DEFAULT_OUTPUT_DIMENSIONALITY = 512  # old
-    DEFAULT_OUTPUT_DIMENSIONALITY = 768   # new
+    DEFAULT_EMBEDDING_MODEL = "text-embedding-004"
+    LEGACY_EMBEDDING_MODEL = "gemini-embedding-001"
+    OPENAI_EMBED_SMALL = "text-embedding-3-small"
+    OPENAI_EMBED_LARGE = "text-embedding-3-large"
+    OPENAI_EMBED_ADA = "text-embedding-ada-002"
+
+    # Unified vector dimensionality across all embedding models
+    EMBEDDING_DIMENSION = 512
+    DEFAULT_OUTPUT_DIMENSIONALITY = EMBEDDING_DIMENSION
+    LEGACY_OUTPUT_DIMENSIONALITY = EMBEDDING_DIMENSION
+    OPENAI_SMALL_DIMENSIONALITY = EMBEDDING_DIMENSION
+    OPENAI_LARGE_DIMENSIONALITY = EMBEDDING_DIMENSION
 
 # =============================================================================
 # TEXT PROCESSING CONFIGURATION

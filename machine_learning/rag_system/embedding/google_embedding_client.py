@@ -11,6 +11,7 @@ from config.constants import TextProcessingConfig, ModelConfig
 
 
 class GoogleEmbeddingClient:
+<<<<<<< HEAD
     """Google AI embeddings client using gemini text-embedding-004 following official documentation."""
     
     def __init__(self, google_cloud_project: str, model: str = "text-embedding-004", output_dimensionality: int = ModelConfig.DEFAULT_OUTPUT_DIMENSIONALITY):
@@ -20,13 +21,35 @@ class GoogleEmbeddingClient:
             google_cloud_project: Google Cloud project ID for Vertex AI
             model: Embedding model to use (default: text-embedding-004)
             output_dimensionality: Target vector dimensions (default: 768)
+=======
+    """Google AI embeddings client supporting multiple Gemini embedding models."""
+    
+    def __init__(self, google_cloud_project: str, model: str = ModelConfig.DEFAULT_EMBEDDING_MODEL, output_dimensionality: int | None = None):
+        """Initialize the embedding client.
+
+        Args:
+            google_cloud_project: Google Cloud project ID for Vertex AI
+            model: Embedding model to use
+            output_dimensionality: Optional override for vector dimensions
+>>>>>>> 16667f2 (Add files via upload)
         """
         self.google_cloud_project = google_cloud_project
         self.model = model
-        self.output_dimensionality = output_dimensionality
+
+        if output_dimensionality is not None:
+            self.output_dimensionality = output_dimensionality
+        elif model == ModelConfig.LEGACY_EMBEDDING_MODEL:
+            self.output_dimensionality = ModelConfig.LEGACY_OUTPUT_DIMENSIONALITY
+        else:
+            self.output_dimensionality = ModelConfig.DEFAULT_OUTPUT_DIMENSIONALITY
         
+<<<<<<< HEAD
         # Use Vertex AI with service account credentials for gemini text-embedding-004
         self.client = genai.Client()
+=======
+        # Initialize genai client using application default credentials
+        self.client = genai.Client(vertexai=True, project=google_cloud_project)
+>>>>>>> 16667f2 (Add files via upload)
         
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=TextProcessingConfig.DEFAULT_CHUNK_SIZE,
@@ -38,7 +61,7 @@ class GoogleEmbeddingClient:
         """Split documents into chunks."""
         return self.text_splitter.split_documents(documents)
     
-    def embed_query(self, text: str) -> List[float]: 
+    def embed_query(self, text: str) -> List[float]:
         """Generate embedding for a single query."""
         response = self.client.models.embed_content(
             model=self.model,
@@ -48,7 +71,6 @@ class GoogleEmbeddingClient:
                 output_dimensionality=self.output_dimensionality,
             ),
         )
-        
         return response.embeddings[0].values if response.embeddings else []
     
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
@@ -64,8 +86,7 @@ class GoogleEmbeddingClient:
                     output_dimensionality=self.output_dimensionality,
                 ),
             )
-            if response.embeddings:
-                results.append(response.embeddings[0].values)
+            results.append(response.embeddings[0].values if response.embeddings else [])
         return results
     
     def get_model_info(self) -> dict:

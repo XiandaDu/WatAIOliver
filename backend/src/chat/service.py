@@ -1,16 +1,24 @@
 import requests
 import requests.exceptions
 from ..logger import logger
-from .models import ConversationCreate, ConversationUpdate, MessageCreate, MessageUpdate, MessageDelete, ChatRequest
+from .models import (
+    ConversationCreate,
+    ConversationUpdate,
+    MessageCreate,
+    MessageUpdate,
+    MessageDelete,
+    ChatRequest,
+)
 from .CRUD import get_messages
 import httpx
 from typing import Optional, Dict, Any
-import sys
-import os
 
-# Add the project root to the path so we can import config
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../..'))
-from config.constants import TimeoutConfig, ServiceConfig
+from config.constants import TimeoutConfig, ServiceConfig, ModelConfig
+from machine_learning.rag_system.llm_clients.gemini_client import GeminiClient
+from machine_learning.rag_system.llm_clients.cerebras_client import CerebrasClient
+from machine_learning.rag_system.llm_clients.openai_client import OpenAIClient
+from machine_learning.rag_system.llm_clients.anthropic_client import AnthropicClient
+from machine_learning.rag_system.app.config import get_settings
 
 BASE_URL = ServiceConfig.NEBULA_BASE_URL
 
@@ -86,6 +94,76 @@ def nebula_text_endpoint(data: ChatRequest) -> str:
         return "Sorry, the AI service is currently unavailable. Please check your internet connection."
     except Exception as e:
         logger.error(f"Request failed: {e}")
+        return f"Error communicating with model: {str(e)}"
+
+def llm_text_endpoint(data: ChatRequest) -> str:
+    """Generate a response using a specified LLM client."""
+
+    conversation_context = ""
+    if data.conversation_id:
+        try:
+            messages = get_messages(data.conversation_id)
+            if messages and len(messages) > 1:
+                recent_messages = messages[-10:] if len(messages) > 10 else messages
+                parts = []
+                for msg in recent_messages[:-1]:
+                    role = "User" if msg["sender"] == "user" else "Assistant"
+                    parts.append(f"{role}: {msg['content']}")
+                if parts:
+                    conversation_context = "\n".join(parts) + "\n\n"
+        except Exception as e:
+            print(f"Error loading conversation context: {e}")
+
+    file_context = ""
+    if data.file_context:
+        file_context = f"File content for reference:\n{data.file_context}\n\n"
+
+    if conversation_context:
+        full_prompt = (
+            f"{file_context}Previous conversation:\n{conversation_context}User: {data.prompt}\n\nAssistant:"
+        )
+    else:
+        full_prompt = f"{file_context}User: {data.prompt}\n\nAssistant:"
+
+    settings = get_settings()
+    model_name = data.model or "qwen-3-235b-a22b"
+    try:
+        if model_name.startswith("gemini"):
+            client = GeminiClient(
+                api_key=settings.google_api_key,
+                model=model_name,
+                temperature=ModelConfig.DEFAULT_TEMPERATURE,
+            )
+        elif model_name.startswith("gpt"):
+            client = OpenAIClient(
+                api_key=settings.openai_api_key,
+                model=model_name,
+                temperature=0.6,
+                top_p=0.95,
+            )
+        elif model_name.startswith("claude"):
+            client = AnthropicClient(
+                api_key=settings.anthropic_api_key,
+                model=model_name,
+                temperature=0.6,
+                top_p=0.95,
+            )
+        elif model_name.startswith("qwen") or model_name.startswith("cerebras"):
+            client = CerebrasClient(
+                api_key=settings.cerebras_api_key,
+                model=model_name,
+                temperature=0.6,
+                top_p=0.95,
+            )
+        else:
+            client = GeminiClient(
+                api_key=settings.google_api_key,
+                model=model_name,
+                temperature=ModelConfig.DEFAULT_TEMPERATURE,
+            )
+        return client.generate(full_prompt)
+    except Exception as e:
+        logger.error(f"LLM generation failed: {e}")
         return f"Error communicating with model: {str(e)}"
 
 def open_ask(data: ConversationCreate):
@@ -258,7 +336,7 @@ async def get_most_recent_user_query(conversation_id: str) -> Optional[str]:
         print(f"Error getting recent user query: {e}")
         return None
 
-async def query_rag_system(conversation_id: str, question: str, course_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+async def query_rag_system(conversation_id: str, question: str, course_id: Optional[str] = None, rag_model: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
     Query the RAG system for relevant information based on the user's question.
     """
@@ -279,8 +357,10 @@ async def query_rag_system(conversation_id: str, question: str, course_id: Optio
         async with httpx.AsyncClient(timeout=TimeoutConfig.RAG_QUERY_TIMEOUT) as client:
             rag_payload = {
                 'course_id': target_course_id,
-                'question': question
+                'question': question,
             }
+            if rag_model:
+                rag_payload['embedding_model'] = rag_model
             
             print(f"DEBUG: Querying RAG with course_id='{target_course_id}' instead of conversation_id='{conversation_id}'")
             
@@ -340,16 +420,18 @@ async def generate_response(data: ChatRequest) -> str:
     1. qwen3 (default) - Pure qwen without any RAG
     2. agents - Multi-agent system with built-in RAG as Agent 2
     """
-    if data.model == "rag" or data.model == "agents":
+    if (data.model in {"rag", "agents"}) and data.use_agents:
         # Use Multi-agent system (includes RAG as Agent 2 + reasoning)
         if not data.course_id:
             return "Agent System requires a course selection to identify the knowledge base."
-        
+
         try:
             speculative_result = await query_agents_system(
-                data.conversation_id or "", 
-                data.prompt, 
-                data.course_id
+                data.conversation_id or "",
+                data.prompt,
+                data.course_id,
+                data.rag_model,
+                data.heavy_model,
             )
 
             if speculative_result and speculative_result.get('success'):
@@ -377,12 +459,18 @@ async def generate_response(data: ChatRequest) -> str:
             return f"The Agent System is currently unavailable. Please try again later.\n\nTechnical details: {str(e)}"
     
     else:
-        # Default: Use qwen3 directly without RAG
-        return nebula_text_endpoint(data)
+        # Default simple generation using specified LLM
+        return llm_text_endpoint(data)
 
 
-async def query_agents_system(conversation_id: str, query: str, course_id: str) -> dict:
-    """Query the multi-agent system"""
+async def query_agents_system(
+    conversation_id: str,
+    query: str,
+    course_id: str,
+    rag_model: Optional[str] = None,
+    heavy_model: Optional[str] = None,
+) -> dict:
+    """Query the multi-agent system with optional model overrides"""
     
     try:
         async with httpx.AsyncClient(timeout=TimeoutConfig.RAG_QUERY_TIMEOUT) as client:
@@ -392,6 +480,10 @@ async def query_agents_system(conversation_id: str, query: str, course_id: str) 
                 "session_id": conversation_id,
                 "metadata": {"source": "chat_interface"}
             }
+            if rag_model:
+                payload["embedding_model"] = rag_model
+            if heavy_model:
+                payload["heavy_model"] = heavy_model
             
             response = await client.post(
                 f'http://{ServiceConfig.LOCALHOST}:{ServiceConfig.AGENTS_SYSTEM_PORT}/query',
