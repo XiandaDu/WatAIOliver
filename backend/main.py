@@ -1,22 +1,17 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import requests
-from src.api import register_routes
+from starlette.middleware.sessions import SessionMiddleware
 
-# Qwen model endpoint (from legacy uw_llm.py)
-import sys
+from src.log_middleware import LoggingMiddleware
 import os
 
-# Add the project root to the path so we can import config
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from config.constants import ServiceConfig
-
-BASE_URL = ServiceConfig.NEBULA_BASE_URL
+from src.api import register_routes
 
 app = FastAPI()
 
-# Allow CORS for local frontend dev
+app.add_middleware(LoggingMiddleware)
+
+# Enable CORS for all origins (development only)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -25,5 +20,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register all routes from api.py
-register_routes(app) 
+# Session management
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("SESSION_SECRET_KEY", "change-me"),
+    max_age=3600,
+)
+
+register_routes(app)
