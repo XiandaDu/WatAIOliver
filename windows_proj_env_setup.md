@@ -1,9 +1,9 @@
 
 
 
-# For Windows user on x86_32, or on arm64, please go and download WSL2 and use ./setup.sh
+# For Windows user on x86_64, please go and download WSL2 and use ./setup.sh
 
-# If you are currently using a arm64 cpu other than Apple Silicon on MacOS, please manage your own way to do this development.
+# If you are currently using a arm64 or x86_32 only cpu other than Apple Silicon on MacOS, please manage your own way to do this development.
 
 
 
