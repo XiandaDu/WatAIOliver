@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from typing import List
 from schemas.conversations import (
     ConversationCreate,
@@ -27,6 +27,8 @@ def api_get_conversations(user_id: str):
 
 @router.put("/{conversation_id}", response_model=List[ConversationResponse])
 def api_update_conversation(conversation_id: str, entry: ConversationUpdate):
+    if entry.title is None:
+        raise HTTPException(status_code=400, detail="Title is required for update")
     return update_conversation(conversation_id, entry.title)
 
 

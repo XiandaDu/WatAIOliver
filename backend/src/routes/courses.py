@@ -15,7 +15,7 @@ router = APIRouter(prefix="/course", tags=["course"])
 
 @router.post("/", response_model=CourseResponse)
 def api_create_course(course: CourseCreate):
-    return create_course(course)
+    return create_course(**course.model_dump())
 
 
 @router.get("/{user_id}", response_model=List[CourseResponse])
@@ -25,7 +25,9 @@ def api_get_courses(user_id: str):
 
 @router.put("/{course_id}", response_model=CourseResponse)
 def api_update_course(course_id: str, update: CourseUpdate):
-    return update_course(course_id, update)
+    # Convert CourseUpdate object to kwargs, excluding None values
+    update_data = {k: v for k, v in update.model_dump().items() if v is not None}
+    return update_course(course_id, **update_data)
 
 
 @router.delete("/{course_id}")
