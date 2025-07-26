@@ -98,7 +98,7 @@ export default function Login() {
           <button
             className={`flex-1 py-3 px-4 text-sm font-medium ${
               activeTab === "student"
-                ? "bg-blue-600 text-white"
+                ? "bg-black text-white"
                 : "bg-white text-gray-700 hover:bg-gray-50"
             }`}
             onClick={() => setActiveTab("student")}
@@ -108,7 +108,7 @@ export default function Login() {
           <button
             className={`flex-1 py-3 px-4 text-sm font-medium ${
               activeTab === "instructor"
-                ? "bg-blue-600 text-white"
+                ? "bg-black text-white"
                 : "bg-white text-gray-700 hover:bg-gray-50"
             }`}
             onClick={() => setActiveTab("instructor")}
