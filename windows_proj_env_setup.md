@@ -1,3 +1,21 @@
+
+
+
+# For Windows user on x86_32, or on arm64, please go and download WSL2 and use ./setup.sh
+
+# If you are currently using a arm64 cpu other than Apple Silicon on MacOS, please manage your own way to do this development.
+
+
+
+
+
+
+
+
+---
+The content below is not recommended and is no longer being maintained. 
+
+
 # WatAIOliver Project: Manual Setup Guide (Windows, VS Code)
 
 This guide outlines the steps to set up and run the WatAIOliver project on Windows (VS Code environment).
