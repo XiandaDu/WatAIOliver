@@ -18,16 +18,23 @@ WatAIOliver combines a React frontend with a FastAPI backend and a modern RAG sy
 
 1. **Install dependencies**
 
----
- do not use this for now. it will not work.
----
+   
     On macOS/Linux you can run the helper script:
     ```bash
     ./setup.sh
     ```
+
+   remember to run chmod +x setup.sh before ./ it.
+
+```
+./setup.sh          # setup + run everything (default)
+./setup.sh setup    # setup only
+./setup.sh start    # run services
+./setup.sh stop     # stop services
+./setup.sh status   # status
+```
 ---
 
-   Use this instead.
    Or install manually:
    ```bash
    pip install -r backend/requirements.txt
