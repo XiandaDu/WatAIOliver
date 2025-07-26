@@ -9,12 +9,13 @@ import Login from "./pages/Login.jsx"
 function App() {
   return (
     <Routes>
-      <Route path="/" element={<Home />} />
+      <Route path="/home" element={<Home />} />
       <Route path="/chat" element={<ChatPage />} />
       <Route path="/admin" element={<AdminPage />} />
       <Route path="/admin/edit" element={<EditAdminEntry />} />
       <Route path="/admin/logs" element={<Log />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/" element={<Login />} />
     </Routes>
   )
 }
