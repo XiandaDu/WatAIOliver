@@ -26,26 +26,26 @@ export default function ChatPage() {
   const [selectedCourseId, setSelectedCourseId] = useState("")
   const [useAgents, setUseAgents] = useState(false)
   const modelOptions = [
-    { label: "Qwen 3", value: "qwen" },
-    { label: "Agent System", value: "rag" }
+    { label: "Qwen 3", value: "qwen", description: "Standard single-model response" },
+    { label: "Developer Mode", value: "rag", description: "Enables advanced features and multi-agent system" }
   ]
   const ragModelOptions = [
-    { label: "Gemini 004", value: "text-embedding-004" },
-    { label: "Gemini 001", value: "gemini-embedding-001" },
-    { label: "OpenAI Small", value: "text-embedding-3-small" },
-    { label: "OpenAI Large", value: "text-embedding-3-large" },
-    { label: "OpenAI Ada", value: "text-embedding-ada-002" }
+    { label: "Gemini 004", value: "text-embedding-004", description: "Google's latest embedding model (recommended)" },
+    { label: "Gemini 001", value: "gemini-embedding-001", description: "Google's legacy embedding model" },
+    { label: "OpenAI Small", value: "text-embedding-3-small", description: "Fast and cost-effective OpenAI embedding" },
+    { label: "OpenAI Large", value: "text-embedding-3-large", description: "High-quality OpenAI embedding model" },
+    { label: "OpenAI Ada", value: "text-embedding-ada-002", description: "OpenAI's legacy embedding model" }
   ]
   const baseModelOptions = [
-    { label: "Cerebras Qwen MoE", value: "qwen-3-235b-a22b" },
-    { label: "GPT-4.1 Mini", value: "gpt-4.1-mini" },
-    { label: "Gemini Flash", value: "gemini-2.5-flash" }
+    { label: "Cerebras Qwen MoE", value: "qwen-3-235b-a22b", description: "Fast Mixture-of-Experts model from Cerebras" },
+    { label: "GPT-4.1 Mini", value: "gpt-4.1-mini", description: "Lightweight version of OpenAI's GPT-4.1" },
+    { label: "Gemini Flash", value: "gemini-2.5-flash", description: "Google's fast and efficient model" }
   ]
   const heavyModelOptions = [
-    { label: "Default", value: "" },
-    { label: "Gemini Pro", value: "gemini-2.5-pro" },
-    { label: "GPT-4o", value: "gpt-4o" },
-    { label: "Claude Sonnet", value: "claude-3-sonnet-20240229" }
+    { label: "Default", value: "", description: "Use the base model for debates" },
+    { label: "Gemini Pro", value: "gemini-2.5-pro", description: "Google's most capable model for complex reasoning" },
+    { label: "GPT-4o", value: "gpt-4o", description: "OpenAI's optimized model for speed and quality" },
+    { label: "Claude Sonnet", value: "claude-3-sonnet-20240229", description: "Anthropic's balanced model for nuanced tasks" }
   ]
 
   const userId = 'A1' // Using TEST user from database
@@ -282,7 +282,7 @@ export default function ChatPage() {
             prompt: input.trim() || (experimental_attachments?.length ? 'Please help me analyze the uploaded file.' : ''),
             conversation_id: newConversationId,
             file_context: fileContext || null,
-            model: selectedBaseModel,
+            model: selectedModel === "rag" ? "rag" : selectedBaseModel,
             course_id: selectedModel === "rag" ? selectedCourseId : null,
             rag_model: selectedRagModel,
             heavy_model: useAgents ? selectedHeavyModel : null,
@@ -440,7 +440,7 @@ export default function ChatPage() {
         body: JSON.stringify({
           prompt: message.content,
           conversation_id: newConversationId,
-          model: selectedBaseModel,
+          model: selectedModel === "rag" ? "rag" : selectedBaseModel,
           course_id: selectedModel === "rag" ? selectedCourseId : null,
           rag_model: selectedRagModel,
           heavy_model: useAgents ? selectedHeavyModel : null,

@@ -45,14 +45,14 @@ export function ChatInterface({
               value={selectedModel}
               onChange={setSelectedModel}
               options={modelOptions}
-              placeholder="Select a model"
+              placeholder="Select mode"
               className="w-40"
             />
             <CustomSelect
               value={selectedBaseModel}
               onChange={setSelectedBaseModel}
               options={baseModelOptions}
-              placeholder="Base model"
+              placeholder="Foundation model"
               className="w-48"
             />
             {selectedModel === "rag" && (
@@ -61,14 +61,14 @@ export function ChatInterface({
                   value={selectedRagModel}
                   onChange={setSelectedRagModel}
                   options={ragModelOptions}
-                  placeholder="RAG model"
+                  placeholder="Embedding model"
                   className="w-48"
                 />
                 <CustomSelect
                   value={selectedHeavyModel}
                   onChange={setSelectedHeavyModel}
                   options={heavyModelOptions}
-                  placeholder="Debate model"
+                  placeholder="Heavy reasoning model"
                   className="w-48"
                 />
                 <CourseSelector
@@ -83,7 +83,7 @@ export function ChatInterface({
                     checked={useAgents}
                     onChange={(e) => setUseAgents(e.target.checked)}
                   />
-                  <span className="text-sm text-gray-700">Enable agent mode</span>
+                  <span className="text-sm text-gray-700">Enable multi-agent debate</span>
                 </label>
               </>
             )}

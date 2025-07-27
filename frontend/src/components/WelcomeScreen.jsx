@@ -1,5 +1,5 @@
 import { PromptSuggestions } from "@/components/ui/prompt-suggestions"
-import { CustomSelect } from "@/components/ui/custom-select"
+import { SelectWithInfo } from "@/components/ui/select-with-info"
 import { CourseSelector } from "@/components/ui/course-selector"
 import { ChatForm } from "@/components/ui/chat"
 import { MessageInput } from "@/components/ui/message-input"
@@ -39,35 +39,39 @@ export function WelcomeScreen({
         <p className="text-gray-600">
           Ask me anything about your course!
         </p>
-        <div className="mt-4 flex flex-col items-center space-y-3">
-          <CustomSelect
+        <div className="mt-4 flex flex-col items-center space-y-4">
+          <SelectWithInfo
+            label="Mode"
             value={selectedModel}
             onChange={setSelectedModel}
             options={modelOptions}
-            placeholder="Select a model"
+            placeholder="Select mode"
             className="w-48"
           />
-          <CustomSelect
+          <SelectWithInfo
+            label="Foundation Model"
             value={selectedBaseModel}
             onChange={setSelectedBaseModel}
             options={baseModelOptions}
-            placeholder="Base model"
+            placeholder="Foundation model"
             className="w-48"
           />
           {selectedModel === "rag" && (
             <>
-              <CustomSelect
+              <SelectWithInfo
+                label="Embedding Model"
                 value={selectedRagModel}
                 onChange={setSelectedRagModel}
                 options={ragModelOptions}
-                placeholder="RAG model"
+                placeholder="Embedding model"
                 className="w-48"
               />
-              <CustomSelect
+              <SelectWithInfo
+                label="Heavy Reasoning Model"
                 value={selectedHeavyModel}
                 onChange={setSelectedHeavyModel}
                 options={heavyModelOptions}
-                placeholder="Debate model"
+                placeholder="Heavy reasoning model"
                 className="w-48"
               />
               <CourseSelector
@@ -82,7 +86,7 @@ export function WelcomeScreen({
                   checked={useAgents}
                   onChange={(e) => setUseAgents(e.target.checked)}
                 />
-                <span className="text-sm text-gray-700">Enable agent mode</span>
+                <span className="text-sm text-gray-700">Enable multi-agent debate</span>
               </label>
             </>
           )}

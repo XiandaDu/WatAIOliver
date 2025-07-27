@@ -9,3 +9,4 @@ __pycache__/
 
 # Log files
 logs/*.log
+.env
