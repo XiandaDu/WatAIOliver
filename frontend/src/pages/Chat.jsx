@@ -24,7 +24,7 @@ export default function ChatPage() {
   const [selectedRagModel, setSelectedRagModel] = useState("text-embedding-004")
   const [selectedHeavyModel, setSelectedHeavyModel] = useState("")
   const [selectedCourseId, setSelectedCourseId] = useState("")
-  const [useAgents, setUseAgents] = useState(false)
+  const [useAgents, setUseAgents] = useState(true)
   const modelOptions = [
     { label: "Standard", value: "qwen", description: "Quick single-model response" },
     { label: "Advanced", value: "rag", description: "Multi-agent system with full customization options (Default)" }
