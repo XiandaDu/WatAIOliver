@@ -1,5 +1,5 @@
 import { PromptSuggestions } from "@/components/ui/prompt-suggestions"
-import { SelectWithInfo } from "@/components/ui/select-with-info"
+import { CustomSelect } from "@/components/ui/custom-select"
 import { CourseSelector } from "@/components/ui/course-selector"
 import { ChatForm } from "@/components/ui/chat"
 import { MessageInput } from "@/components/ui/message-input"
@@ -40,40 +40,44 @@ export function WelcomeScreen({
           Ask me anything about your course!
         </p>
         <div className="mt-4 flex flex-col items-center space-y-4">
-          <SelectWithInfo
-            label="Mode"
-            value={selectedModel}
-            onChange={setSelectedModel}
-            options={modelOptions}
-            placeholder="Select mode"
-            className="w-48"
-          />
-          <SelectWithInfo
-            label="Foundation Model"
-            value={selectedBaseModel}
-            onChange={setSelectedBaseModel}
-            options={baseModelOptions}
-            placeholder="Foundation model"
-            className="w-48"
-          />
+          <div className="w-48">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Mode</label>
+            <CustomSelect
+              value={selectedModel}
+              onChange={setSelectedModel}
+              options={modelOptions}
+              placeholder="Select mode"
+            />
+          </div>
+          <div className="w-48">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Foundation Model</label>
+            <CustomSelect
+              value={selectedBaseModel}
+              onChange={setSelectedBaseModel}
+              options={baseModelOptions}
+              placeholder="Foundation model"
+            />
+          </div>
           {selectedModel === "rag" && (
             <>
-              <SelectWithInfo
-                label="Embedding Model"
-                value={selectedRagModel}
-                onChange={setSelectedRagModel}
-                options={ragModelOptions}
-                placeholder="Embedding model"
-                className="w-48"
-              />
-              <SelectWithInfo
-                label="Heavy Reasoning Model"
-                value={selectedHeavyModel}
-                onChange={setSelectedHeavyModel}
-                options={heavyModelOptions}
-                placeholder="Heavy reasoning model"
-                className="w-48"
-              />
+              <div className="w-48">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Embedding Model</label>
+                <CustomSelect
+                  value={selectedRagModel}
+                  onChange={setSelectedRagModel}
+                  options={ragModelOptions}
+                  placeholder="Embedding model"
+                />
+              </div>
+              <div className="w-48">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Heavy Reasoning Model</label>
+                <CustomSelect
+                  value={selectedHeavyModel}
+                  onChange={setSelectedHeavyModel}
+                  options={heavyModelOptions}
+                  placeholder="Heavy reasoning model"
+                />
+              </div>
               <CourseSelector
                 value={selectedCourseId}
                 onChange={setSelectedCourseId}
