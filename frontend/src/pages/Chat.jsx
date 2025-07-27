@@ -19,31 +19,30 @@ export default function ChatPage() {
   const [isSendingMessage, setIsSendingMessage] = useState(false)
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
-  const [selectedModel, setSelectedModel] = useState("qwen")
+  const [selectedModel, setSelectedModel] = useState("rag")
   const [selectedBaseModel, setSelectedBaseModel] = useState("qwen-3-235b-a22b")
   const [selectedRagModel, setSelectedRagModel] = useState("text-embedding-004")
-  const [selectedHeavyModel, setSelectedHeavyModel] = useState("")
+  const [selectedHeavyModel, setSelectedHeavyModel] = useState("gemini-2.5-pro")
   const [selectedCourseId, setSelectedCourseId] = useState("")
-  const [useAgents, setUseAgents] = useState(false)
+  const [useAgents, setUseAgents] = useState(true)
   const modelOptions = [
-    { label: "Single Model", value: "qwen", description: "Standard single-model response" },
-    { label: "Developer Mode", value: "rag", description: "Enables advanced features and multi-agent system" }
+    { label: "Standard", value: "qwen", description: "Quick single-model response" },
+    { label: "Advanced", value: "rag", description: "Multi-agent system with full customization options (Default)" }
   ]
   const ragModelOptions = [
-    { label: "Gemini 004", value: "text-embedding-004", description: "Google's latest embedding model (recommended)" },
+    { label: "Gemini 004", value: "text-embedding-004", description: "Google's latest embedding model (Default)" },
     { label: "Gemini 001", value: "gemini-embedding-001", description: "Google's legacy embedding model" },
     { label: "OpenAI Small", value: "text-embedding-3-small", description: "Fast and cost-effective OpenAI embedding" },
     { label: "OpenAI Large", value: "text-embedding-3-large", description: "High-quality OpenAI embedding model" },
     { label: "OpenAI Ada", value: "text-embedding-ada-002", description: "OpenAI's legacy embedding model" }
   ]
   const baseModelOptions = [
-    { label: "Cerebras Qwen MoE", value: "qwen-3-235b-a22b", description: "Fast Mixture-of-Experts model from Cerebras" },
+    { label: "Cerebras Qwen MoE", value: "qwen-3-235b-a22b", description: "Fast Mixture-of-Experts model from Cerebras (Default)" },
     { label: "GPT-4.1 Mini", value: "gpt-4.1-mini", description: "Lightweight version of OpenAI's GPT-4.1" },
     { label: "Gemini Flash", value: "gemini-2.5-flash", description: "Google's fast and efficient model" }
   ]
   const heavyModelOptions = [
-    { label: "Default", value: "", description: "Use the base model for debates" },
-    { label: "Gemini Pro", value: "gemini-2.5-pro", description: "Google's most capable model for complex reasoning" },
+    { label: "Gemini Pro", value: "gemini-2.5-pro", description: "Google's most capable model for complex reasoning (Default)" },
     { label: "GPT-4o", value: "gpt-4o", description: "OpenAI's optimized model for speed and quality" },
     { label: "Claude Sonnet", value: "claude-3-sonnet-20240229", description: "Anthropic's balanced model for nuanced tasks" }
   ]
