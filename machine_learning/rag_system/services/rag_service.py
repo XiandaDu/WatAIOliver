@@ -248,7 +248,7 @@ Answer:"""
                 answer = "I couldn't find relevant information to answer your question."
             
             # Format sources with preserved scores
-            sources = self._format_sources_with_debug(documents_with_scores)
+            sources = self._format_sources(documents_with_scores)
             
             return {
                 "answer": answer,

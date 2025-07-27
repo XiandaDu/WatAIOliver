@@ -39,37 +39,45 @@ export function WelcomeScreen({
         <p className="text-gray-600">
           Ask me anything about your course!
         </p>
-        <div className="mt-4 flex flex-col items-center space-y-3">
-          <CustomSelect
-            value={selectedModel}
-            onChange={setSelectedModel}
-            options={modelOptions}
-            placeholder="Select a model"
-            className="w-48"
-          />
-          <CustomSelect
-            value={selectedBaseModel}
-            onChange={setSelectedBaseModel}
-            options={baseModelOptions}
-            placeholder="Base model"
-            className="w-48"
-          />
+        <div className="mt-4 flex flex-col items-center space-y-4">
+          <div className="w-48">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Mode</label>
+            <CustomSelect
+              value={selectedModel}
+              onChange={setSelectedModel}
+              options={modelOptions}
+              placeholder="Select mode"
+            />
+          </div>
+          <div className="w-48">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Foundation Model</label>
+            <CustomSelect
+              value={selectedBaseModel}
+              onChange={setSelectedBaseModel}
+              options={baseModelOptions}
+              placeholder="Foundation model"
+            />
+          </div>
           {selectedModel === "rag" && (
             <>
-              <CustomSelect
-                value={selectedRagModel}
-                onChange={setSelectedRagModel}
-                options={ragModelOptions}
-                placeholder="RAG model"
-                className="w-48"
-              />
-              <CustomSelect
-                value={selectedHeavyModel}
-                onChange={setSelectedHeavyModel}
-                options={heavyModelOptions}
-                placeholder="Debate model"
-                className="w-48"
-              />
+              <div className="w-48">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Embedding Model</label>
+                <CustomSelect
+                  value={selectedRagModel}
+                  onChange={setSelectedRagModel}
+                  options={ragModelOptions}
+                  placeholder="Embedding model"
+                />
+              </div>
+              <div className="w-48">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Heavy Reasoning Model</label>
+                <CustomSelect
+                  value={selectedHeavyModel}
+                  onChange={setSelectedHeavyModel}
+                  options={heavyModelOptions}
+                  placeholder="Heavy reasoning model"
+                />
+              </div>
               <CourseSelector
                 value={selectedCourseId}
                 onChange={setSelectedCourseId}
@@ -82,7 +90,7 @@ export function WelcomeScreen({
                   checked={useAgents}
                   onChange={(e) => setUseAgents(e.target.checked)}
                 />
-                <span className="text-sm text-gray-700">Enable agent mode</span>
+                <span className="text-sm text-gray-700">Enable multi-agent debate</span>
               </label>
             </>
           )}
