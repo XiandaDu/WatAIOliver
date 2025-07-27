@@ -26,7 +26,7 @@ export default function ChatPage() {
   const [selectedCourseId, setSelectedCourseId] = useState("")
   const [useAgents, setUseAgents] = useState(false)
   const modelOptions = [
-    { label: "Qwen 3", value: "qwen", description: "Standard single-model response" },
+    { label: "Single Model", value: "qwen", description: "Standard single-model response" },
     { label: "Developer Mode", value: "rag", description: "Enables advanced features and multi-agent system" }
   ]
   const ragModelOptions = [
