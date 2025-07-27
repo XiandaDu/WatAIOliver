@@ -22,7 +22,7 @@ export default function ChatPage() {
   const [selectedModel, setSelectedModel] = useState("rag")
   const [selectedBaseModel, setSelectedBaseModel] = useState("qwen-3-235b-a22b")
   const [selectedRagModel, setSelectedRagModel] = useState("text-embedding-004")
-  const [selectedHeavyModel, setSelectedHeavyModel] = useState("")
+  const [selectedHeavyModel, setSelectedHeavyModel] = useState("gemini-2.5-pro")
   const [selectedCourseId, setSelectedCourseId] = useState("")
   const [useAgents, setUseAgents] = useState(true)
   const modelOptions = [
@@ -42,8 +42,7 @@ export default function ChatPage() {
     { label: "Gemini Flash", value: "gemini-2.5-flash", description: "Google's fast and efficient model" }
   ]
   const heavyModelOptions = [
-    { label: "Default", value: "", description: "Use the base model for debates (Default)" },
-    { label: "Gemini Pro", value: "gemini-2.5-pro", description: "Google's most capable model for complex reasoning" },
+    { label: "Gemini Pro", value: "gemini-2.5-pro", description: "Google's most capable model for complex reasoning (Default)" },
     { label: "GPT-4o", value: "gpt-4o", description: "OpenAI's optimized model for speed and quality" },
     { label: "Claude Sonnet", value: "claude-3-sonnet-20240229", description: "Anthropic's balanced model for nuanced tasks" }
   ]
