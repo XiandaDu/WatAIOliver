@@ -63,8 +63,17 @@ class RetrieveAgent(BaseAgent):
                 error_message="Initial RAG retrieval failed"
             )
         
+        # DEBUG: Log initial results
+        sources = initial_results.get('sources', [])
+        self.logger.info(f"DEBUG: Initial RAG returned {len(sources)} sources")
+        for i, source in enumerate(sources[:3]):
+            score = source.get('score', 'N/A')
+            content = source.get('content', '')[:50]
+            self.logger.info(f"  Source {i+1}: Score={score}, Content='{content}...'")
+        
         # Stage 2: Quality assessment 
         quality_score = self._assess_retrieval_quality(initial_results)
+        self.logger.info(f"DEBUG: Quality score assessed as {quality_score:.3f} (threshold: {self.min_quality_threshold})")
         
         # Stage 3: Speculative reframing if quality is poor
         if quality_score < self.min_quality_threshold and self.llm_client:
@@ -87,6 +96,10 @@ class RetrieveAgent(BaseAgent):
         
         # Format final results for downstream agents
         formatted_context = self._format_for_agents(final_results)
+        
+        # DEBUG: Log formatting results
+        self.logger.info(f"DEBUG: Final results has {len(final_results.get('sources', []))} sources")
+        self.logger.info(f"DEBUG: Formatted context has {len(formatted_context)} items")
         
         # Log clean chunk summary
         self._log_retrieved_chunks(formatted_context, strategy)
@@ -112,6 +125,9 @@ class RetrieveAgent(BaseAgent):
     async def _perform_rag_query(self, query: str, course_id: str) -> Optional[Dict[str, Any]]:
         """Perform RAG query using existing system"""
         try:
+            # DEBUG: Always show first 3 chunks from this course for sanity check
+            await self._debug_course_chunks(course_id, query)
+            
             if self.rag_service:
                 return self.rag_service.answer_question(course_id, query)
             else:
@@ -287,6 +303,71 @@ class RetrieveAgent(BaseAgent):
             content_preview = chunk.get('content', '')[:50] + '...' if len(chunk.get('content', '')) > 50 else chunk.get('content', '')
             self.logger.info(f"   • Similarity: {score_display} | {content_preview}")
     
+    async def _debug_course_chunks(self, course_id: str, actual_query: str = None):
+        """Debug: Show first 3 chunks from this course with similarity scores"""
+        try:
+            if not self.rag_service:
+                self.logger.info(f"DEBUG: No RAG service available for course {course_id}")
+                return
+                
+            # Get the vector client directly to query raw chunks
+            vector_client = getattr(self.rag_service, 'vector_client', None)
+            if not vector_client:
+                self.logger.info(f"DEBUG: No vector client available for course {course_id}")
+                return
+                
+            # Query for any 3 documents from this course (no similarity filtering)
+            try:
+                # First, get any chunks to show they exist
+                raw_results = vector_client.similarity_search(
+                    query="course content", 
+                    k=3, 
+                    filter={"course_id": course_id}
+                )
+                
+                if raw_results:
+                    self.logger.info(f"DEBUG: Found {len(raw_results)} chunks in course {course_id}")
+                    
+                    # If we have the actual query, show similarity scores with that query
+                    if actual_query:
+                        try:
+                            scored_results = vector_client.similarity_search_with_score(
+                                query=actual_query,
+                                k=3,
+                                filter={"course_id": course_id}
+                            )
+                            
+                            self.logger.info(f"DEBUG: Similarity scores for query '{actual_query[:50]}...':")
+                            for i, (doc, score) in enumerate(scored_results, 1):
+                                content_preview = doc.page_content[:80] + '...' if len(doc.page_content) > 80 else doc.page_content
+                                metadata = doc.metadata or {}
+                                chunk_id = metadata.get('chunk_index', 'unknown')
+                                self.logger.info(f"   {i}. Chunk {chunk_id} | Score: {score:.4f} | {content_preview}")
+                                
+                        except Exception as score_error:
+                            self.logger.error(f"DEBUG: Error getting similarity scores: {score_error}")
+                            # Fallback to showing chunks without scores
+                            for i, doc in enumerate(raw_results, 1):
+                                content_preview = doc.page_content[:80] + '...' if len(doc.page_content) > 80 else doc.page_content
+                                metadata = doc.metadata or {}
+                                chunk_id = metadata.get('chunk_index', 'unknown')
+                                self.logger.info(f"   {i}. Chunk {chunk_id}: {content_preview}")
+                    else:
+                        # Just show the chunks without scores
+                        for i, doc in enumerate(raw_results, 1):
+                            content_preview = doc.page_content[:80] + '...' if len(doc.page_content) > 80 else doc.page_content
+                            metadata = doc.metadata or {}
+                            chunk_id = metadata.get('chunk_index', 'unknown')
+                            self.logger.info(f"   {i}. Chunk {chunk_id}: {content_preview}")
+                else:
+                    self.logger.info(f"DEBUG: No chunks found in course {course_id} database")
+                    
+            except Exception as search_error:
+                self.logger.error(f"DEBUG: Error searching course {course_id}: {search_error}")
+                
+        except Exception as e:
+            self.logger.error(f"DEBUG: Failed to debug course chunks: {e}")
+
     def get_agent_metrics(self) -> Dict[str, Any]:
         """Get retrieval-specific metrics"""
         base_metrics = self.get_metrics()
