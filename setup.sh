@@ -277,7 +277,7 @@ GEMINI_API_KEY=
 
 # --- OpenAI/Anthropic API Configuration (optional, paid service) ---
 OPENAI_API_KEY=<your-key>
-ANTHROPIC_API_KEY=<your-key> # not implemented yet
+ANTHROPIC_API_KEY=<your-key>
 
 # --- Cerebras AI API Configuration (get from https://cloud.cerebras.ai/?redirect=/platform/apikeys for free) ---
 # REQUIRED: Left empty on purpose; setup.sh will prompt you.
