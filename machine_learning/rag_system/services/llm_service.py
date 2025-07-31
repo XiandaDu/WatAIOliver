@@ -3,7 +3,7 @@ from rag_system.llm_clients.gemini_client import GeminiClient
 from rag_system.llm_clients.cerebras_client import CerebrasClient
 from rag_system.llm_clients.openai_client import OpenAIClient
 from rag_system.llm_clients.anthropic_client import AnthropicClient
-from config.constants import ModelConfig
+from machine_learning.constants import ModelConfig
 
 
 class LLMService:

@@ -13,7 +13,8 @@ from .CRUD import get_messages
 import httpx
 from typing import Optional, Dict, Any
 
-from config.constants import TimeoutConfig, ServiceConfig, ModelConfig
+from backend.constants import TimeoutConfig, ServiceConfig
+from machine_learning.constants import ModelConfig
 from machine_learning.rag_system.llm_clients.gemini_client import GeminiClient
 from machine_learning.rag_system.llm_clients.cerebras_client import CerebrasClient
 from machine_learning.rag_system.llm_clients.openai_client import OpenAIClient

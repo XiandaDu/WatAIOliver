@@ -1,5 +1,5 @@
 import requests
-from config.constants import ServiceConfig
+from backend.constants import ServiceConfig
 
 BASE_URL = ServiceConfig.NEBULA_BASE_URL  # This is the stable endpoint
 

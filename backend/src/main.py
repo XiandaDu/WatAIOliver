@@ -8,8 +8,6 @@ app = FastAPI()
 
 app.add_middleware(LoggingMiddleware)
 
-# Add session middleware to handle user sessions (e.g., login sessions)
-app.add_middleware(SessionMiddleware, secret_key="your_secret_key", max_age=3600)
 
 @app.get("/")
 async def root():

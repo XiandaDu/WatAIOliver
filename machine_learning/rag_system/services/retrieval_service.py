@@ -6,7 +6,7 @@ from rag_system.app.config import Settings
 from rag_system.embedding.google_embedding_client import GoogleEmbeddingClient
 from rag_system.embedding.openai_embedding_client import OpenAIEmbeddingClient
 from rag_system.vector_db.supabase_client import SupabaseVectorClient
-from config.constants import ModelConfig, TextProcessingConfig
+from machine_learning.constants import ModelConfig, TextProcessingConfig
 
 
 class RetrievalService:

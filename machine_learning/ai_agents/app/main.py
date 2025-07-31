@@ -339,7 +339,7 @@ async def get_debug_config():
 
 if __name__ == "__main__":
     import uvicorn
-    from config.constants import ServiceConfig
+    from backend.constants import ServiceConfig
     
     uvicorn.run(
         "main:app",
