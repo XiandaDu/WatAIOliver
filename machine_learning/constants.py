@@ -15,12 +15,7 @@ class ModelConfig:
     # Model Parameters
     DEFAULT_TEMPERATURE = 0.1
     
-    # Official embedding model identifiers
-    DEFAULT_EMBEDDING_MODEL = "text-embedding-004"          # Google Gemini
-    LEGACY_EMBEDDING_MODEL = "gemini-embedding-001"         # Google Gemini (legacy)
-    OPENAI_EMBED_SMALL = "text-embedding-3-small"           # OpenAI
-    OPENAI_EMBED_LARGE = "text-embedding-3-large"           # OpenAI  
-    OPENAI_EMBED_ADA = "text-embedding-ada-002"             # OpenAI (legacy)
+
 
     # Unified vector dimensionality across all embedding models
     EMBEDDING_DIMENSION = 512

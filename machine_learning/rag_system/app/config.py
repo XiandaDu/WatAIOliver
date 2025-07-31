@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     supabase_api_key: str = ""  # Will be read from SUPABASE_SERVICE_KEY
 
     # Embedding model configuration
-    embedding_model: str = ModelConfig.DEFAULT_EMBEDDING_MODEL
+    embedding_model: str = "text-embedding-004"
     
     # Server configuration
     host: str = "0.0.0.0"
@@ -61,7 +61,7 @@ def get_settings() -> Settings:
         google_cloud_location=os.getenv("GOOGLE_CLOUD_LOCATION", "global"),
         supabase_url=os.getenv("SUPABASE_URL", ""),
         supabase_api_key=os.getenv("SUPABASE_SERVICE_KEY", ""),
-        embedding_model=os.getenv("EMBEDDING_MODEL", ModelConfig.DEFAULT_EMBEDDING_MODEL),
+        embedding_model=os.getenv("EMBEDDING_MODEL", "text-embedding-004"),
         cerebras_api_key=os.getenv("CEREBRAS_API_KEY", ""),
         openai_api_key=os.getenv("OPENAI_API_KEY", ""),
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", ""),

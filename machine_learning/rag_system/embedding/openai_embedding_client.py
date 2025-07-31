@@ -15,7 +15,7 @@ class OpenAIEmbeddingClient:
             raise ValueError("OPENAI_API_KEY must be provided")
         self.model = model
         # All embedding models are projected to a unified dimension
-        if model == ModelConfig.OPENAI_EMBED_LARGE:
+        if model == "text-embedding-3-large":
             self.output_dimensionality = ModelConfig.OPENAI_LARGE_DIMENSIONALITY
         else:
             self.output_dimensionality = ModelConfig.OPENAI_SMALL_DIMENSIONALITY
