@@ -5,7 +5,7 @@ import tempfile
 import os
 import httpx
 
-from config.constants import TimeoutConfig, ServiceConfig
+from backend.constants import TimeoutConfig, ServiceConfig
 
 from . import service
 from .models import ConversationCreate, ConversationUpdate, ConversationDelete, MessageCreate, MessageUpdate, MessageDelete, ConversationOut, MessageOut, ChatRequest

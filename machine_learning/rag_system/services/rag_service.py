@@ -2,7 +2,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from pathlib import Path
 
-from config.constants import ModelConfig, TextProcessingConfig
+from machine_learning.constants import ModelConfig, TextProcessingConfig
 
 # Import document loaders for different file types
 from langchain_community.document_loaders import TextLoader, PyPDFLoader, Docx2txtLoader

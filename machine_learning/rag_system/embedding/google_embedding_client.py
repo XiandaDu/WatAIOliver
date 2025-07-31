@@ -7,7 +7,7 @@ from langchain.schema import Document
 # Import Google GenAI SDK for embedding
 from google import genai
 from google.genai.types import EmbedContentConfig
-from config.constants import TextProcessingConfig, ModelConfig
+from machine_learning.constants import TextProcessingConfig, ModelConfig
 
 
 class GoogleEmbeddingClient:

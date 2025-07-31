@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 from pydantic_settings import BaseSettings
-from config.constants import ModelConfig
+from machine_learning.constants import ModelConfig
 
 # Load .env file if it exists
 try:

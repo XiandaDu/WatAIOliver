@@ -21,9 +21,13 @@ app.add_middleware(
 )
 
 # Session management
+session_secret_key = os.getenv("SESSION_SECRET_KEY")
+if not session_secret_key:
+    raise ValueError("SESSION_SECRET_KEY environment variable is required but not set")
+
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.getenv("SESSION_SECRET_KEY", "change-me"),
+    secret_key=session_secret_key,
     max_age=3600,
 )
 
