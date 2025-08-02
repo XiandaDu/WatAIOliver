@@ -7,13 +7,13 @@ from langchain.schema import Document
 # Import Google GenAI SDK for embedding
 from google import genai
 from google.genai.types import EmbedContentConfig
-from config.constants import TextProcessingConfig, ModelConfig
+from machine_learning.constants import TextProcessingConfig, ModelConfig
 
 
 class GoogleEmbeddingClient:
     """Google AI embeddings client supporting multiple Gemini embedding models."""
     
-    def __init__(self, google_cloud_project: str, model: str = ModelConfig.DEFAULT_EMBEDDING_MODEL, output_dimensionality: int | None = None):
+    def __init__(self, google_cloud_project: str, model: str = "text-embedding-004", output_dimensionality: int | None = None):
         """Initialize the embedding client.
 
         Args:
@@ -26,7 +26,7 @@ class GoogleEmbeddingClient:
 
         if output_dimensionality is not None:
             self.output_dimensionality = output_dimensionality
-        elif model == ModelConfig.LEGACY_EMBEDDING_MODEL:
+        elif model == "gemini-embedding-001":
             self.output_dimensionality = ModelConfig.LEGACY_OUTPUT_DIMENSIONALITY
         else:
             self.output_dimensionality = ModelConfig.DEFAULT_OUTPUT_DIMENSIONALITY
