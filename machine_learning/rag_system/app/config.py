@@ -5,12 +5,12 @@ from pathlib import Path
 from pydantic_settings import BaseSettings
 from machine_learning.constants import ModelConfig
 
-# Load .env file from project root
+# Load .env file from machine_learning directory
 try:
     from dotenv import load_dotenv
-    # Load from project root instead of local directory
-    root_env_path = Path(__file__).parent.parent.parent.parent / ".env"
-    load_dotenv(root_env_path)
+    # Load from machine_learning directory
+    ml_env_path = Path(__file__).parent.parent.parent / ".env"
+    load_dotenv(ml_env_path)
 except ImportError:
     pass  # python-dotenv not installed, use system env vars
 
@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     
     # Supabase configuration 
     supabase_url: str = ""
-    supabase_api_key: str = ""  # Will be read from SUPABASE_SERVICE_KEY
+    supabase_api_key: str = ""  # Will be read from SUPABASE_SERVICE_ROLE_KEY
 
     # Embedding model configuration
     embedding_model: str = "text-embedding-004"
@@ -57,11 +57,11 @@ def get_settings() -> Settings:
     Function to create Settings instance with environment vars.
     """
     return Settings(
-        google_api_key=os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "",
+        google_api_key=os.getenv("GEMINI_API_KEY", ""),
         google_cloud_project=os.getenv("GOOGLE_CLOUD_PROJECT", ""),  # Must be set for Vertex AI
         google_cloud_location=os.getenv("GOOGLE_CLOUD_LOCATION", "global"),
         supabase_url=os.getenv("SUPABASE_URL", ""),
-        supabase_api_key=os.getenv("SUPABASE_SERVICE_KEY", ""),
+        supabase_api_key=os.getenv("SUPABASE_SERVICE_ROLE_KEY", ""),
         embedding_model=os.getenv("EMBEDDING_MODEL", "text-embedding-004"),
         cerebras_api_key=os.getenv("CEREBRAS_API_KEY", ""),
         openai_api_key=os.getenv("OPENAI_API_KEY", ""),

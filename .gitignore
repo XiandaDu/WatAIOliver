@@ -9,4 +9,13 @@ __pycache__/
 
 # Log files
 logs/*.log
+app.log
+
+# Process ID files
+.pids/
+*.pid
+# Environment files
 .env
+backend/.env
+frontend/.env
+machine_learning/.env

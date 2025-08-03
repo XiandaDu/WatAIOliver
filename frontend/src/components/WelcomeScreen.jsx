@@ -4,6 +4,8 @@ import { CourseSelector } from "@/components/ui/course-selector"
 import { ChatForm } from "@/components/ui/chat"
 import { MessageInput } from "@/components/ui/message-input"
 import { transcribeAudio } from "@/lib/utils/audio"
+import { useNavigate } from "react-router-dom"
+import { Button } from "@/components/ui/button"
 
 export function WelcomeScreen({ 
   selectedModel,
@@ -30,8 +32,24 @@ export function WelcomeScreen({
   isTyping, 
   stop 
 }) {
+  const navigate = useNavigate()
+  
+  const handleLogout = () => {
+    localStorage.removeItem('user')
+    localStorage.removeItem('access_token')
+    navigate('/login')
+  }
+
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-8 p-8">
+    <div className="flex-1 flex flex-col items-center justify-center gap-8 p-8 relative">
+      <Button
+        onClick={handleLogout}
+        variant="outline"
+        size="sm"
+        className="absolute top-4 right-4 text-red-600 border-red-300 hover:bg-red-50"
+      >
+        Logout
+      </Button>
       <div className="text-center">
         <h1 className="text-2xl font-semibold text-gray-900 mb-2">
           Welcome to Oliver.

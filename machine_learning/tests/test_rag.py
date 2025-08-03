@@ -13,10 +13,10 @@ import traceback
 rag_path = str(Path(__file__).parent.parent / "rag_system")
 sys.path.insert(0, rag_path)
 
-# Load environment variables from .env file
+# Load environment variables from machine_learning .env file
 try:
     from dotenv import load_dotenv
-    env_path = Path(__file__).parent.parent / "rag_system" / ".env"
+    env_path = Path(__file__).parent.parent / ".env"
     load_dotenv(env_path)
 except ImportError:
     print("️python-dotenv not installed, using system environment variables")

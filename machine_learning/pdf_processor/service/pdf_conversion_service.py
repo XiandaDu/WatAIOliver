@@ -13,8 +13,11 @@ from dotenv import load_dotenv
 
 from machine_learning.pdf_processor.config import Settings
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from machine_learning .env file
+import os
+from pathlib import Path
+ml_env_path = Path(__file__).parent.parent.parent / ".env"
+load_dotenv(ml_env_path)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

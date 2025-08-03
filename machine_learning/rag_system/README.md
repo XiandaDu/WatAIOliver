@@ -66,7 +66,7 @@ Simple RAG system using `gemini-embedding-001` with 512D vectors.
    
    # Add your Supabase credentials
    SUPABASE_URL=https://your-project.supabase.co
-   SUPABASE_SERVICE_KEY=your-service-key
+   SUPABASE_SERVICE_ROLE_KEY=your-service-key
    ```
 
 ### Step 4: Install & Run
