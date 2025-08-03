@@ -11,17 +11,6 @@ from machine_learning.constants import TextProcessingConfig, ModelConfig
 
 
 class GoogleEmbeddingClient:
-<<<<<<< HEAD
-    """Google AI embeddings client using gemini text-embedding-004 following official documentation."""
-    
-    def __init__(self, google_cloud_project: str, model: str = "text-embedding-004", output_dimensionality: int = ModelConfig.DEFAULT_OUTPUT_DIMENSIONALITY):
-        """Initialize the embedding client with gemini text-embedding-004.
-        
-        Args:
-            google_cloud_project: Google Cloud project ID for Vertex AI
-            model: Embedding model to use (default: text-embedding-004)
-            output_dimensionality: Target vector dimensions (default: 768)
-=======
     """Google AI embeddings client supporting multiple Gemini embedding models."""
     
     def __init__(self, google_cloud_project: str, model: str = "text-embedding-004", output_dimensionality: int | None = None):
@@ -31,7 +20,6 @@ class GoogleEmbeddingClient:
             google_cloud_project: Google Cloud project ID for Vertex AI
             model: Embedding model to use
             output_dimensionality: Optional override for vector dimensions
->>>>>>> 16667f2 (Add files via upload)
         """
         self.google_cloud_project = google_cloud_project
         self.model = model
@@ -43,13 +31,8 @@ class GoogleEmbeddingClient:
         else:
             self.output_dimensionality = ModelConfig.DEFAULT_OUTPUT_DIMENSIONALITY
         
-<<<<<<< HEAD
-        # Use Vertex AI with service account credentials for gemini text-embedding-004
-        self.client = genai.Client()
-=======
         # Initialize genai client using application default credentials
         self.client = genai.Client(vertexai=True, project=google_cloud_project)
->>>>>>> 16667f2 (Add files via upload)
         
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=TextProcessingConfig.DEFAULT_CHUNK_SIZE,

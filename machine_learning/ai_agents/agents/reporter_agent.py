@@ -43,10 +43,7 @@ class ReporterAgent(BaseAgent):
         - Be transparent about knowledge boundaries and limitations
         - Provide clear, actionable insights
         - Ensure content is suitable for educational contexts
-<<<<<<< HEAD
-=======
         - Reflect carefully on the debate outcome before finalizing
->>>>>>> 16667f2 (Add files via upload)
 
         Your output should be the definitive, high-quality answer to the user's question.
         """
