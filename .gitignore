@@ -10,7 +10,61 @@ __pycache__/
 # Log files
 logs/*.log
 
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+.env.production
+.env.staging
+.env.development
+
 # Google Cloud Service Account Keys
 *.json
 watai-test-*.json
 *credentials*.json
+
+# Authentication and OAuth files
+*oauth*.json
+*token*.json
+*secret*.json
+*auth*.json
+
+# Windows Zone.Identifier files (garbage files)
+*:Zone.Identifier
+
+# Test files that might contain sensitive data
+test_*.py
+*_test.py
+*test*.py
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Node modules (if any)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
