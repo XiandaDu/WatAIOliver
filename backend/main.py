@@ -1,20 +1,8 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import requests
 from src.api import register_routes
 
-# Qwen model endpoint (from legacy uw_llm.py)
-import sys
-import os
-
-# Add the project root to the path so we can import config
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from config.constants import ServiceConfig
-
-BASE_URL = ServiceConfig.NEBULA_BASE_URL
-
-app = FastAPI()
+app = FastAPI(title="WatAI Oliver Auth Backend", version="1.0.0")
 
 # Allow CORS for local frontend dev
 app.add_middleware(
@@ -26,4 +14,13 @@ app.add_middleware(
 )
 
 # Register all routes from api.py
-register_routes(app) 
+register_routes(app)
+
+@app.get("/")
+async def root():
+    return {"message": "WatAI Oliver Authentication Backend"}
+
+@app.get("/health")
+async def health() -> dict:
+    """Basic health check endpoint."""
+    return {"status": "ok"} 
