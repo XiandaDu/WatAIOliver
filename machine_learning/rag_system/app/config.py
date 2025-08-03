@@ -5,11 +5,12 @@ from pathlib import Path
 from pydantic_settings import BaseSettings
 from machine_learning.constants import ModelConfig
 
-# Load .env file if it exists
+# Load .env file from project root
 try:
     from dotenv import load_dotenv
-    env_path = Path(__file__).parent.parent / ".env"
-    load_dotenv(env_path)
+    # Load from project root instead of local directory
+    root_env_path = Path(__file__).parent.parent.parent.parent / ".env"
+    load_dotenv(root_env_path)
 except ImportError:
     pass  # python-dotenv not installed, use system env vars
 
@@ -56,7 +57,7 @@ def get_settings() -> Settings:
     Function to create Settings instance with environment vars.
     """
     return Settings(
-        google_api_key=os.getenv("GOOGLE_API_KEY", os.getenv("GEMINI_API_KEY", "")),  # use GEMINI_API_KEY as fallback for Gemini client
+        google_api_key=os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "",
         google_cloud_project=os.getenv("GOOGLE_CLOUD_PROJECT", ""),  # Must be set for Vertex AI
         google_cloud_location=os.getenv("GOOGLE_CLOUD_LOCATION", "global"),
         supabase_url=os.getenv("SUPABASE_URL", ""),

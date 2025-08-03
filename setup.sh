@@ -258,30 +258,27 @@ create_env_if_missing() {
   fi
   info "No .env found. Creating with Supabase defaults; will prompt for required APIs."
   cat > "$ENV_FILE" <<EOF
-# ========= Oliver Root Environment =========
-
-# Core Supabase configuration (project defaults)
 SUPABASE_URL=$DEFAULT_SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY=$DEFAULT_SUPABASE_SERVICE_ROLE_KEY
-
-# 兼容变量（部分代码用 SUPABASE_KEY）
 SUPABASE_KEY=\${SUPABASE_SERVICE_ROLE_KEY}
-
-# --- Google Cloud Configuration (LEGACY) ---
+SUPABASE_SERVICE_KEY=\${SUPABASE_SERVICE_ROLE_KEY}
+GOOGLE_APPLICATION_CREDENTIALS=<your-key>
 GOOGLE_CLOUD_PROJECT=<your-key>
-GOOGLE_APPLICATION_CREDENTIALS=<your-key,a .json doc>
-
-# --- Google Gemini API Configuration (get from aistudio.google.com/apikey for free) ---
-# REQUIRED: Left empty on purpose; setup.sh will prompt you.
+GOOGLE_CLOUD_LOCATION=global
+GOOGLE_GENAI_USE_VERTEXAI=True
+GOOGLE_API_KEY=<your-key>
 GEMINI_API_KEY=
-
-# --- OpenAI/Anthropic API Configuration (optional, paid service) ---
 OPENAI_API_KEY=<your-key>
 ANTHROPIC_API_KEY=<your-key>
-
-# --- Cerebras AI API Configuration (get from https://cloud.cerebras.ai/?redirect=/platform/apikeys for free) ---
-# REQUIRED: Left empty on purpose; setup.sh will prompt you.
 CEREBRAS_API_KEY=
+SESSION_SECRET_KEY=oliver-session-secret-key-2025-change-this-in-production
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+VITE_GOOGLE_CLIENT_ID=
+LOG_LEVEL=INFO
+MAX_CHUNK_SIZE=800
+CHUNK_OVERLAP=150
+ENVIRONMENT=development
 EOF
   chmod 600 "$ENV_FILE" || true
   ok "Created $ENV_FILE"
@@ -325,24 +322,42 @@ Create a free Cerebras API key here:
 Paste it here; input will be hidden.
 MSG
 )"
-  # Final validation: both must be present (and not placeholders)
-  local g c
+  prompt_secret_required "GOOGLE_CLIENT_ID" "$(cat <<'MSG'
+Get Google OAuth Client ID from Google Cloud Console:
+  - https://console.cloud.google.com/apis/credentials
+  - Create OAuth 2.0 Client ID for web application
+  - Add http://localhost:8000/auth/callback to authorized redirect URIs
+Paste it here; input will be hidden.
+MSG
+)"
+  prompt_secret_required "GOOGLE_CLIENT_SECRET" "$(cat <<'MSG'
+Get Google OAuth Client Secret from Google Cloud Console:
+  - Same location as Client ID above
+Paste it here; input will be hidden.
+MSG
+)"
+  # Set VITE_GOOGLE_CLIENT_ID to same value as GOOGLE_CLIENT_ID for frontend
+  local client_id
+  client_id="$(get_env_var GOOGLE_CLIENT_ID || true)"
+  if [[ -n "${client_id:-}" ]] && ! is_empty_or_placeholder "${client_id:-}"; then
+    set_env_var "VITE_GOOGLE_CLIENT_ID" "$client_id"
+    ok "Set VITE_GOOGLE_CLIENT_ID for frontend use"
+  fi
+  # Final validation: all required keys must be present (and not placeholders)
+  local g c gid gsec
   g="$(get_env_var GEMINI_API_KEY || true)"
   c="$(get_env_var CEREBRAS_API_KEY || true)"
+  gid="$(get_env_var GOOGLE_CLIENT_ID || true)"
+  gsec="$(get_env_var GOOGLE_CLIENT_SECRET || true)"
   if is_empty_or_placeholder "${g:-}"; then die "GEMINI_API_KEY is required."; fi
   if is_empty_or_placeholder "${c:-}"; then die "CEREBRAS_API_KEY is required."; fi
+  if is_empty_or_placeholder "${gid:-}"; then die "GOOGLE_CLIENT_ID is required."; fi
+  if is_empty_or_placeholder "${gsec:-}"; then die "GOOGLE_CLIENT_SECRET is required."; fi
   chmod 600 "$ENV_FILE" || true
 }
 
 copy_service_envs_if_present() {
-  if [[ -d "$BACKEND_DIR" && -f "$BACKEND_DIR/.env.example" && ! -f "$BACKEND_DIR/.env" ]]; then
-    cp "$BACKEND_DIR/.env.example" "$BACKEND_DIR/.env"
-    ok "Copied backend/.env.example -> backend/.env"
-  fi
-  if [[ -d "$RAG_DIR" && -f "$RAG_DIR/.env.example" && ! -f "$RAG_DIR/.env" ]]; then
-    cp "$RAG_DIR/.env.example" "$RAG_DIR/.env"
-    ok "Copied machine_learning/rag_system/.env.example -> machine_learning/rag_system/.env"
-  fi
+  ok "Environment variables now managed from root .env file"
 }
 
 export_root_env() {
@@ -354,12 +369,24 @@ export_root_env() {
     SUPABASE_URL
     SUPABASE_SERVICE_ROLE_KEY
     SUPABASE_KEY
+    SUPABASE_SERVICE_KEY
     GOOGLE_CLOUD_PROJECT
     GOOGLE_APPLICATION_CREDENTIALS
+    GOOGLE_CLOUD_LOCATION
+    GOOGLE_GENAI_USE_VERTEXAI
+    GOOGLE_API_KEY
     GEMINI_API_KEY
     OPENAI_API_KEY
     ANTHROPIC_API_KEY
     CEREBRAS_API_KEY
+    SESSION_SECRET_KEY
+    GOOGLE_CLIENT_ID
+    GOOGLE_CLIENT_SECRET
+    VITE_GOOGLE_CLIENT_ID
+    LOG_LEVEL
+    MAX_CHUNK_SIZE
+    CHUNK_OVERLAP
+    ENVIRONMENT
   )
 
   local k v
@@ -429,6 +456,44 @@ install_frontend_deps() {
 #############################################
 # Process control (start/stop/status)
 #############################################
+kill_port_processes() {
+  local port="$1"
+  local pids
+  if command -v lsof >/dev/null 2>&1; then
+    pids=$(lsof -ti tcp:"$port" 2>/dev/null || true)
+  elif command -v netstat >/dev/null 2>&1; then
+    pids=$(netstat -tulnp 2>/dev/null | grep ":$port " | awk '{print $7}' | cut -d'/' -f1 | grep -E '^[0-9]+$' || true)
+  else
+    warn "Neither lsof nor netstat available; cannot check port $port"
+    return 1
+  fi
+  
+  if [[ -n "$pids" ]]; then
+    info "Killing processes on port $port: $pids"
+    echo "$pids" | xargs kill -TERM 2>/dev/null || true
+    sleep 2
+    echo "$pids" | xargs kill -KILL 2>/dev/null || true
+  fi
+}
+
+cleanup_ports() {
+  info "Cleaning up processes on project ports..."
+  kill_port_processes "$BACKEND_PORT"
+  kill_port_processes "$PDF_PORT"
+  kill_port_processes "$RAG_PORT"
+  kill_port_processes "$AGENT_PORT"
+  
+  # Also kill any uvicorn/vite processes that might be hanging
+  pkill -f "uvicorn.*backend" 2>/dev/null || true
+  pkill -f "uvicorn.*pdf_processor" 2>/dev/null || true
+  pkill -f "uvicorn.*rag_system" 2>/dev/null || true
+  pkill -f "uvicorn.*ai_agents" 2>/dev/null || true
+  pkill -f "vite" 2>/dev/null || true
+  
+  sleep 1
+  ok "Port cleanup complete."
+}
+
 is_running() {
   local pid_file="$1"
   [[ -f "$pid_file" ]] || return 1
@@ -517,6 +582,7 @@ status_service() {
 
 start_all() {
   ensure_dirs
+  cleanup_ports
   start_backend
   start_pdf
   start_rag
@@ -588,6 +654,7 @@ Commands:
   start       Start all services (assumes setup done)
   stop        Stop all services started by this script
   status      Show status of services
+  cleanup     Kill all processes on project ports (8000-8003, vite)
 USAGE
 }
 
@@ -601,6 +668,7 @@ case "$cmd" in
   start)    start_all ;;
   stop)     stop_all ;;
   status)   status_all ;;
+  cleanup)  cleanup_ports ;;
   -h|--help|help) usage ;;
   *)        usage; exit 1 ;;
 esac

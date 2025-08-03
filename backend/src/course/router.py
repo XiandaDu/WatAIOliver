@@ -15,7 +15,7 @@ from .database import engine, get_db
 from .models import Course
 from datetime import datetime
 from starlette.responses import RedirectResponse, StreamingResponse
-from .service import get_current_user
+from src.auth.middleware import auth_required, get_current_user
 
 router = APIRouter(
     prefix='/course',
@@ -62,14 +62,15 @@ async def get_course_api(
 
 @router.get("/", response_model=List[CourseResponse])
 async def list_courses_api(
-    current_user: dict = Depends(get_current_user),
+    current_user = Depends(auth_required),
     limit: Optional[int] = Query(100, ge=1, le=1000),
     offset: Optional[int] = Query(0, ge=0),
     search: Optional[str] = Query(None)
 ):
     """List all courses for the current user"""
     try:
-        courses = get_courses(current_user['id'])
+        courses = get_all_courses()  # TODO: change to get_courses(current_user.id) once the prof make class student join flow is done
+        # courses = get_courses(current_user.id)
         
         # Apply search filter if provided
         if search:

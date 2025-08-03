@@ -67,7 +67,7 @@ class Evaluation:
             prompt_text (str): The prompt text used for processing.
             result: The result returned by the endpoint.
         """
-        # Placeholder for result handling logic (e.g., saving results, printing, etc.)
+        # Result handling logic must be implemented by subclasses
         print(f"Processed '{document_path}' with prompt from '{prompt_text}' - Result: {result}")
 
 

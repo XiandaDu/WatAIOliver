@@ -71,11 +71,12 @@ export function ChatInterface({
                   placeholder="Heavy reasoning model"
                   className="w-48"
                 />
-                <CourseSelector
-                  value={selectedCourseId}
-                  onChange={setSelectedCourseId}
-                  className="w-64"
-                />
+                {selectedCourseId && (
+                  <div className="w-64 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Course</label>
+                    <p className="text-sm text-blue-700 font-medium">{selectedCourseId}</p>
+                  </div>
+                )}
                 <label className="flex items-center space-x-2">
                   <input
                     type="checkbox"

@@ -70,9 +70,15 @@ export default function AdminPage() {
     const file = event.target.files[0]
     if (file) {
       console.log("Selected file:", file.name)
-      // Placeholder for upload logic
+      throw new Error('File upload not implemented - API endpoint required');
     }
   }
+
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    localStorage.removeItem('access_token');
+    navigate('/login');
+  };
 
   const handleFilesDrop = async (files) => {
     if (!selectedCourseId) {
@@ -117,9 +123,13 @@ export default function AdminPage() {
           <h1 className="text-2xl font-semibold text-gray-900">Admin Panel</h1>
           <div>
             <Button>Add</Button>
-            <a href="#" className="ml-4 text-sm font-medium text-gray-600 hover:text-gray-900">
+            <Button
+              variant="outline"
+              className="ml-4"
+              onClick={handleLogout}
+            >
               Logout
-            </a>
+            </Button>
           </div>
         </header>
         <main className="flex-1 overflow-y-auto p-6">

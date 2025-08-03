@@ -704,7 +704,7 @@ class MultiAgentOrchestrator:
                 "message": error_message,
                 "timestamp": datetime.now().isoformat()
             },
-            "fallback_answer": {
+                            "error_response": {
                 "introduction": "I apologize, but I encountered an error while processing your query.",
                 "step_by_step_solution": f"Error: {error_message}",
                 "important_notes": "Please try rephrasing your question or contact support if the issue persists."

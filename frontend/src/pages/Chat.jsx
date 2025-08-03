@@ -1,12 +1,16 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { ChatContainer } from "@/components/ui/chat"
 import { Sidebar } from "@/components/Sidebar"
 import { WelcomeScreen } from "@/components/WelcomeScreen"
 import { ChatInterface } from "@/components/ChatInterface"
 
 export default function ChatPage() {
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -47,11 +51,37 @@ export default function ChatPage() {
     { label: "Claude Sonnet", value: "claude-3-sonnet-20240229", description: "Anthropic's balanced model for nuanced tasks" }
   ]
 
-  const userId = 'A1' // Using TEST user from database
+  const [userId, setUserId] = useState(null);
 
   useEffect(() => {
-    loadConversations()
-  }, [])
+    const userData = localStorage.getItem('user');
+    if (!userData) {
+      navigate('/login');
+      return;
+    }
+    
+    const user = JSON.parse(userData);
+    if (!user.id) {
+      console.error('No user ID found in stored user data');
+      navigate('/login');
+      return;
+    }
+    
+    setUserId(user.id);
+  }, [navigate]);
+
+  useEffect(() => {
+    if (userId) {
+      loadConversations()
+    }
+  }, [userId])
+
+  useEffect(() => {
+    const courseParam = searchParams.get('course')
+    if (courseParam) {
+      setSelectedCourseId(courseParam)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     // Don't load messages if we're currently sending a message
@@ -604,7 +634,7 @@ export default function ChatPage() {
       <div className="flex-1 flex flex-col items-center justify-center w-full h-screen">
         <div className="flex flex-col min-h-0 w-full h-full items-center justify-center max-w-full">
           <ChatContainer className="flex flex-col h-full w-full">
-            {isEmpty ? (
+            {messages.length === 0 ? (
               <WelcomeScreen
                 selectedModel={selectedModel}
                 setSelectedModel={setSelectedModel}
