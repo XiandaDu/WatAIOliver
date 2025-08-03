@@ -274,4 +274,61 @@ export const conversationUtils = {
   }
 }
 
+// Admin API service
+export const adminAPI = {
+  // Get all users
+  async getAllUsers() {
+    try {
+      const response = await apiClient.get('/user/all')
+      return {
+        success: true,
+        data: response,
+        error: null
+      }
+    } catch (error) {
+      return {
+        success: false,
+        data: [],
+        error: error.message || 'Failed to fetch users'
+      }
+    }
+  },
+
+  // Get all messages
+  async getAllMessages() {
+    try {
+      const response = await apiClient.get('/messages/all')
+      return {
+        success: true,
+        data: response,
+        error: null
+      }
+    } catch (error) {
+      return {
+        success: false,
+        data: [],
+        error: error.message || 'Failed to fetch messages'
+      }
+    }
+  },
+
+  // Get usage statistics
+  async getUsageStats() {
+    try {
+      const response = await apiClient.get('/admin/stats')
+      return {
+        success: true,
+        data: response,
+        error: null
+      }
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        error: error.message || 'Failed to fetch usage statistics'
+      }
+    }
+  }
+}
+
 export default conversationAPI 

@@ -21,31 +21,8 @@ export default function Login() {
         return allowedDomains.some(domain => email.toLowerCase().endsWith(domain));
     };
 
-    // Check session and handle callback parameters on component mount
+    // Check session on component mount
     useEffect(() => {
-        // Check for any callback parameters in the URL
-        const url = new URL(window.location.href);
-        const code = url.searchParams.get('code');
-        const hashParams = new URLSearchParams(url.hash.substring(1));
-        
-        console.log("URL parameters:", { 
-            code: code ? `${code.substring(0, 10)}...` : null,
-            hash: Object.fromEntries(hashParams.entries())
-        });
-        
-        // If we have a code or success hash, the user has been redirected back after authentication
-        if (code || hashParams.has('success')) {
-            console.log("Auth callback detected, checking session...");
-        }
-        
-        // Check if there was an error in the callback
-        if (hashParams.has('error')) {
-            setError(hashParams.get('error') || 'Authentication failed');
-            // Clean the URL
-            window.history.replaceState(null, '', window.location.pathname);
-        }
-        
-        // Always check session on mount
         checkSession();
     }, []);
 
@@ -53,9 +30,7 @@ export default function Login() {
     const checkSession = async () => {
         try {
             setLoading(true);
-            console.log("Checking current session...");
-            
-            const response = await fetch("http://localhost:8000/auth/session", {
+            const response = await fetch("http://localhost:8000/auth/email/me", {
                 method: 'GET',
                 credentials: 'include',
                 headers: {
@@ -64,16 +39,16 @@ export default function Login() {
             });
             
             const data = await response.json();
-            console.log("Session response:", data);
             
-            if (response.ok && data && data.user) {
-                console.log("Active session found");
+            if (response.ok && data.success && data.user) {
                 setSession(data);
-                
-                // Now fetch user profile details
-                fetchUserProfile();
+                // Navigate based on user role
+                if (data.user.role === "instructor") {
+                    navigate("/admin");
+                } else {
+                    navigate("/chat");
+                }
             } else {
-                console.log("No active session found");
                 setSession(null);
             }
         } catch (error) {
@@ -81,32 +56,6 @@ export default function Login() {
             setSession(null);
         } finally {
             setLoading(false);
-        }
-    };
-
-    // Function to fetch user profile from database
-    const fetchUserProfile = async () => {
-        try {
-            console.log("Fetching user profile...");
-            
-            const response = await fetch("http://localhost:8000/user/", {
-                method: 'GET',
-                credentials: 'include',
-                headers: {
-                    'Accept': 'application/json'
-                }
-            });
-            
-            const data = await response.json();
-            console.log("User profile response:", data);
-            
-            if (response.ok && data && data.data) {
-                setUserProfile(data.data);
-            } else if (data.error === "User not found") {
-                console.log("User not found in database, will be created by backend");
-            }
-        } catch (error) {
-            console.error("Error fetching user profile:", error);
         }
     };
 
@@ -122,18 +71,69 @@ export default function Login() {
 
         setLoading(true);
         try {
-            // TODO: Implement actual authentication logic here
-            console.log("Login attempt for", activeTab, "with data:", formData);
-            
-            // For now, just navigate based on role
-            if (activeTab === "instructor") {
-                navigate("/admin");
+            // First, try to login
+            const loginResponse = await fetch("http://localhost:8000/auth/email/login", {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    email: formData.email,
+                    password: formData.password
+                })
+            });
+
+            const loginData = await loginResponse.json();
+
+            if (loginResponse.ok && loginData.success) {
+                // Login successful
+                setSession(loginData);
+                
+                // Navigate based on user role
+                if (loginData.user.role === "instructor") {
+                    navigate("/admin");
+                } else {
+                    navigate("/chat");
+                }
+            } else if (loginResponse.status === 401) {
+                // If login fails with 401, try to sign up
+                const signupResponse = await fetch("http://localhost:8000/auth/email/signup", {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: formData.email,
+                        password: formData.password,
+                        username: formData.email.split('@')[0],
+                        role: activeTab // Include the selected role
+                    })
+                });
+
+                const signupData = await signupResponse.json();
+
+                if (signupResponse.ok && signupData.success) {
+                    setSession(signupData);
+                    // Show success message and navigate
+                    setError("Account created successfully! Please check your email for verification.");
+                    setTimeout(() => {
+                        if (activeTab === "instructor") {
+                            navigate("/admin");
+                        } else {
+                            navigate("/chat");
+                        }
+                    }, 2000);
+                } else {
+                    setError(signupData.message || "Failed to create account");
+                }
             } else {
-                navigate("/chat");
+                setError(loginData.message || "Failed to sign in");
             }
         } catch (error) {
-            console.error("Login error:", error);
-            setError("Failed to sign in. Please try again.");
+            console.error("Authentication error:", error);
+            setError("Failed to authenticate. Please try again.");
         } finally {
             setLoading(false);
         }
@@ -163,12 +163,12 @@ export default function Login() {
             const redirectUrl = `${window.location.origin}/login`;
             console.log("Using redirect URL:", redirectUrl);
             
-            // Add query parameters to track the request
+            // Add query parameters to track the request and user role
             const timestamp = new Date().getTime();
             const requestId = Math.random().toString(36).substring(2, 15);
             
             // Get the authorization URL from the backend with debugging params
-            const authEndpoint = `http://localhost:8000/auth/signin/google?redirect_to=${encodeURIComponent(redirectUrl)}&_t=${timestamp}&_r=${requestId}`;
+            const authEndpoint = `http://localhost:8000/auth/signin/google?redirect_to=${encodeURIComponent(redirectUrl)}&_t=${timestamp}&_r=${requestId}&role=${activeTab}`;
             console.log("Calling auth endpoint:", authEndpoint);
             
             const response = await fetch(authEndpoint, {
@@ -258,25 +258,16 @@ export default function Login() {
                         <h2 className="text-3xl font-bold text-gray-900">Welcome Back</h2>
                         {session.user && (
                             <div className="mt-4">
-                                {session.user.user_metadata?.avatar_url && (
-                                    <img 
-                                        src={session.user.user_metadata.avatar_url} 
-                                        alt="Profile" 
-                                        className="rounded-full w-20 h-20 mx-auto mb-3"
-                                    />
-                                )}
                                 <p className="font-medium text-lg">
-                                    {session.user.user_metadata?.full_name || session.user.email}
+                                    {session.user.full_name || session.user.email}
                                 </p>
                                 <p className="text-sm text-gray-500 mb-2">{session.user.email}</p>
                                 
-                                {userProfile && (
-                                    <div className="bg-gray-50 p-3 rounded-md mt-3 text-left">
-                                        <p className="text-xs text-gray-500 mb-1">User Profile</p>
-                                        <p className="text-sm"><span className="font-medium">Username:</span> {userProfile.username}</p>
-                                        <p className="text-sm"><span className="font-medium">Role:</span> {userProfile.role}</p>
-                                    </div>
-                                )}
+                                <div className="bg-gray-50 p-3 rounded-md mt-3 text-left">
+                                    <p className="text-xs text-gray-500 mb-1">User Profile</p>
+                                    <p className="text-sm"><span className="font-medium">Username:</span> {session.user.username}</p>
+                                    <p className="text-sm"><span className="font-medium">Role:</span> {session.user.role}</p>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -365,8 +356,8 @@ export default function Login() {
                     </div>
 
                     <div>
-                        <Button type="submit" className="w-full">
-                            Sign in as {activeTab === "instructor" ? "Instructor" : "Student"}
+                        <Button type="submit" className="w-full" disabled={loading}>
+                            {loading ? "Signing in..." : `Sign in as ${activeTab === "instructor" ? "Instructor" : "Student"}`}
                         </Button>
                     </div>
                 </form>

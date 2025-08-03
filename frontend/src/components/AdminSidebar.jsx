@@ -10,6 +10,11 @@ export default function AdminSidebar({ title }) {
       name: "Admin Panel",
       path: "/admin",
       icon: "📊"
+    },
+    {
+      name: "View Logs",
+      path: "/admin/logs",
+      icon: "📋"
     }
   ]
 

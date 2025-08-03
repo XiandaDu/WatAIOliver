@@ -6,6 +6,7 @@ from src.file.router import router as file_router
 from src.conversationTable.router import router as conversation_router
 from src.gmailAuth.router import router as gauth_router
 from src.emailAuth.router import router as email_auth_router
+from src.admin.router import router as admin_router
 
 def register_routes(app: FastAPI):
     app.include_router(chat_router)
@@ -15,3 +16,4 @@ def register_routes(app: FastAPI):
     app.include_router(conversation_router)
     app.include_router(gauth_router)
     app.include_router(email_auth_router)
+    app.include_router(admin_router)
