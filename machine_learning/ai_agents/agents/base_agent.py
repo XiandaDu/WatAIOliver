@@ -22,6 +22,7 @@ class AgentRole(Enum):
     MODERATOR = "moderator"
     REPORTER = "reporter"
     TUTOR = "tutor"
+    HTML_FORMATTER = "html_formatter"
 
 
 @dataclass

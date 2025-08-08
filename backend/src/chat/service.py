@@ -437,6 +437,14 @@ async def generate_response(data: ChatRequest) -> str:
 
             if speculative_result and speculative_result.get('success'):
                 answer_data = speculative_result.get('answer', {})
+                html_content = speculative_result.get('html_content')
+                
+                # If HTML content is available, return it directly
+                if html_content:
+                    return {
+                        "text": "Content available in HTML format",
+                        "html": html_content
+                    }
                 
                 # Format the structured answer
                 formatted_answer = format_agents_response(answer_data)

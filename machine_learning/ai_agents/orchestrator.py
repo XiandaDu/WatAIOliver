@@ -18,6 +18,7 @@ from ai_agents.agents.critic_agent import CriticAgent
 from ai_agents.agents.moderator_agent import ModeratorAgent
 from ai_agents.agents.reporter_agent import ReporterAgent
 from ai_agents.agents.tutor_agent import TutorAgent
+from ai_agents.agents.html_formatter_agent import HTMLFormatterAgent
 from rag_system.llm_clients.cerebras_client import CerebrasClient
 from rag_system.llm_clients.gemini_client import GeminiClient
 
@@ -107,7 +108,13 @@ class MultiAgentOrchestrator:
             logger=self.logger.getChild("tutor")
         )
         
-        self.logger.info(f"Initialized 6 agents (Retrieve, Strategist, Critic, Moderator, Reporter, Tutor)")
+        self.html_formatter_agent = HTMLFormatterAgent(
+            config=self.config,
+            llm_client=self.llm_client,
+            logger=self.logger.getChild("html_formatter")
+        )
+        
+        self.logger.info(f"Initialized 7 agents (Retrieve, Strategist, Critic, Moderator, Reporter, Tutor, HTML_Formatter)")
 
     def _create_llm_client(self, model_name: str):
         """Create an LLM client based on model name."""
@@ -337,13 +344,15 @@ class MultiAgentOrchestrator:
             self._display_conversation_summary()
             
             # Format final response with tutor interaction
-            response = self._format_tutor_response(
+            response = await self._format_tutor_response(
                 tutor_content,
                 final_result.content["final_answer"],
                 retrieval_result,
                 debate_result["result"],
                 final_result,
-                processing_time
+                processing_time,
+                query,
+                session_id
             )
             
             self.logger.info(f"Query completed successfully in {processing_time:.2f}s")
@@ -663,21 +672,43 @@ class MultiAgentOrchestrator:
             } if self.config.enable_debug_logging else {}
         }
     
-    def _format_tutor_response(
+    async def _format_tutor_response(
         self,
         tutor_content: Dict[str, Any],
         final_answer: Dict[str, Any],
         retrieval_result: AgentOutput,
         debate_result: Dict[str, Any],
         synthesis_result: AgentOutput,
-        processing_time: float
+        processing_time: float,
+        query: str = "",
+        session_id: str = ""
     ) -> Dict[str, Any]:
-        """Format response with tutor interaction"""
+        """Format response with tutor interaction and HTML formatting"""
+        
+        # Apply HTML formatting if enabled
+        html_content = None
+        if hasattr(self, 'html_formatter_agent'):
+            try:
+                html_input = AgentInput(
+                    query=query,
+                    context=[{"content": final_answer}],
+                    metadata={},
+                    session_id=session_id
+                )
+                html_result = await self.html_formatter_agent.execute(html_input)
+                if html_result.success:
+                    html_content = html_result.content.get('html_content')
+                    self.logger.info("HTML formatting applied successfully")
+                else:
+                    self.logger.warning(f"HTML formatting failed: {html_result.error_message}")
+            except Exception as e:
+                self.logger.error(f"HTML formatting error: {str(e)}")
         
         return {
             "success": True,
             "answer": final_answer,
             "tutor_interaction": tutor_content,
+            "html_content": html_content,  # Add HTML content to response
             "metadata": {
                 "processing_time": processing_time,
                 "debate_status": debate_result["status"],

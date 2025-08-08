@@ -11,7 +11,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { FilePreview } from "@/components/ui/file-preview"
-import { MarkdownRenderer } from "@/components/ui/markdown-renderer"
+import { HTMLRenderer } from "@/components/ui/html-renderer"
 
 const chatBubbleVariants = cva(
   "group/message relative break-words rounded-lg p-3 text-sm sm:max-w-[70%]",
@@ -63,6 +63,7 @@ export const ChatMessage = ({
   experimental_attachments,
   toolInvocations,
   parts,
+  htmlContent,
 }) => {
   const files = useMemo(() => {
     return experimental_attachments?.map((attachment) => {
@@ -90,7 +91,11 @@ export const ChatMessage = ({
           </div>
         ) : null}
         <div className={cn(chatBubbleVariants({ isUser, animation }))}>
-          <MarkdownRenderer>{content}</MarkdownRenderer>
+          {htmlContent ? (
+            <HTMLRenderer htmlContent={htmlContent} />
+          ) : (
+            <div className="whitespace-pre-wrap">{content}</div>
+          )}
         </div>
         {showTimeStamp && createdAt ? (
           <time
@@ -114,7 +119,7 @@ export const ChatMessage = ({
             className={cn("flex flex-col", isUser ? "items-end" : "items-start")}
             key={`text-${index}`}>
             <div className={cn(chatBubbleVariants({ isUser, animation }))}>
-              <MarkdownRenderer>{part.text}</MarkdownRenderer>
+              <div className="whitespace-pre-wrap">{part.text}</div>
               {actions ? (
                 <div
                   className="absolute -bottom-4 right-2 flex space-x-1 rounded-lg border bg-background p-1 text-foreground opacity-0 transition-opacity group-hover/message:opacity-100">
@@ -150,7 +155,11 @@ export const ChatMessage = ({
   return (
     (<div className={cn("flex flex-col", isUser ? "items-end" : "items-start")}>
       <div className={cn(chatBubbleVariants({ isUser, animation }))}>
-        <MarkdownRenderer>{content}</MarkdownRenderer>
+        {htmlContent ? (
+          <HTMLRenderer htmlContent={htmlContent} />
+        ) : (
+          <div className="whitespace-pre-wrap">{content}</div>
+        )}
         {actions ? (
           <div
             className="absolute -bottom-4 right-2 flex space-x-1 rounded-lg border bg-background p-1 text-foreground opacity-0 transition-opacity group-hover/message:opacity-100">

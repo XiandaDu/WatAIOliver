@@ -5,7 +5,7 @@ pydantic>=2.8.0
 python-multipart>=0.0.12
 
 # PDF Processing - Official Marker
-marker-pdf>=1.7.0
+# marker-pdf>=1.7.0
 
 # For async file operations
 aiofiles>=23.0.0
