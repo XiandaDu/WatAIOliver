@@ -2,7 +2,8 @@ from fastapi import APIRouter, Request, Depends, HTTPException, Query, status, F
 from . import service
 from .CRUD import (
     create_course, get_course, get_courses, get_all_courses,
-    search_courses, get_course_count, update_course, delete_course
+    search_courses, get_course_count, update_course, delete_course,
+    add_user_to_course, get_courses_for_member, find_course_by_title_ilike
 )
 from .models import CourseCreate, CourseUpdate, CourseResponse
 from typing import List, Optional
@@ -62,7 +63,7 @@ async def list_courses_api(
     offset: Optional[int] = Query(0, ge=0),
     search: Optional[str] = Query(None)
 ):
-    """List all courses for the current user"""
+    """List courses the current user has joined"""
     try:
         courses = service.list_courses_service(
             user_id=current_user.id,
@@ -73,7 +74,6 @@ async def list_courses_api(
         return courses
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching courses: {str(e)}")
-
 
 @router.post("/join-by-code")
 async def join_course_by_code(invite_code: str = Form(...), current_user: AuthUser = Depends(get_current_user)):

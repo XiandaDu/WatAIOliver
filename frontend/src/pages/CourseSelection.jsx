@@ -134,9 +134,9 @@ export default function CourseSelection() {
           </Button>
         </div>
 
-        {/* Available Courses Section */}
+        {/* Joined Courses Section */}
         <div className="mb-12">
-          <h3 className="text-xl font-semibold mb-4">Available Courses</h3>
+          <h3 className="text-xl font-semibold mb-4">Your Courses</h3>
           {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
@@ -151,7 +151,7 @@ export default function CourseSelection() {
             </div>
           ) : courses.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-600">No courses available. Contact your administrator.</p>
+              <p className="text-gray-600">No courses joined yet. Join a course below.</p>
             </div>
           ) : (
             <div className="grid gap-4">

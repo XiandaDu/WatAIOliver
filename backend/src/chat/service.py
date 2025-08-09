@@ -127,7 +127,7 @@ def llm_text_endpoint(data: ChatRequest) -> str:
         full_prompt = f"{file_context}User: {data.prompt}\n\nAssistant:"
 
     settings = get_settings()
-    model_name = data.model or "qwen-3-235b-a22b"
+    model_name = data.model or "qwen-3-235b-a22b-instruct-2507"
     try:
         if model_name.startswith("gemini"):
             client = GeminiClient(
