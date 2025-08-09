@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional, Literal
+from typing import Optional, Literal, List
 from datetime import datetime
 
 class AuthUser(BaseModel):
@@ -8,6 +8,7 @@ class AuthUser(BaseModel):
     username: str
     full_name: Optional[str] = None
     role: Literal["student", "instructor", "admin"] = "student"
+    courses: List[str] = []
     email_confirmed: bool = False
     created_at: Optional[datetime] = None
     last_sign_in: Optional[datetime] = None
