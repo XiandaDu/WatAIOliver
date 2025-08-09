@@ -158,6 +158,7 @@ class AuthService:
                 username=name,
                 full_name=name,
                 role=account_type if account_type in ["student", "instructor"] else "student",
+                courses=[],
                 email_confirmed=True,
                 created_at=auth_response.user.created_at
             )
@@ -186,6 +187,7 @@ class AuthService:
                 "username": google_user.get('name', email.split('@')[0]),
                 "full_name": google_user.get('name'),
                 "role": account_type if account_type in ["student", "instructor"] else "student",
+                "courses": [],
                 "account_type": "active"
             }
             
@@ -224,6 +226,7 @@ class AuthService:
                 username=profile.get("username", auth_response.user.email.split("@")[0]) if profile else auth_response.user.email.split("@")[0],
                 full_name=profile.get("full_name") if profile else None,
                 role=profile.get("role", "student") if profile else "student",
+                courses=profile.get("courses", []) if profile else [],
                 email_confirmed=auth_response.user.email_confirmed_at is not None,
                 created_at=auth_response.user.created_at,
                 last_sign_in=auth_response.user.last_sign_in_at
