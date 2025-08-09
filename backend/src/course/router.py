@@ -2,7 +2,8 @@ from fastapi import APIRouter, Request, Depends, HTTPException, Query, status, F
 from . import service
 from .CRUD import (
     create_course, get_course, get_courses, get_all_courses,
-    search_courses, get_course_count, update_course, delete_course
+    search_courses, get_course_count, update_course, delete_course,
+    add_user_to_course, get_courses_for_member, find_course_by_title_ilike
 )
 from .models import CourseCreate, CourseUpdate, CourseResponse
 from typing import List, Optional
@@ -67,24 +68,37 @@ async def list_courses_api(
     offset: Optional[int] = Query(0, ge=0),
     search: Optional[str] = Query(None)
 ):
-    """List all courses for the current user"""
+    """List courses the current user has joined"""
     try:
-        courses = get_all_courses()  # TODO: change to get_courses(current_user.id) once the prof make class student join flow is done
-        # courses = get_courses(current_user.id)
-        
-        # Apply search filter if provided
+        courses = get_courses_for_member(current_user.id)
         if search:
-            courses = [course for course in courses if search.lower() in course.get('title', '').lower()]
-        
-        # Apply pagination
+            courses = [course for course in courses if search.lower() in (course.get('title') or '').lower()]
         if offset:
             courses = courses[offset:]
         if limit:
             courses = courses[:limit]
-        
         return [CourseResponse(**course) for course in courses]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching courses: {str(e)}")
+
+@router.post("/join")
+async def join_course_by_title(
+    title: str = Form(...),
+    current_user = Depends(auth_required)
+):
+    """Join a course by case-insensitive title match (exact match recommended)."""
+    try:
+        course = find_course_by_title_ilike(title)
+        if not course:
+            raise HTTPException(status_code=404, detail="Course not found")
+        membership = add_user_to_course(current_user.id, course["course_id"])
+        if not membership:
+            raise HTTPException(status_code=400, detail="Failed to join course")
+        return {"success": True, "course": course}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error joining course: {str(e)}")
 
 @router.put("/{course_id}", response_model=CourseResponse)
 async def update_course_api(

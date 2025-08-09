@@ -7,7 +7,9 @@ class MessageCreate(BaseModel):
     user_id: Optional[str] = None
     content: str
     sender: str
-    conversation_id: int
+    conversation_id: str  # Changed to string to match frontend usage
+    course_id: Optional[str] = None
+    model: Optional[str] = None
 
 class MessageUpdate(BaseModel):
     content: Optional[str] = None
@@ -17,6 +19,8 @@ class MessageResponse(BaseModel):
     user_id: Optional[str]
     content: str
     sender: str
-    conversation_id: int
+    conversation_id: str  # Changed to string to match frontend usage
+    course_id: Optional[str] = None
+    model: Optional[str] = None
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
