@@ -6,6 +6,7 @@ import { ChatContainer } from "@/components/ui/chat"
 import { Sidebar } from "@/components/Sidebar"
 import { WelcomeScreen } from "@/components/WelcomeScreen"
 import { ChatInterface } from "@/components/ChatInterface"
+import { extractHtml } from "@/lib/extractHtml";
 
 export default function ChatPage() {
   const navigate = useNavigate()
@@ -131,12 +132,16 @@ export default function ChatPage() {
         const data = await response.json()
         console.log('Loaded messages:', data)
         // Transform backend message format to frontend format
-        const transformedMessages = data.map(msg => ({
-          id: msg.message_id,
-          role: msg.sender,
-          content: msg.content,
-          createdAt: new Date(msg.created_at)
-        }))
+        const transformedMessages = data.map(msg => {
+          const maybeHtml = msg.sender === "assistant" ? extractHtml(msg.content) : null;
+          return {
+            id: msg.message_id,
+            role: msg.sender,
+            content: msg.content,
+            createdAt: new Date(msg.created_at),
+            meta: maybeHtml ? { type: "html", html: maybeHtml } : undefined
+          };
+        });        
         console.log('Transformed messages:', transformedMessages)
         setMessages(transformedMessages)
       } else {
@@ -360,12 +365,14 @@ export default function ChatPage() {
       }
 
       // Add AI response to messages
+      const maybeHtml = extractHtml(aiResponse);
       const assistantMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
         content: aiResponse,
-        createdAt: new Date()
-      }
+        createdAt: new Date(),
+        meta: maybeHtml ? { type: "html", html: maybeHtml } : undefined
+      };
       setMessages(prev => [...prev, assistantMessage])
 
     } catch (err) {
@@ -508,12 +515,14 @@ export default function ChatPage() {
         })
       }
 
+      const maybeHtml = extractHtml(aiResponse);
       const assistantMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
         content: aiResponse,
-        createdAt: new Date()
-      }
+        createdAt: new Date(),
+        meta: maybeHtml ? { type: "html", html: maybeHtml } : undefined
+      };
       setMessages(prev => [...prev, assistantMessage])
     } catch (err) {
       console.error('Chat error:', err)

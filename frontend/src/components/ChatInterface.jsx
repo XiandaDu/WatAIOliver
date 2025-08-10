@@ -7,6 +7,7 @@ import { transcribeAudio } from "@/lib/utils/audio"
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer"
 import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
+import { HtmlPreview } from "@/components/HtmlPreview"
 
 export function ChatInterface({ 
   selectedConversation,
@@ -149,9 +150,13 @@ export function ChatInterface({
                         </div>
                         <span className="text-sm font-medium text-gray-600">Oliver Assistant</span>
                       </div>
-                      <div className="prose prose-lg max-w-none">
-                        <MarkdownRenderer>{message.content}</MarkdownRenderer>
-                      </div>
+                      {message?.meta?.type === "html" ? (
+                        <HtmlPreview html={message.meta.html} />
+                      ) : (
+                        <div className="prose prose-lg max-w-none">
+                          <MarkdownRenderer>{message.content}</MarkdownRenderer>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
