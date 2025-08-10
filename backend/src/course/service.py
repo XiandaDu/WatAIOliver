@@ -1,6 +1,7 @@
 from fastapi import HTTPException, Request, status
 from .CRUD import (
-    create_course, update_course, delete_course, get_courses, get_course, get_all_courses, get_course_by_invite_code
+    create_course, update_course, delete_course, get_courses, get_course, get_all_courses, get_course_by_invite_code,
+    find_course_by_title_ilike
 )
 from .models import CourseCreate, CourseUpdate, CourseResponse
 from typing import List, Optional, Dict, Any
@@ -38,6 +39,7 @@ def create_course_service(created_by: str, course_data: CourseCreate) -> CourseR
             title=course_data.title,
             description=course_data.description,
             term=course_data.term,
+            prompt=course_data.prompt,
             invite_code=invite_code
         )
         if not course:
@@ -120,6 +122,24 @@ def list_courses_service(user_id: str, limit: Optional[int] = None,
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching courses: {str(e)}")
 
+def join_course_by_title_service(user_id: str, title: str) -> dict:
+    """Join a course by title with course lookup and validation"""
+    try:
+        course = find_course_by_title_ilike(title)
+        if not course:
+            raise HTTPException(status_code=404, detail="Course not found")
+        
+        from src.user.service import add_course_to_user
+        added = add_course_to_user(user_id, course["course_id"])
+        if not added:
+            raise HTTPException(status_code=400, detail="Failed to join course")
+        
+        return {"success": True, "course": course}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error joining course: {str(e)}")
+
 def update_course_service(course_id: str, user_id: str, course_data: CourseUpdate) -> CourseResponse:
     """Update a course with ownership validation"""
     # First check if course exists and user has access
@@ -185,3 +205,23 @@ def get_courses_by_user_service(user_id: str) -> List[CourseResponse]:
         return [CourseResponse(**course) for course in courses]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching user courses: {str(e)}")
+
+def list_my_courses_service(user_id: str, limit: Optional[int] = None, 
+                           offset: Optional[int] = None, search: Optional[str] = None) -> List[CourseResponse]:
+    """Get courses created by the current instructor with optional filtering"""
+    try:
+        courses = get_courses(user_id)
+        
+        # Apply search filter if provided
+        if search:
+            courses = [course for course in courses if search.lower() in (course.get('title') or '').lower()]
+        
+        # Apply pagination if provided
+        if offset:
+            courses = courses[offset:]
+        if limit:
+            courses = courses[:limit]
+        
+        return [CourseResponse(**course) for course in courses]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching courses: {str(e)}")

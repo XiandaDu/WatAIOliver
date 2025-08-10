@@ -1,9 +1,8 @@
 from fastapi import APIRouter, Request, Depends, HTTPException, Query, status, Form
 from . import service
 from .CRUD import (
-    create_course, get_course, get_courses, get_all_courses,
-    search_courses, get_course_count, update_course, delete_course,
-    find_course_by_title_ilike
+    create_course, get_course, get_courses,
+    search_courses, get_course_count, update_course, delete_course
 )
 from .models import CourseCreate, CourseUpdate, CourseResponse
 from typing import List, Optional
@@ -11,7 +10,7 @@ from typing import List, Optional
 from datetime import datetime
 from src.auth.middleware import auth_required, get_current_user, instructor_required
 from src.auth.models import AuthUser
-from src.user.service import add_course_to_user
+
 
 router = APIRouter(
     prefix='/course',
@@ -44,14 +43,13 @@ async def list_my_courses_api(
 ):
     """List courses created by the current instructor"""
     try:
-        courses = get_courses(current_user.id)
-        if search:
-            courses = [course for course in courses if search.lower() in (course.get('title') or '').lower()]
-        if offset:
-            courses = courses[offset:]
-        if limit:
-            courses = courses[:limit]
-        return [CourseResponse(**course) for course in courses]
+        courses = service.list_my_courses_service(
+            user_id=current_user.id,
+            limit=limit,
+            offset=offset,
+            search=search
+        )
+        return courses
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching courses: {str(e)}")
 
@@ -104,24 +102,7 @@ async def update_course_api(
     current_user: AuthUser = Depends(instructor_required)
 ):
     """Update a course (only by the instructor who created it)"""
-    try:
-        # Check if course exists and user owns it
-        course = get_course(course_id)
-        if not course:
-            raise HTTPException(status_code=404, detail="Course not found")
-        if course['created_by'] != current_user.id:
-            raise HTTPException(status_code=403, detail="Not authorized to update this course")
-        
-        # Update course
-        update_data = {k: v for k, v in course_data.dict().items() if v is not None}
-        updated_course = update_course(course_id, **update_data)
-        if not updated_course:
-            raise HTTPException(status_code=400, detail="Failed to update course")
-        return CourseResponse(**updated_course)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating course: {str(e)}")
+    return service.update_course_service(course_id, current_user.id, course_data)
 
 @router.delete("/{course_id}")
 async def delete_course_api(
@@ -144,6 +125,7 @@ async def delete_course_api(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting course: {str(e)}")
+
 
 
 @router.get("/count/total")

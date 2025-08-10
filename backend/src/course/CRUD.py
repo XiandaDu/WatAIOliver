@@ -22,8 +22,6 @@ def get_courses(created_by):
     response = supabase.table("courses").select("*").eq("created_by", created_by).order("created_at", desc=False).execute()
     return response.data
 
-# Note: user->courses relationship is now stored on users table; membership helpers removed
-
 # READ (get all courses - admin only)
 def get_all_courses():
     response = supabase.table("courses").select("*").order("created_at", desc=False).execute()
@@ -38,9 +36,6 @@ def get_course(course_id):
 def get_course_by_invite_code(invite_code: str):
     response = supabase.table("courses").select("*").eq("invite_code", invite_code).execute()
     return response.data[0] if response.data else None
-
-# Alias functions for compatibility
-get_courses_by_user = get_courses
 
 def search_courses(created_by, search_term):
     response = supabase.table("courses").select("*").eq("created_by", created_by).ilike("title", f"%{search_term}%").execute()
@@ -59,8 +54,6 @@ def update_course(course_id, **kwargs):
 def delete_course(course_id):
     response = supabase.table("courses").delete().eq("course_id", course_id).execute()
     return response.data
-
-# MEMBERSHIP HELPERS REMOVED: handled via users.courses and user service
 
 def find_course_by_title_ilike(title: str):
     resp = supabase.table("courses").select("*").ilike("title", f"%{title}%").execute()

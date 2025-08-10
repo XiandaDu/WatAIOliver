@@ -1,5 +1,10 @@
 import requests
 import requests.exceptions
+import tempfile
+import os
+from typing import Optional, Dict, Any, List
+from fastapi import UploadFile
+
 from ..logger import logger
 from .models import (
     ConversationCreate,
@@ -11,7 +16,6 @@ from .models import (
 )
 from .CRUD import get_messages
 import httpx
-from typing import Optional, Dict, Any
 
 from backend.constants import TimeoutConfig, ServiceConfig
 from machine_learning.constants import ModelConfig
@@ -63,7 +67,7 @@ def nebula_text_endpoint(data: ChatRequest) -> str:
                 if conversation_parts:
                     conversation_context = "\n".join(conversation_parts) + "\n\n"
         except Exception as e:
-            print(f"Error loading conversation context: {e}")
+            logger.error(f"Error loading conversation context: {e}")
     
     # Add file context if provided
     file_context = ""
@@ -113,7 +117,7 @@ def llm_text_endpoint(data: ChatRequest) -> str:
                 if parts:
                     conversation_context = "\n".join(parts) + "\n\n"
         except Exception as e:
-            print(f"Error loading conversation context: {e}")
+            logger.error(f"Error loading conversation context: {e}")
 
     file_context = ""
     if data.file_context:
@@ -169,152 +173,8 @@ def llm_text_endpoint(data: ChatRequest) -> str:
 
 def open_ask(data: ConversationCreate):
     pass
-    # course_id = -1
-    # model_name = 'qwen'
-    # system_prompt = None
-    # # If a link is provided, try to match it to a course and retrieve its settings
-    # if link is not None and len(link) > 0:
-    #     course = db.query(Course).filter(Course.name == link).first()
-    #     if course is not None:
-    #         course_id = course.id
-    #         model_name = course.model
-    #         system_prompt = course.prompt
 
-    # logger.info("Course ID: %s, Question: %s", course_id, data.message)
 
-    # session_id = request.session.get("session_id")
-    # conversation = []
-    # print(session_id)
-    # if session_id in cache:
-    #     conversation = cache.get(session_id)
-    # # conversation = request.session.get('conversation', [])
-    # logger.info(conversation)
-
-    # conversation.append({'question': question})
-    # this_conversation = {'question': data.message}
-    # # Limit the stored conversation length to prevent overly long context
-    # MAX_CONVERSATION_LENGTH = 10
-    # if len(conversation) > MAX_CONVERSATION_LENGTH:
-    #     conversation = conversation[-MAX_CONVERSATION_LENGTH:]
-
-    # SIMILARITY_THRESHOLD = 0.5
-    # MAX_BACKGROUND_TOKENS = 500
-
-    # background_query = "No documents uploaded, please provide background information."
-    # background_summary = ""
-    # summary = ""
-    # # If course_id is valid, attempt to retrieve relevant context from DB
-    # if course_id != -1:
-    #     # collection_name = f"collection_{course_id}"
-    #     # collection = collection_exists(collection_name)
-    #     # if collection is not None:
-    #     if conversation_exists(data.id):
-
-    #         top_results_query = query_sentence_with_threshold(collection, question, 5, SIMILARITY_THRESHOLD)
-    #         background_query = get_background_text(top_results_query, MAX_BACKGROUND_TOKENS)
-    #         print(f"Background Query:\n{background_query}")
-
-    #         if len(conversation) >= 1 and 'summary' in conversation[-1]:
-    #             summary = conversation[-1]['summary']
-    #             top_results_summary = query_sentence_with_threshold(collection, summary, 5, SIMILARITY_THRESHOLD)
-    #             background_summary = get_background_text(top_results_summary, MAX_BACKGROUND_TOKENS)
-    #             print(f"Background Summary:\n{background_summary}")
-
-    # this_conversation['background'] = background_query + "\n" + background_summary
-
-    # MAX_TOKENS = 1024
-    # # Use a default system prompt if none is configured
-    # if not system_prompt:
-    #     system_prompt = ("Respond to the question using information in the "
-    #                      "background. If no relevant information exists in the "
-    #                      "background, you must say so and then refuse to "
-    #                      "answer further.")
-
-    # logger.info(question)
-    # logger.info(system_prompt)
-    # logger.info(background_query)
-    # logger.info(summary)
-    # logger.info('')
-    # # Construct the final prompt including user query, background, and conversation summar
-    # final_prompt = (
-    #     f"You are a helpful teaching assistant.\n{system_prompt}\n\n"
-    #     f"User Query:\n{question}\n\n"
-    #     f"Based on this query, here is some background information that may be relevant (it may not be):\n{background_query}\n\n"
-    #     f"This query is part of a longer conversation. Here is a brief summary:\n{summary}\n\n"
-    #     f"Based on the summary, here is some additional background information that may be relevant (it may not be):\n{background_summary}\n\n"
-    #     f"Please provide a response to the user's query."
-    # )
-
-    # # Generate an answer using the specified LLM
-    # answer = text_text_eval(document_text=final_prompt, prompt_text=question, model=model_name, max_length=1024)
-
-    # this_conversation['answer'] = answer
-    # # Add the current Q&A to the conversation and update the summary
-    # conversation.append(this_conversation)
-    # new_summary = summarize_interaction(conversation)
-    # conversation[-1]['summary'] = new_summary
-
-    # logger.info(conversation)
-    # # Store the updated conversation in cache
-    # cache[session_id] = conversation
-    # # Log the interaction to the database
-    # entity = Log()
-    # entity.create_time = datetime.now()
-    # entity.background = background_query + "\n" + background_summary
-    # entity.query = question
-    # entity.answer = answer
-    # entity.llm = answer
-    # entity.link = link
-    # entity.course_id = course_id
-    # db.add(entity)
-    # db.commit()
-
-    # return {"answer": answer}
-
-# manage context and tokens for conversation history
-def build_conversation_history(conversation, max_tokens=1024):
-    # Reconstruct conversation history from the end, ensuring token count does not exceed max_tokens
-    conversation_history = ""
-    total_tokens = 0
-    for turn in reversed(conversation):
-        user_turn = f"User: {turn['question']}\n"
-        assistant_turn = f"Assistant: {turn.get('answer', '')}\n"
-        turn_text = user_turn + assistant_turn
-        turn_tokens = len(turn_text.split())
-        if total_tokens + turn_tokens <= max_tokens:
-            conversation_history = turn_text + conversation_history
-            total_tokens += turn_tokens
-        else:
-            break
-    return conversation_history
-
-def get_background_text(background_chunks, max_background_tokens):
-    # Concatenate background chunks up to a maximum token limit
-    background_text = ""
-    # total_tokens = 0
-    # for chunk in background_chunks:
-    #     chunk_tokens = len(tokenizer.tokenize(chunk))
-    #     if total_tokens + chunk_tokens <= max_background_tokens:
-    #         background_text += chunk + "\n"
-    #         total_tokens += chunk_tokens
-    #     else:
-    #         break
-    return background_text
-
-def summarize_interaction(conversation, max_tokens=150):
-    # Summarize the last user-assistant exchange.
-    last_exchange = f"User: {conversation[-1]['question']}\nAssistant: {conversation[-1]['answer']}\n"
-
-    previous_summary = conversation[-2]['summary'] if len(conversation) > 1 and 'summary' in conversation[-2] else ''
-
-    summary_prompt = f"Previous Summary:\n{previous_summary}\n\nNew Interaction:\n{last_exchange}\n\nUpdate the summary, keeping it under {max_tokens} tokens."
-
-    # Generate a summary of the updated conversation
-    # summary = text_text_eval(document_text="", prompt_text=summary_prompt, model="qwen", max_length=max_tokens)
-    summary = nebula_text_endpoint(ChatRequest(prompt=summary_prompt))
-    return summary.strip()
-
-# replaced text_text_eval with just the stable nebula endpoint we have at the top since it just redirects based on model name
 
 async def get_most_recent_user_query(conversation_id: str) -> Optional[str]:
     """
@@ -334,7 +194,7 @@ async def get_most_recent_user_query(conversation_id: str) -> Optional[str]:
         
         return None
     except Exception as e:
-        print(f"Error getting recent user query: {e}")
+        logger.error(f"Error getting recent user query: {e}")
         return None
 
 async def query_rag_system(conversation_id: str, question: str, course_id: Optional[str] = None, rag_model: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -342,19 +202,15 @@ async def query_rag_system(conversation_id: str, question: str, course_id: Optio
     Query the RAG system for relevant information based on the user's question.
     """
     try:
-        # Use provided course_id or fall back to first available course
         if course_id:
             target_course_id = course_id
-            print(f"DEBUG: Using provided course_id='{course_id}'")
         else:
             from src.course.CRUD import get_all_courses
             courses = get_all_courses()
             if not courses:
-                print(f"DEBUG: No courses found in database. Cannot query RAG.")
                 return None
                 
             target_course_id = str(courses[0]['course_id'])
-            print(f"DEBUG: No course_id provided, using first available course_id='{target_course_id}'")
         async with httpx.AsyncClient(timeout=TimeoutConfig.RAG_QUERY_TIMEOUT) as client:
             rag_payload = {
                 'course_id': target_course_id,
@@ -362,8 +218,7 @@ async def query_rag_system(conversation_id: str, question: str, course_id: Optio
             }
             if rag_model:
                 rag_payload['embedding_model'] = rag_model
-            
-            print(f"DEBUG: Querying RAG with course_id='{target_course_id}' instead of conversation_id='{conversation_id}'")
+
             
             response = await client.post(
                 f'http://{ServiceConfig.LOCALHOST}:{ServiceConfig.RAG_SYSTEM_PORT}/ask',
@@ -373,11 +228,11 @@ async def query_rag_system(conversation_id: str, question: str, course_id: Optio
             if response.status_code == 200:
                 return response.json()
             else:
-                print(f"RAG system returned {response.status_code}: {response.text}")
+                logger.error(f"RAG system returned {response.status_code}: {response.text}")
                 return None
     
     except Exception as e:
-        print(f"Error querying RAG system: {e}")
+        logger.error(f"Error querying RAG system: {e}")
         return None
 
 def enhance_prompt_with_rag_context(original_prompt: str, rag_result: Optional[Dict[str, Any]]) -> str:
@@ -446,7 +301,7 @@ async def generate_standard_rag_response(data: ChatRequest) -> str:
             prompt=f"System: {system_prompt}\n\n{enhanced_prompt}",
             conversation_id=data.conversation_id,
             file_context=data.file_context,
-            model='gemini-2.5-flash'  # Use default model since students choose RAG vs Problem Solving
+            model=data.model or 'gemini-2.5-flash'
         )
         
         return llm_text_endpoint(modified_data)
@@ -455,28 +310,17 @@ async def generate_standard_rag_response(data: ChatRequest) -> str:
         return f"Error generating standard response: {str(e)}"
 
 async def generate_response(data: ChatRequest) -> str:
-    """
-    Generate a response using:
-    1. daily - RAG-enhanced response with course-specific prompt
-    2. rag - Multi-agent system with built-in RAG
-    """
-    print(f"=== BACKEND ROUTING DEBUG ===")
-    print(f"data.model: '{data.model}'")
-    print(f"data.use_agents: {data.use_agents}")
-    print(f"data.course_id: '{data.course_id}'")
-    print(f"=============================")
+    """Generate response using daily (RAG) or rag (Multi-agent) systems"""
     
     if data.model == "daily":
-        # Use simple RAG-enhanced response (Daily mode)
         return await generate_standard_rag_response(data)
     
     elif data.model == "rag":
-        # Use Multi-agent system (includes RAG as Agent 2 + reasoning)
         if not data.course_id:
             return "Agent System requires a course selection to identify the knowledge base."
 
         try:
-            speculative_result = await query_agents_system(
+            result = await query_agents_system(
                 data.conversation_id or "",
                 data.prompt,
                 data.course_id,
@@ -484,33 +328,33 @@ async def generate_response(data: ChatRequest) -> str:
                 data.heavy_model,
             )
 
-            if speculative_result and speculative_result.get('success'):
-                answer_data = speculative_result.get('answer', {})
-                
-                # Format the structured answer
-                formatted_answer = format_agents_response(answer_data)
-                
-                # Add debug information if available
-                debug_info = speculative_result.get('debug_info', {})
-                if debug_info:
-                    debug_summary = f"\n\n**Reasoning Process:**"
-                    debug_summary += f"\n- Debate Status: {speculative_result.get('metadata', {}).get('debate_status', 'unknown')}"
-                    debug_summary += f"\n- Debate Rounds: {speculative_result.get('metadata', {}).get('debate_rounds', 'unknown')}"
-                    debug_summary += f"\n- Quality Score: {speculative_result.get('metadata', {}).get('convergence_score', 'unknown'):.3f}"
-                    debug_summary += f"\n- Context Items: {debug_info.get('context_items', 'unknown')}"
-                    formatted_answer += debug_summary
-                
-                return formatted_answer
+            if result and result.get('success'):
+                return _format_agents_response_with_debug(result)
             else:
-                error_msg = speculative_result.get('error', {}).get('message', "An unexpected error occurred.")
+                error_msg = result.get('error', {}).get('message', "An unexpected error occurred.")
                 return f"The Agent System encountered an error while processing your request.\n\nDetails: {error_msg}"
         
         except Exception as e:
             return f"The Agent System is currently unavailable. Please try again later.\n\nTechnical details: {str(e)}"
     
     else:
-        # Fallback to basic response
         return f"Unknown model '{data.model}'. Please select 'daily' for Daily mode or 'rag' for Problem Solving mode."
+
+def _format_agents_response_with_debug(result: Dict[str, Any]) -> str:
+    """Format agents response with optional debug information"""
+    answer_data = result.get('answer', {})
+    formatted_answer = format_agents_response(answer_data)
+    
+    debug_info = result.get('debug_info', {})
+    if debug_info:
+        debug_summary = f"\n\n**Reasoning Process:**"
+        debug_summary += f"\n- Debate Status: {result.get('metadata', {}).get('debate_status', 'unknown')}"
+        debug_summary += f"\n- Debate Rounds: {result.get('metadata', {}).get('debate_rounds', 'unknown')}"
+        debug_summary += f"\n- Quality Score: {result.get('metadata', {}).get('convergence_score', 'unknown'):.3f}"
+        debug_summary += f"\n- Context Items: {debug_info.get('context_items', 'unknown')}"
+        formatted_answer += debug_summary
+    
+    return formatted_answer
 
 
 async def query_agents_system(
@@ -622,3 +466,216 @@ def format_agents_response(answer_data: dict) -> str:
             formatted_sections.append(f"{i}. {source}")
         
     return "\n".join(formatted_sections) if formatted_sections else "No structured content available."
+
+# File Processing Services
+
+async def process_files_for_chat(files: List[UploadFile], conversation_id: str, user_id: str) -> List[Dict[str, Any]]:
+    """Process files for chat context (not sent to RAG)"""
+    results = []
+    
+    for file in files:
+        filename = file.filename or 'unknown_file'
+        file_content = await file.read()
+        
+        if filename.lower().endswith('.pdf'):
+            result = await _process_pdf_for_chat(file_content, filename)
+        elif filename.lower().endswith(('.txt', '.md', '.mdx')):
+            result = await _process_text_for_chat(file_content, filename)
+        else:
+            result = _create_unsupported_file_result(filename)
+        
+        results.append(result)
+    
+    return results
+
+async def process_files_for_rag(files: List[UploadFile], course_id: str, user_id: str, rag_model: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Process files for RAG knowledge base"""
+    results = []
+    
+    for file in files:
+        filename = file.filename or 'unknown_file'
+        file_content = await file.read()
+        
+        if filename.lower().endswith('.pdf'):
+            result = await _process_pdf_for_rag(file_content, filename, course_id, rag_model)
+        elif filename.lower().endswith(('.txt', '.md', '.mdx')):
+            result = await _process_text_for_rag(file_content, filename, course_id, rag_model)
+        else:
+            result = _create_unsupported_file_result(filename)
+        
+        results.append(result)
+    
+    return results
+
+async def _process_pdf_for_chat(file_content: bytes, filename: str) -> Dict[str, Any]:
+    """Process PDF for chat context"""
+    pdf_result = await _process_pdf_file(file_content, filename)
+    
+    if pdf_result.get('success'):
+        markdown_content = pdf_result.get('markdown_content', '')
+        return {
+            'filename': filename,
+            'type': 'pdf',
+            'markdown_content': markdown_content,
+            'content_length': len(markdown_content),
+            'status': 'completed'
+        }
+    else:
+        return {
+            'filename': filename,
+            'type': 'pdf',
+            'error': pdf_result.get('error_message', 'PDF processing failed'),
+            'status': 'failed'
+        }
+
+async def _process_text_for_chat(file_content: bytes, filename: str) -> Dict[str, Any]:
+    """Process text file for chat context"""
+    text_content = file_content.decode('utf-8')
+    return {
+        'filename': filename,
+        'type': 'text',
+        'text_content': text_content,
+        'content_length': len(text_content),
+        'status': 'completed'
+    }
+
+async def _process_pdf_for_rag(file_content: bytes, filename: str, course_id: str, rag_model: Optional[str]) -> Dict[str, Any]:
+    """Process PDF for RAG knowledge base"""
+    pdf_result = await _process_pdf_file(file_content, filename)
+    
+    if pdf_result.get('success'):
+        rag_result = await _process_document_with_rag(
+            course_id,
+            pdf_result.get('markdown_content', ''),
+            filename,
+            rag_model
+        )
+        
+        if rag_result.get('success'):
+            document_id = rag_result.get('document_id', filename)
+            _store_document_metadata(document_id, course_id, filename, 'pdf')
+            return {
+                'filename': filename,
+                'type': 'pdf',
+                'pdf_processing': pdf_result,
+                'rag_processing': rag_result,
+                'status': 'completed'
+            }
+        else:
+            return {
+                'filename': filename,
+                'type': 'pdf',
+                'pdf_processing': pdf_result,
+                'rag_processing': rag_result,
+                'error': rag_result.get('error_message', 'RAG processing failed'),
+                'status': 'failed'
+            }
+    else:
+        return {
+            'filename': filename,
+            'type': 'pdf',
+            'error': pdf_result.get('error_message', 'PDF processing failed'),
+            'status': 'failed'
+        }
+
+async def _process_text_for_rag(file_content: bytes, filename: str, course_id: str, rag_model: Optional[str]) -> Dict[str, Any]:
+    """Process text file for RAG knowledge base"""
+    text_content = file_content.decode('utf-8')
+    rag_result = await _process_document_with_rag(course_id, text_content, filename, rag_model)
+    
+    if rag_result.get('success'):
+        document_id = rag_result.get('document_id', filename)
+        _store_document_metadata(document_id, course_id, filename, 'text')
+    
+    return {
+        'filename': filename,
+        'type': 'text',
+        'rag_processing': rag_result,
+        'status': 'completed'
+    }
+
+def _create_unsupported_file_result(filename: str) -> Dict[str, Any]:
+    """Create result for unsupported file type"""
+    return {
+        'filename': filename,
+        'type': 'unsupported',
+        'error': 'Unsupported file type. Please upload PDF, TXT, MD, or MDX files.',
+        'status': 'failed'
+    }
+
+async def _process_pdf_file(file_content: bytes, filename: str) -> Dict[str, Any]:
+    """Send PDF file to the PDF processor service"""
+    try:
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp_file:
+            tmp_file.write(file_content)
+            tmp_file_path = tmp_file.name
+        
+        try:
+            async with httpx.AsyncClient(timeout=TimeoutConfig.PDF_PROCESSING_TIMEOUT) as client:
+                with open(tmp_file_path, 'rb') as f:
+                    files = {'file': (filename, f, 'application/pdf')}
+                    response = await client.post(
+                        f'http://{ServiceConfig.LOCALHOST}:{ServiceConfig.PDF_PROCESSOR_PORT}/convert',
+                        files=files
+                    )
+                
+                if response.status_code == 200:
+                    return response.json()
+                else:
+                    return {
+                        'success': False,
+                        'error_message': f'PDF processor service returned {response.status_code}: {response.text}'
+                    }
+        finally:
+            if os.path.exists(tmp_file_path):
+                os.unlink(tmp_file_path)
+    
+    except Exception as e:
+        return {
+            'success': False,
+            'error_message': f'PDF processing failed: {str(e)}'
+        }
+
+async def _process_document_with_rag(course_id: str, content: str, filename: str, rag_model: Optional[str] = None) -> Dict[str, Any]:
+    """Send processed document content to the RAG system"""
+    try:
+        async with httpx.AsyncClient(timeout=TimeoutConfig.RAG_PROCESSING_TIMEOUT) as client:
+            rag_payload = {
+                'course_id': course_id,
+                'content': content
+            }
+            if rag_model:
+                rag_payload['embedding_model'] = rag_model
+            
+            response = await client.post(
+                f'http://{ServiceConfig.LOCALHOST}:{ServiceConfig.RAG_SYSTEM_PORT}/process_document',
+                json=rag_payload
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return {
+                    'success': False,
+                    'error': f'RAG system returned {response.status_code}: {response.text}'
+                }
+    
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f'RAG processing failed: {str(e)}'
+        }
+
+def _store_document_metadata(document_id: str, course_id: str, filename: str, file_type: str):
+    """Store document metadata in the documents table"""
+    try:
+        from src.supabaseClient import supabase
+        supabase.table("documents").insert({
+            "document_id": document_id,
+            "course_id": course_id,
+            "title": filename,
+            "content": f"Uploaded {file_type} file: {filename}",
+            "term": None
+        }).execute()
+    except Exception as e:
+        logger.error(f"Failed to store document metadata: {e}")
