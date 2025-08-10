@@ -31,7 +31,7 @@ class LangChainCerebras(LLM):
 class CerebrasClient:
     """Client for interacting with Cerebras AI services."""
 
-    def __init__(self, api_key: str | None = None, model: str = "qwen-3-235b-a22b", temperature: float = 0.6, top_p: float = 0.95):
+    def __init__(self, api_key: str | None = None, model: str = "qwen-3-235b-a22b-instruct-2507", temperature: float = 0.6, top_p: float = 0.95):
         api_key = api_key or os.getenv("CEREBRAS_API_KEY")
         if not api_key:
             raise ValueError("CEREBRAS_API_KEY must be provided.")

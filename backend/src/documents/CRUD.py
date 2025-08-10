@@ -3,14 +3,15 @@ from datetime import datetime, timezone
 
 # CREATE
 def create_document(document_id, course_id, term, title, content):
+    now = datetime.now(timezone.utc).isoformat()
     data = {
         "document_id": document_id,
         "course_id": course_id,
         "term": term,
         "title": title,
         "content": content,
-        "created_at": datetime.now(timezone.utc),
-        "updated_at": datetime.now(timezone.utc),
+        "created_at": now,
+        "updated_at": now,
     }
     response = supabase.table("documents").insert(data).execute()
     return response.data
@@ -30,7 +31,7 @@ def get_document(document_id):
 
 # UPDATE
 def update_document(document_id, **kwargs):
-    kwargs["updated_at"] = datetime.now(timezone.utc)
+    kwargs["updated_at"] = datetime.now(timezone.utc).isoformat()
     response = supabase.table("documents").update(kwargs).eq("document_id", document_id).execute()
     return response.data
 

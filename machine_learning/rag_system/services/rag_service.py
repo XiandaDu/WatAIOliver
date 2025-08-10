@@ -78,7 +78,8 @@ class RAGService:
             A dictionary with document processing results, including document ID and chunk count
         """
         try:
-            doc_id = doc_id or f"doc_{hash(content) % 10**10}"
+            import time
+            doc_id = doc_id or f"doc_{hash(content) % 10**10}_{int(time.time() * 1000)}"
             
             document = Document(
                 page_content=content,
