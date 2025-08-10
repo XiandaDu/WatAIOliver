@@ -2,13 +2,14 @@ from src.supabaseClient import supabase
 import uuid
 
 # CREATE
-def create_course(created_by, title, description=None, term=None):
+def create_course(created_by, title, description=None, term=None, prompt=None):
     data = {
         "course_id": str(uuid.uuid4()),
         "title": title,
         "description": description,
         "term": term,
         "created_by": created_by,
+        "prompt": prompt,
     }
     response = supabase.table("courses").insert(data).execute()
     return response.data[0] if response.data else None

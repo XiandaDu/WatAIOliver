@@ -18,96 +18,232 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { CourseSelector } from "@/components/ui/course-selector"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DragDropZone } from "@/components/ui/drag-drop-zone"
 import AdminSidebar from "@/components/AdminSidebar"
 
 // No mock data. All data is fetched from live APIs.
 
 export default function AdminPage() {
-  const fileInputRef = useRef(null)
   const navigate = useNavigate()
-  const [selectedCourseId, setSelectedCourseId] = useState("")
   const [courses, setCourses] = useState([])
-  const [documents, setDocuments] = useState([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [selectedCourse, setSelectedCourse] = useState(null)
+  const [editingCourse, setEditingCourse] = useState(null)
+  const [showUploadDialog, setShowUploadDialog] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showMetadataDialog, setShowMetadataDialog] = useState(false)
+  const [showDocumentsDialog, setShowDocumentsDialog] = useState(false)
+  const [documentsDialogCourse, setDocumentsDialogCourse] = useState(null)
+  const [documentsLoaded, setDocumentsLoaded] = useState(false)
+  const didFetchCourses = useRef(false)
+  const [newCourse, setNewCourse] = useState({
+    title: '',
+    description: '',
+    term: '',
+    prompt: ''
+  })
   const [pendingFiles, setPendingFiles] = useState([])
   const [fileMetadata, setFileMetadata] = useState([])
   const [isUploading, setIsUploading] = useState(false)
   const token = localStorage.getItem('access_token')
 
-  // Load courses for selector
   useEffect(() => {
-    const loadCourses = async () => {
-      const resp = await fetch('http://localhost:8000/course/', {
-        headers: { Authorization: `Bearer ${token}`}
-      })
-      if (resp.ok) {
-        const data = await resp.json()
-        setCourses(data)
-      }
-    }
-    loadCourses()
+    // Guard against double invocation in React StrictMode (development)
+    if (didFetchCourses.current) return
+    didFetchCourses.current = true
+    loadInstructorCourses()
   }, [])
 
-  // Load documents for selected course
-  useEffect(() => {
-    const loadDocs = async () => {
-      if (!selectedCourseId) { setDocuments([]); return }
-      const resp = await fetch(`http://localhost:8000/documents?course_id=${encodeURIComponent(selectedCourseId)}`)
-      if (resp.ok) {
-        const data = await resp.json()
-        setDocuments(data)
+  const loadInstructorCourses = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('http://localhost:8000/course/my-courses', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (response.ok) {
+        const coursesData = await response.json()
+        // Preserve already loaded documents if present to avoid flicker
+        setCourses(prev =>
+          coursesData.map(course => {
+            const existing = prev.find(c => c.course_id === course.course_id)
+            return existing && existing.documents
+              ? { ...course, documents: existing.documents }
+              : course
+          })
+        )
+      } else {
+        setError('Failed to load courses')
       }
-    }
-    loadDocs()
-  }, [selectedCourseId])
-
-  const handleUpdate = (row) => {
-    // Navigate to edit page with row data
-    navigate('/admin/edit', { state: { entry: row } })
-  }
-
-  const handleUpload = (id) => {
-    console.log("Upload clicked for id:", id)
-    fileInputRef.current.click()
-    console.log(`Upload clicked for id: ${id}`)
-  }
-
-  const handleDelete = async (documentId) => {
-    if (!selectedCourseId || !documentId) return
-    
-    // Delete from both metadata table and knowledge base
-    const [metadataResp, kbResp] = await Promise.all([
-      fetch(`http://localhost:8000/documents/${encodeURIComponent(documentId)}`, { method: 'DELETE' }),
-      fetch(`http://localhost:8000/documents/kb?course_id=${encodeURIComponent(selectedCourseId)}&document_id=${encodeURIComponent(documentId)}`, { method: 'DELETE' })
-    ])
-    
-    if (metadataResp.ok) {
-      setDocuments(prev => prev.filter(doc => doc.document_id !== documentId))
+    } catch (error) {
+      console.error('Error loading courses:', error)
+      setError('Error loading courses')
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleRemoveDocs = (id) => {
-    console.log(`Remove Docs clicked for id: ${id}`)
+  // Load documents for selected course
+  const loadDocuments = async (courseId) => {
+    if (!courseId) return []
+    try {
+      const resp = await fetch(`http://localhost:8000/documents/?course_id=${encodeURIComponent(courseId)}`)
+      if (resp.ok) {
+        const documents = await resp.json()
+        console.log(`✅ Loaded ${documents.length} documents for course ${courseId}`)
+        return documents
+      } else {
+        console.error(`Failed to load documents for course ${courseId}:`, resp.status, resp.statusText)
+      }
+    } catch (error) {
+      console.error('Error loading documents:', error)
+    }
+    return []
   }
 
-  const handleExportLog = () => {
-    if (!selectedCourseId) return
-    navigate(`/admin/logs?course_id=${encodeURIComponent(selectedCourseId)}`);
+  const handleUpdate = (course) => {
+    setEditingCourse({ ...course })
+    setShowEditDialog(true)
   }
 
-  const handleQandA = () => {
-    if (!selectedCourseId) return
-    navigate(`/chat?course_id=${encodeURIComponent(selectedCourseId)}`)
+  const handleUpload = (course) => {
+    setSelectedCourse(course)
+    setShowUploadDialog(true)
   }
 
-  const handleFileChange = (event) => {
-    const file = event.target.files[0]
-    if (file) {
-      console.log("Selected file:", file.name)
-      throw new Error('File upload not implemented - API endpoint required');
+  const handleDeleteCourse = async (courseId) => {
+    if (!confirm('Are you sure you want to delete this course? This action cannot be undone.')) {
+      return
+    }
+    
+    try {
+      const resp = await fetch(`http://localhost:8000/course/${courseId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      
+      if (resp.ok) {
+        setCourses(prev => prev.filter(course => course.course_id !== courseId))
+      } else {
+        alert('Failed to delete course')
+      }
+    } catch (error) {
+      console.error('Error deleting course:', error)
+      alert('Error deleting course')
+    }
+  }
+
+  const handleDeleteDocument = async (documentId, courseId) => {
+    if (!courseId || !documentId) return
+    
+    try {
+      // Delete from both metadata table and knowledge base
+      const [metadataResp, kbResp] = await Promise.all([
+        fetch(`http://localhost:8000/documents/${encodeURIComponent(documentId)}`, { method: 'DELETE' }),
+        fetch(`http://localhost:8000/documents/kb?course_id=${encodeURIComponent(courseId)}&document_id=${encodeURIComponent(documentId)}`, { method: 'DELETE' })
+      ])
+      
+      if (metadataResp.ok) {
+        // Reload course data to update document list
+        const updatedCourses = await Promise.all(
+          courses.map(async (course) => {
+            if (course.course_id === courseId) {
+              const docs = await loadDocuments(courseId)
+              return { ...course, documents: docs }
+            }
+            return course
+          })
+        )
+        setCourses(updatedCourses)
+      }
+    } catch (error) {
+      console.error('Error deleting document:', error)
+    }
+  }
+
+  const handleViewActivity = (course) => {
+    navigate(`/admin/logs?course_id=${encodeURIComponent(course.course_id)}`);
+  }
+
+  const handleQandA = (course) => {
+    navigate(`/chat?course_id=${encodeURIComponent(course.course_id)}`)
+  }
+
+  const handleSaveCourse = async () => {
+    if (!editingCourse) return
+    
+    try {
+      const resp = await fetch(`http://localhost:8000/course/${editingCourse.course_id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          title: editingCourse.title,
+          description: editingCourse.description,
+          term: editingCourse.term,
+          prompt: editingCourse.prompt
+        })
+      })
+      
+      if (resp.ok) {
+        const updatedCourse = await resp.json()
+        // Merge existing documents to avoid losing them after update
+        setCourses(prev => prev.map(course =>
+          course.course_id === updatedCourse.course_id
+            ? { ...updatedCourse, documents: course.documents }
+            : course
+        ))
+        setShowEditDialog(false)
+        setEditingCourse(null)
+      } else {
+        alert('Failed to update course')
+      }
+    } catch (error) {
+      console.error('Error updating course:', error)
+      alert('Error updating course')
+    }
+  }
+
+  const handleCreateCourse = async () => {
+    if (!newCourse.title.trim()) {
+      alert('Course title is required')
+      return
+    }
+    
+    try {
+      const resp = await fetch('http://localhost:8000/course/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(newCourse)
+      })
+      
+      if (resp.ok) {
+        const createdCourse = await resp.json()
+        setCourses(prev => [...prev, { ...createdCourse, documents: [] }])
+        setShowCreateDialog(false)
+        setNewCourse({
+          title: '',
+          description: '',
+          term: '',
+          prompt: ''
+        })
+      } else {
+        alert('Failed to create course')
+      }
+    } catch (error) {
+      console.error('Error creating course:', error)
+      alert('Error creating course')
     }
   }
 
@@ -117,9 +253,35 @@ export default function AdminPage() {
     navigate('/login');
   };
 
+  // Load documents for each course automatically
+  useEffect(() => {
+    const loadAllDocuments = async () => {
+      if (documentsLoaded) return // Prevent duplicate loading
+      
+      console.log(`🚀 Auto-loading documents for ${courses.length} courses...`)
+      const coursesWithDocs = await Promise.all(
+        courses.map(async (course) => {
+          const docs = await loadDocuments(course.course_id)
+          console.log(`Course ${course.title} (${course.course_id}): ${docs.length} documents`)
+          return { ...course, documents: docs }
+        })
+      )
+      setCourses(coursesWithDocs)
+      setDocumentsLoaded(true)
+      console.log('✅ Auto-load completed:', coursesWithDocs.map(c => 
+        `${c.title}: ${c.documents?.length || 0} docs`
+      ).join(', '))
+    }
+    
+    // Load documents when we have courses and haven't loaded documents yet
+    if (courses.length > 0 && !documentsLoaded) {
+      loadAllDocuments()
+    }
+  }, [courses, documentsLoaded])
+
   const handleFilesDrop = async (files) => {
-    if (!selectedCourseId) {
-      alert('Please select a course first')
+    if (!selectedCourse) {
+      alert('No course selected')
       return
     }
 
@@ -132,6 +294,7 @@ export default function AdminPage() {
 
     setPendingFiles(files)
     setFileMetadata(metadata)
+    setShowUploadDialog(false)
     setShowMetadataDialog(true)
   }
 
@@ -141,7 +304,7 @@ export default function AdminPage() {
     setIsUploading(true)
     try {
       const uploadFormData = new FormData()
-      uploadFormData.append('course_id', selectedCourseId)
+      uploadFormData.append('course_id', selectedCourse.course_id)
       uploadFormData.append('user_id', 'admin')
       
       for (const item of fileMetadata) {
@@ -192,12 +355,17 @@ export default function AdminPage() {
         setFileMetadata([])
         
         // Reload documents to show updated metadata
-        if (selectedCourseId) {
-          const resp = await fetch(`http://localhost:8000/documents?course_id=${encodeURIComponent(selectedCourseId)}`)
-          if (resp.ok) {
-            const data = await resp.json()
-            setDocuments(data)
-          }
+        if (selectedCourse) {
+          const updatedCourses = await Promise.all(
+            courses.map(async (course) => {
+              if (course.course_id === selectedCourse.course_id) {
+                const docs = await loadDocuments(course.course_id)
+                return { ...course, documents: docs }
+              }
+              return course
+            })
+          )
+          setCourses(updatedCourses)
         }
       } else {
         console.error('RAG upload failed:', uploadResponse.status, uploadResponse.statusText)
@@ -224,7 +392,7 @@ export default function AdminPage() {
         <header className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
           <h1 className="text-2xl font-semibold text-gray-900">Admin Panel</h1>
           <div>
-            <Button>Add</Button>
+            <Button onClick={() => setShowCreateDialog(true)}>Add Course</Button>
             <Button
               variant="outline"
               className="ml-4"
@@ -235,58 +403,275 @@ export default function AdminPage() {
           </div>
         </header>
         <main className="flex-1 overflow-y-auto p-6">
-          <div className="mb-6 bg-white rounded-lg border p-6 space-y-4">
-            <h2 className="text-lg font-semibold">Upload Files to RAG System</h2>
-            <CourseSelector
-              value={selectedCourseId}
-              onChange={setSelectedCourseId}
-              options={courses.map(c => ({ value: c.course_id, label: c.title }))}
-            />
-            {selectedCourseId && (
-              <div className="flex space-x-4 mb-4">
-                <Button variant="outline" onClick={handleExportLog}>
-                  View Course Activity
-                </Button>
-                <Button variant="outline" onClick={handleQandA}>
-                  Q and A for Course
+          {loading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading courses...</p>
+              </div>
+            </div>
+          ) : error ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <div className="text-red-600 text-xl mb-2">⚠️</div>
+                <p className="text-red-600 mb-4">{error}</p>
+                <Button onClick={loadInstructorCourses} variant="outline">
+                  Try Again
                 </Button>
               </div>
-            )}
+            </div>
+          ) : courses.length === 0 ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <div className="text-gray-400 text-xl mb-2">📚</div>
+                <p className="text-gray-600 mb-4">No courses found</p>
+                <Button onClick={() => setShowCreateDialog(true)}>
+                  Create Your First Course
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-lg border bg-white">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[50px]">#</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Notes</TableHead>
+                    <TableHead>Doc</TableHead>
+                    <TableHead>Prompt</TableHead>
+                    <TableHead>Operate</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {courses.map((course, idx) => (
+                    <TableRow key={`${course.course_id}-${course.documents?.length || 0}`}>
+                      <TableCell>{idx + 1}</TableCell>
+                      <TableCell className="font-medium">{course.title}</TableCell>
+                      <TableCell className="max-w-xs">
+                        <div className="truncate">{course.description || '-'}</div>
+                        {course.term && <div className="text-sm text-gray-500">Term: {course.term}</div>}
+                      </TableCell>
+                      <TableCell className="min-w-[250px]">
+                        {course.documents && course.documents.length > 0 ? (
+                          <div className="space-y-1">
+                            {course.documents.slice(0, 3).map((doc) => (
+                              <div key={doc.document_id} className="flex items-center justify-between text-sm bg-gray-50 p-2 rounded border">
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium truncate">{doc.title || 'Untitled Document'}</div>
+                                  {doc.term ? (
+                                    <div className="text-xs text-blue-600 bg-blue-50 px-1 rounded mt-1 inline-block">
+                                      {doc.term}
+                                    </div>
+                                  ) : (
+                                    <div className="text-xs text-gray-400 mt-1">
+                                      No term specified
+                                    </div>
+                                  )}
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    ID: {doc.document_id.slice(0, 8)}...
+                                  </div>
+                                </div>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="h-6 w-6 p-0 text-red-500 hover:text-red-700 ml-2 flex-shrink-0"
+                                  onClick={() => handleDeleteDocument(doc.document_id, course.course_id)}
+                                >
+                                  ×
+                                </Button>
+                              </div>
+                            ))}
+                            {course.documents.length > 3 && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-xs text-blue-600 hover:text-blue-800 w-full"
+                                onClick={() => {
+                                  setDocumentsDialogCourse(course)
+                                  setShowDocumentsDialog(true)
+                                }}
+                              >
+                                View all {course.documents.length} documents
+                              </Button>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">No documents</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="max-w-xs">
+                        <div className="truncate text-sm">{course.prompt || 'Default prompt'}</div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col space-y-1">
+                          <Button variant="outline" size="sm" onClick={() => handleUpdate(course)}>
+                            Update
+                          </Button>
+                          <Button variant="destructive" size="sm" onClick={() => handleDeleteCourse(course.course_id)}>
+                            Delete
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => handleUpload(course)}>
+                            Upload
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleViewActivity(course)}>
+                            View Log
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleQandA(course)}>
+                            Q and A
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={async () => {
+                              const docs = await loadDocuments(course.course_id)
+                              setCourses(prev => prev.map(c => 
+                                c.course_id === course.course_id ? { ...c, documents: docs } : c
+                              ))
+                            }}
+                          >
+                            Refresh Docs
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* Upload Dialog */}
+      <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Upload Files to {selectedCourse?.title}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
             <DragDropZone
               onFilesDrop={handleFilesDrop}
               acceptedFileTypes={["pdf", "doc", "docx", "txt", "tex", "md", "json", "csv"]}
               multiple={true}
             />
           </div>
+        </DialogContent>
+      </Dialog>
 
-          <div className="rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[50px]">#</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Term</TableHead>
-                  <TableHead>Document ID</TableHead>
-                  <TableHead>Operate</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {documents.map((doc, idx) => (
-                  <TableRow key={doc.document_id}>
-                    <TableCell>{idx + 1}</TableCell>
-                    <TableCell className="font-medium">{doc.title}</TableCell>
-                    <TableCell>{doc.term || '-'}</TableCell>
-                    <TableCell className="max-w-xs truncate text-xs text-gray-500">{doc.document_id}</TableCell>
-                    <TableCell>
-                      <Button variant="destructive" size="sm" onClick={() => handleDelete(doc.document_id)}>Delete</Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+      {/* Edit Course Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Course</DialogTitle>
+          </DialogHeader>
+          {editingCourse && (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="course-title">Course Name</Label>
+                <Input
+                  id="course-title"
+                  value={editingCourse.title}
+                  onChange={(e) => setEditingCourse(prev => ({ ...prev, title: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="course-description">Description</Label>
+                <Textarea
+                  id="course-description"
+                  value={editingCourse.description || ''}
+                  onChange={(e) => setEditingCourse(prev => ({ ...prev, description: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="course-term">Term</Label>
+                <Input
+                  id="course-term"
+                  value={editingCourse.term || ''}
+                  onChange={(e) => setEditingCourse(prev => ({ ...prev, term: e.target.value }))}
+                  placeholder="e.g., Fall 2024"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="course-prompt">Custom Prompt</Label>
+                <Textarea
+                  id="course-prompt"
+                  value={editingCourse.prompt || ''}
+                  onChange={(e) => setEditingCourse(prev => ({ ...prev, prompt: e.target.value }))}
+                  placeholder="Enter custom system prompt for this course..."
+                  rows={4}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveCourse}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Course Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Create New Course</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="new-course-title">Course Name *</Label>
+              <Input
+                id="new-course-title"
+                value={newCourse.title}
+                onChange={(e) => setNewCourse(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="Enter course name"
+              />
+            </div>
+            <div>
+              <Label htmlFor="new-course-description">Description</Label>
+              <Textarea
+                id="new-course-description"
+                value={newCourse.description}
+                onChange={(e) => setNewCourse(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Enter course description"
+              />
+            </div>
+            <div>
+              <Label htmlFor="new-course-term">Term</Label>
+              <Input
+                id="new-course-term"
+                value={newCourse.term}
+                onChange={(e) => setNewCourse(prev => ({ ...prev, term: e.target.value }))}
+                placeholder="e.g., Fall 2024"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="new-course-prompt">Custom Prompt</Label>
+              <Textarea
+                id="new-course-prompt"
+                value={newCourse.prompt}
+                onChange={(e) => setNewCourse(prev => ({ ...prev, prompt: e.target.value }))}
+                placeholder="Enter custom system prompt for this course..."
+                rows={4}
+              />
+            </div>
           </div>
-        </main>
-      </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateCourse}>
+              Create Course
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Metadata Input Dialog */}
       <Dialog open={showMetadataDialog} onOpenChange={setShowMetadataDialog}>
@@ -342,12 +727,80 @@ export default function AdminPage() {
         </DialogContent>
       </Dialog>
 
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        style={{ display: "none" }}
-      />
+      {/* View All Documents Dialog */}
+      <Dialog open={showDocumentsDialog} onOpenChange={setShowDocumentsDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Documents for {documentsDialogCourse?.title}
+              {documentsDialogCourse?.term && ` (${documentsDialogCourse.term})`}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {documentsDialogCourse?.documents?.map((doc) => (
+              <div key={doc.document_id} className="border rounded-lg p-4 bg-gray-50">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-lg mb-2">{doc.title || 'Untitled Document'}</h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 mb-3">
+                      <div>
+                        <span className="font-medium">Document ID:</span>
+                        <div className="font-mono text-xs bg-white px-2 py-1 rounded mt-1">
+                          {doc.document_id}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="font-medium">Term:</span>
+                        <div className="mt-1">
+                          {doc.term ? (
+                            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+                              {doc.term}
+                            </span>
+                          ) : (
+                            <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">
+                              No term specified
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    {doc.created_at && (
+                      <div className="text-xs text-gray-500">
+                        Created: {new Date(doc.created_at).toLocaleString()}
+                      </div>
+                    )}
+                    {doc.updated_at && doc.updated_at !== doc.created_at && (
+                      <div className="text-xs text-gray-500">
+                        Updated: {new Date(doc.updated_at).toLocaleString()}
+                      </div>
+                    )}
+                  </div>
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    className="ml-4"
+                    onClick={() => {
+                      handleDeleteDocument(doc.document_id, documentsDialogCourse.course_id)
+                      setShowDocumentsDialog(false)
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            )) || (
+              <div className="text-center text-gray-500 py-8">
+                No documents found for this course.
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDocumentsDialog(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 } 
