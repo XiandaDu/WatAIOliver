@@ -19,3 +19,5 @@ app.log
 backend/.env
 frontend/.env
 machine_learning/.env
+
+.DS_Store
