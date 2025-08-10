@@ -24,15 +24,16 @@ export default function ChatPage() {
   const [isSendingMessage, setIsSendingMessage] = useState(false)
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
-  const [selectedModel, setSelectedModel] = useState("daily")
+  const [selectedModel, setSelectedModel] = useState("rag")
   const [selectedBaseModel, setSelectedBaseModel] = useState("gemini-2.5-flash")
   const [selectedRagModel, setSelectedRagModel] = useState("text-embedding-004")
   const [selectedHeavyModel, setSelectedHeavyModel] = useState("")
   const [selectedCourseId, setSelectedCourseId] = useState("")
-  const [useAgents, setUseAgents] = useState(true)
+  const [selectedCourse, setSelectedCourse] = useState(null)
+  const [useAgents, setUseAgents] = useState(false)
   const modelOptions = [
     { label: "Daily", value: "daily", description: "RAG-enhanced response with course-specific prompt" },
-    { label: "Problem Solving", value: "problem_solving", description: "Multi-agent system with built-in RAG for complex problems" }
+    { label: "Problem Solving", value: "rag", description: "Multi-agent system with built-in RAG for complex problems" }
   ]
   const ragModelOptions = [
     { label: "Gemini 004", value: "text-embedding-004", description: "Google's latest embedding model (Default)" },
@@ -79,10 +80,26 @@ export default function ChatPage() {
   }, [userId])
 
   useEffect(() => {
-    const courseParam = searchParams.get('course_id')
+    const courseParam = searchParams.get('course') || searchParams.get('course_id')
     if (courseParam) {
       setSelectedCourseId(courseParam)
       console.log('Course ID loaded from URL:', courseParam)
+      
+      // Fetch course details
+      fetch(`http://localhost:8000/course/${courseParam}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        }
+
+      })
+        .then(response => response.json())
+        .then(course => {
+          setSelectedCourse(course)
+          console.log('Course details loaded:', course)
+        })
+        .catch(error => {
+          console.error('Error loading course details:', error)
+        })
     }
   }, [searchParams])
 
@@ -315,19 +332,29 @@ export default function ChatPage() {
       // Get AI response
       let aiResponse = "I'm processing your request..."
       try {
+        const chatRequestData = {
+          prompt: input.trim() || (experimental_attachments?.length ? 'Please help me analyze the uploaded file.' : ''),
+          conversation_id: newConversationId,
+          file_context: fileContext || null,
+          model: selectedModel,
+          course_id: selectedCourseId,
+          rag_model: selectedRagModel,
+          heavy_model: useAgents ? selectedHeavyModel : null,
+          use_agents: useAgents
+        }
+        
+        console.log('=== CHAT REQUEST DEBUG ===')
+        console.log('selectedModel:', selectedModel)
+        console.log('useAgents:', useAgents)
+        console.log('Full request:', chatRequestData)
+        console.log('==========================')
+        
+
+        
         const chatResponse = await fetch("http://localhost:8000/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt: input.trim() || (experimental_attachments?.length ? 'Please help me analyze the uploaded file.' : ''),
-            conversation_id: newConversationId,
-            file_context: fileContext || null,
-            model: selectedModel,
-            course_id: selectedCourseId,
-            rag_model: selectedRagModel,
-            heavy_model: useAgents ? selectedHeavyModel : null,
-            use_agents: useAgents
-          })
+          body: JSON.stringify(chatRequestData)
         })
         
         if (chatResponse.ok) {
@@ -405,6 +432,8 @@ export default function ChatPage() {
 
   const append = async (message) => {
     setIsSendingMessage(true)
+    
+
     
     const userMessage = {
       id: Date.now().toString(),
@@ -673,6 +702,7 @@ export default function ChatPage() {
                 heavyModelOptions={heavyModelOptions}
                 selectedCourseId={selectedCourseId}
                 setSelectedCourseId={setSelectedCourseId}
+                selectedCourse={selectedCourse}
                 useAgents={useAgents}
                 setUseAgents={setUseAgents}
                 append={append}
@@ -700,6 +730,7 @@ export default function ChatPage() {
                 heavyModelOptions={heavyModelOptions}
                 selectedCourseId={selectedCourseId}
                 setSelectedCourseId={setSelectedCourseId}
+                selectedCourse={selectedCourse}
                 useAgents={useAgents}
                 setUseAgents={setUseAgents}
                 messages={messages}

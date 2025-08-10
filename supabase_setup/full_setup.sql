@@ -1,5 +1,5 @@
--- WatAI Oliver - Full Supabase Setup
--- Run this script in Supabase SQL editor to initialize all required tables and policies
+-- First, check how many embeddings exist
+SELECT COUNT(*) FROM public.document_embeddings;
 
 -- Extensions
 create extension if not exists pgcrypto;
@@ -78,22 +78,17 @@ begin
   end if;
 end $$;
 
--- Course membership
-create table if not exists public.course_members (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
-  course_id text not null references public.courses(course_id) on delete cascade,
-  role text not null default 'student' check (role in ('student','instructor','ta')),
-  created_at timestamptz default now()
-);
-
-alter table public.course_members enable row level security;
-
-drop policy if exists "Users can read their memberships" on public.course_members;
-create policy "Users can read their memberships" on public.course_members for select using (auth.uid()::text = user_id::text);
-
-drop policy if exists "Users can join courses" on public.course_members;
-create policy "Users can join courses" on public.course_members for insert with check (auth.uid()::text = user_id::text);
+-- User->courses relationship stored on users table via TEXT[] and helper functions
+do $$
+begin
+  if not exists (select 1 from information_schema.columns 
+                 where table_schema = 'public' 
+                 and table_name = 'users' 
+                 and column_name = 'courses') then
+    alter table public.users add column courses text[] default '{}'::text[];
+    create index if not exists idx_users_courses on public.users using gin (courses);
+  end if;
+end $$;
 
 -- Instructor whitelist
 create table if not exists public.instructor_whitelist (

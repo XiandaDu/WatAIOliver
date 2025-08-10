@@ -1,7 +1,6 @@
 import { ChatForm, ChatMessages } from "@/components/ui/chat"
 import { MessageInput } from "@/components/ui/message-input"
 import { CustomSelect } from "@/components/ui/custom-select"
-import { CourseSelector } from "@/components/ui/course-selector"
 import { ChatFileAttachment } from "@/components/ui/chat-file-attachment"
 import { transcribeAudio } from "@/lib/utils/audio"
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer"
@@ -25,6 +24,7 @@ export function ChatInterface({
   heavyModelOptions,
   selectedCourseId,
   setSelectedCourseId,
+  selectedCourse,
   useAgents,
   setUseAgents,
   messages,
@@ -75,6 +75,17 @@ export function ChatInterface({
               placeholder="Foundation model"
               className="w-48"
             />
+            {selectedModel === "daily" && (
+              <>
+                {selectedCourse && (
+                  <div className="w-64 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Course</label>
+                    <p className="text-sm text-blue-700 font-medium">{selectedCourse.title}</p>
+                    <p className="text-xs text-blue-600">{selectedCourse.term}</p>
+                  </div>
+                )}
+              </>
+            )}
             {selectedModel === "rag" && (
               <>
                 <CustomSelect
@@ -91,10 +102,12 @@ export function ChatInterface({
                   placeholder="Heavy reasoning model"
                   className="w-48"
                 />
-                {selectedCourseId && (
+
+                {selectedCourse && (
                   <div className="w-64 p-2 bg-blue-50 border border-blue-200 rounded-lg">
                     <label className="block text-xs font-medium text-gray-700 mb-1">Course</label>
-                    <p className="text-sm text-blue-700 font-medium">{selectedCourseId}</p>
+                    <p className="text-sm text-blue-700 font-medium">{selectedCourse.title}</p>
+                    <p className="text-xs text-blue-600">{selectedCourse.term}</p>
                   </div>
                 )}
                 <label className="flex items-center space-x-2">

@@ -3,21 +3,15 @@ from . import service
 from .CRUD import (
     create_course, get_course, get_courses, get_all_courses,
     search_courses, get_course_count, update_course, delete_course,
-    add_user_to_course, get_courses_for_member, find_course_by_title_ilike
+    find_course_by_title_ilike
 )
 from .models import CourseCreate, CourseUpdate, CourseResponse
 from typing import List, Optional
 
-import csv
-import io
-import os
-from sqlalchemy.orm import Session
-from .database import engine, get_db
-from .models import Course
 from datetime import datetime
-from starlette.responses import RedirectResponse, StreamingResponse
 from src.auth.middleware import auth_required, get_current_user, instructor_required
 from src.auth.models import AuthUser
+from src.user.service import add_course_to_user
 
 router = APIRouter(
     prefix='/course',
@@ -43,7 +37,7 @@ async def create_course_api(
 
 @router.get("/my-courses", response_model=List[CourseResponse])
 async def list_my_courses_api(
-    current_user = Depends(instructor_required),
+    current_user: AuthUser = Depends(instructor_required),
     limit: Optional[int] = Query(100, ge=1, le=1000),
     offset: Optional[int] = Query(0, ge=0),
     search: Optional[str] = Query(None)
@@ -78,7 +72,7 @@ async def get_course_api(
 
 @router.get("/", response_model=List[CourseResponse])
 async def list_courses_api(
-    current_user = Depends(auth_required),
+    current_user: AuthUser = Depends(auth_required),
     limit: Optional[int] = Query(100, ge=1, le=1000),
     offset: Optional[int] = Query(0, ge=0),
     search: Optional[str] = Query(None)
@@ -107,7 +101,7 @@ async def join_course_by_code(invite_code: str = Form(...), current_user: AuthUs
 async def update_course_api(
     course_id: str,
     course_data: CourseUpdate,
-    current_user = Depends(instructor_required)
+    current_user: AuthUser = Depends(instructor_required)
 ):
     """Update a course (only by the instructor who created it)"""
     try:
@@ -132,7 +126,7 @@ async def update_course_api(
 @router.delete("/{course_id}")
 async def delete_course_api(
     course_id: str,
-    current_user = Depends(instructor_required)
+    current_user: AuthUser = Depends(instructor_required)
 ):
     """Delete a course (only by the instructor who created it)"""
     try:
@@ -150,6 +144,7 @@ async def delete_course_api(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting course: {str(e)}")
+
 
 @router.get("/count/total")
 async def get_course_count_api(current_user: AuthUser = Depends(get_current_user)):

@@ -418,7 +418,7 @@ Please provide a comprehensive answer based on the document content above. Refer
 async def generate_standard_rag_response(data: ChatRequest) -> str:
     """Generate a response using RAG with course-specific prompt."""
     if not data.course_id:
-        return "Daily model requires a course selection to access the knowledge base."
+        return "RAG model requires a course selection to access the knowledge base."
     
     try:
         from src.course.CRUD import get_course
@@ -446,7 +446,7 @@ async def generate_standard_rag_response(data: ChatRequest) -> str:
             prompt=f"System: {system_prompt}\n\n{enhanced_prompt}",
             conversation_id=data.conversation_id,
             file_context=data.file_context,
-            model='gemini-2.5-flash'  # Use default model since students choose Daily vs Problem Solving
+            model='gemini-2.5-flash'  # Use default model since students choose RAG vs Problem Solving
         )
         
         return llm_text_endpoint(modified_data)
@@ -458,9 +458,19 @@ async def generate_response(data: ChatRequest) -> str:
     """
     Generate a response using:
     1. daily - RAG-enhanced response with course-specific prompt
-    2. problem_solving - Multi-agent system with built-in RAG
+    2. rag - Multi-agent system with built-in RAG
     """
-    if data.model == "problem_solving" or ((data.model in {"rag", "agents"}) and data.use_agents):
+    print(f"=== BACKEND ROUTING DEBUG ===")
+    print(f"data.model: '{data.model}'")
+    print(f"data.use_agents: {data.use_agents}")
+    print(f"data.course_id: '{data.course_id}'")
+    print(f"=============================")
+    
+    if data.model == "daily":
+        # Use simple RAG-enhanced response (Daily mode)
+        return await generate_standard_rag_response(data)
+    
+    elif data.model == "rag":
         # Use Multi-agent system (includes RAG as Agent 2 + reasoning)
         if not data.course_id:
             return "Agent System requires a course selection to identify the knowledge base."
@@ -492,15 +502,15 @@ async def generate_response(data: ChatRequest) -> str:
                 
                 return formatted_answer
             else:
-                            error_msg = speculative_result.get('error', {}).get('message', "An unexpected error occurred.")
-            return f"The Agent System encountered an error while processing your request.\n\nDetails: {error_msg}"
+                error_msg = speculative_result.get('error', {}).get('message', "An unexpected error occurred.")
+                return f"The Agent System encountered an error while processing your request.\n\nDetails: {error_msg}"
         
         except Exception as e:
             return f"The Agent System is currently unavailable. Please try again later.\n\nTechnical details: {str(e)}"
     
     else:
-        # Default to daily RAG-enhanced response
-        return await generate_standard_rag_response(data)
+        # Fallback to basic response
+        return f"Unknown model '{data.model}'. Please select 'daily' for Daily mode or 'rag' for Problem Solving mode."
 
 
 async def query_agents_system(

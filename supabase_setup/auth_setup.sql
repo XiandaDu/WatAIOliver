@@ -82,19 +82,6 @@ CREATE TABLE IF NOT EXISTS courses (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Course membership table (students/instructors enrolled in courses)
-CREATE TABLE IF NOT EXISTS course_members (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    course_id TEXT NOT NULL REFERENCES courses(course_id) ON DELETE CASCADE,
-    role TEXT NOT NULL DEFAULT 'student' CHECK (role IN ('student','instructor','ta')),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS ux_course_members_unique ON course_members(user_id, course_id);
-CREATE INDEX IF NOT EXISTS idx_course_members_course ON course_members(course_id);
-CREATE INDEX IF NOT EXISTS idx_course_members_user ON course_members(user_id);
-
 -- Enable RLS for courses
 ALTER TABLE courses ENABLE ROW LEVEL SECURITY;
 
@@ -118,17 +105,17 @@ DROP POLICY IF EXISTS "Users can delete their courses" ON courses;
 CREATE POLICY "Users can delete their courses" ON courses
     FOR DELETE TO authenticated USING (auth.uid()::text = created_by);
 
-ALTER TABLE course_members ENABLE ROW LEVEL SECURITY;
-
--- Allow users to read their memberships
-DROP POLICY IF EXISTS "Users can read their memberships" ON course_members;
-CREATE POLICY "Users can read their memberships" ON course_members
-    FOR SELECT USING (auth.uid()::text = user_id::text);
-
--- Allow users to join courses (insert their own membership)
-DROP POLICY IF EXISTS "Users can join courses" ON course_members;
-CREATE POLICY "Users can join courses" ON course_members
-    FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
+-- Store user->courses relationship via array on users table
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'courses'
+    ) THEN
+        ALTER TABLE users ADD COLUMN courses TEXT[] DEFAULT '{}';
+        CREATE INDEX IF NOT EXISTS idx_users_courses ON users USING GIN (courses);
+    END IF;
+END $$;
 
 -- Whitelist of instructors permitted to access admin panel
 CREATE TABLE IF NOT EXISTS instructor_whitelist (

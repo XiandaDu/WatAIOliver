@@ -4,6 +4,7 @@ from .CRUD import (
 )
 from .models import MessageCreate, MessageUpdate
 from src.supabaseClient import supabase
+from src.logger import logger
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List
 
@@ -41,8 +42,18 @@ async def get_course_analytics_service(course_id: str) -> Dict[str, Any]:
       - conversations_by_model: assistant message counts grouped by model
       - recent_pairs: latest anonymized Q&A pairs
     """
+    logger.info(f"Fetching analytics for course: {course_id}")
+    
     resp = supabase.table("messages").select("*").eq("course_id", course_id).order("created_at", desc=False).execute()
     msgs: List[Dict[str, Any]] = resp.data or []
+    
+    logger.info(f"Found {len(msgs)} messages for course {course_id}")
+    
+    # Log sample message structure for debugging
+    if msgs:
+        sample_msg = msgs[0]
+        logger.info(f"Sample message structure: {sample_msg}")
+        logger.info(f"Message keys: {list(sample_msg.keys()) if sample_msg else 'No messages'}")
 
     conversations = set()
     users = set()
@@ -60,6 +71,10 @@ async def get_course_analytics_service(course_id: str) -> Dict[str, Any]:
         if m.get("sender") == "assistant":
             model = m.get("model") or "unknown"
             model_counts[model] = model_counts.get(model, 0) + 1
+
+    logger.info(f"Processed data - Conversations: {len(conversations)}, Users: {len(users)}, Days: {len(by_day)}, Models: {len(model_counts)}")
+    logger.info(f"Usage by day: {by_day}")
+    logger.info(f"Model counts: {model_counts}")
 
     today = datetime.now(timezone.utc).date()
     labels = []
@@ -83,10 +98,13 @@ async def get_course_analytics_service(course_id: str) -> Dict[str, Any]:
         for p in recent_pairs[-25:]
     ]
 
-    return {
+    result = {
         "total_conversations": len([c for c in conversations if c]),
         "active_users": len([u for u in users if u]),
         "usage_by_day": {"labels": labels, "counts": counts},
         "conversations_by_model": model_counts,
         "recent_pairs": recent_pairs,
     }
+    
+    logger.info(f"Course analytics result for {course_id}: {result}")
+    return result
