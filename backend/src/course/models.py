@@ -14,6 +14,7 @@ class Course(Base):
     term = Column(String(200))
     created_by = Column(String(200))
     invite_code = Column(String(6))
+    prompt = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow)
 
@@ -27,6 +28,7 @@ class CourseCreate(BaseModel):
     description: Optional[str] = Field(None, description="Course description")
     term: Optional[str] = Field(None, max_length=200, description="Academic term")
     created_by: Optional[str] = Field(None, max_length=200, description="Created by user")
+    prompt: Optional[str] = Field(None, description="Custom system prompt for this course")
     # invite_code is auto-generated; not accepted from clients
 
 class CourseUpdate(BaseModel):
@@ -34,6 +36,7 @@ class CourseUpdate(BaseModel):
     description: Optional[str] = Field(None, description="Course description")
     term: Optional[str] = Field(None, max_length=200, description="Academic term")
     created_by: Optional[str] = Field(None, max_length=200, description="Created by user")
+    prompt: Optional[str] = Field(None, description="Custom system prompt for this course")
 
 class CourseResponse(BaseModel):
     course_id: str
@@ -42,6 +45,7 @@ class CourseResponse(BaseModel):
     term: Optional[str]
     created_by: Optional[str]
     invite_code: Optional[str]
+    prompt: Optional[str]
     created_at: datetime
     updated_at: datetime
 

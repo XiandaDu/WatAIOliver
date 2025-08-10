@@ -16,7 +16,7 @@ from .database import engine, get_db
 from .models import Course
 from datetime import datetime
 from starlette.responses import RedirectResponse, StreamingResponse
-from src.auth.middleware import auth_required, get_current_user
+from src.auth.middleware import auth_required, get_current_user, instructor_required
 from src.auth.models import AuthUser
 
 router = APIRouter(
@@ -40,6 +40,26 @@ async def create_course_api(
         return course
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating course: {str(e)}")
+
+@router.get("/my-courses", response_model=List[CourseResponse])
+async def list_my_courses_api(
+    current_user = Depends(instructor_required),
+    limit: Optional[int] = Query(100, ge=1, le=1000),
+    offset: Optional[int] = Query(0, ge=0),
+    search: Optional[str] = Query(None)
+):
+    """List courses created by the current instructor"""
+    try:
+        courses = get_courses(current_user.id)
+        if search:
+            courses = [course for course in courses if search.lower() in (course.get('title') or '').lower()]
+        if offset:
+            courses = courses[offset:]
+        if limit:
+            courses = courses[:limit]
+        return [CourseResponse(**course) for course in courses]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching courses: {str(e)}")
 
 @router.get("/{course_id}", response_model=CourseResponse)
 async def get_course_api(
@@ -87,31 +107,47 @@ async def join_course_by_code(invite_code: str = Form(...), current_user: AuthUs
 async def update_course_api(
     course_id: str,
     course_data: CourseUpdate,
-    current_user: AuthUser = Depends(get_current_user)
+    current_user = Depends(instructor_required)
 ):
-    """Update a course"""
+    """Update a course (only by the instructor who created it)"""
     try:
-        course = service.update_course_service(
-            course_id=course_id,
-            user_id=current_user.id,
-            course_data=course_data
-        )
-        return course
+        # Check if course exists and user owns it
+        course = get_course(course_id)
+        if not course:
+            raise HTTPException(status_code=404, detail="Course not found")
+        if course['created_by'] != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized to update this course")
+        
+        # Update course
+        update_data = {k: v for k, v in course_data.dict().items() if v is not None}
+        updated_course = update_course(course_id, **update_data)
+        if not updated_course:
+            raise HTTPException(status_code=400, detail="Failed to update course")
+        return CourseResponse(**updated_course)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating course: {str(e)}")
 
-@router.delete("/{course_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{course_id}")
 async def delete_course_api(
     course_id: str,
-    current_user: AuthUser = Depends(get_current_user)
+    current_user = Depends(instructor_required)
 ):
-    """Delete a course"""
+    """Delete a course (only by the instructor who created it)"""
     try:
-        success = service.delete_course_service(
-            course_id=course_id,
-            user_id=current_user.id
-        )
-        return None
+        # Check if course exists and user owns it
+        course = get_course(course_id)
+        if not course:
+            raise HTTPException(status_code=404, detail="Course not found")
+        if course['created_by'] != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized to delete this course")
+        
+        # Delete course
+        delete_course(course_id)
+        return {"message": "Course deleted successfully"}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting course: {str(e)}")
 
@@ -123,38 +159,3 @@ async def get_course_count_api(current_user: AuthUser = Depends(get_current_user
         return count
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting course count: {str(e)}")
-
-# Legacy endpoints - keeping for compatibility but may need updates
-@router.get("/add")
-def course_add(request: Request, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
-    return {"message": "Legacy endpoint - use POST / instead"}
-
-@router.get("/edit")
-def course_edit(request: Request, id: str = Query(...), db: Session = Depends(get_db),
-                current_user: dict = Depends(get_current_user)):
-    return {"message": "Legacy endpoint - use PUT /{course_id} instead"}
-
-@router.post("/save")
-def course_save(request: Request, id: str = Form(...), title: str = Form(...), description: str = Form(None),
-                term: str = Form(None), 
-                db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
-    return {"message": "Legacy endpoint - use PUT /{course_id} instead"}
-
-@router.get("/upload")
-def pdf(request: Request, id: str = Query(...), db: Session = Depends(get_db),
-        current_user: dict = Depends(get_current_user)):
-    return {"message": "Legacy endpoint - use file upload endpoints instead"}
-
-@router.get("/delete")
-def course_delete(request: Request, id: str = Query(...), db: Session = Depends(get_db),
-                  current_user: dict = Depends(get_current_user)):
-    return {"message": "Legacy endpoint - use DELETE /{course_id} instead"}
-
-@router.get("/remove_docs")
-def course_remove_docs(request: Request, id: str = Query(...), db: Session = Depends(get_db),
-                       current_user: dict = Depends(get_current_user)):
-    return {"message": "Legacy endpoint"}
-
-@router.get("/export")
-async def export_data(id: str = Query(...), db: Session = Depends(get_db)):
-    return {"message": "Legacy endpoint"}

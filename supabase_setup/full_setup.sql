@@ -48,6 +48,7 @@ create table if not exists public.courses (
   description text,
   term varchar(200),
   created_by text,
+  prompt text,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -65,6 +66,17 @@ create policy "Users can update their courses" on public.courses for update to a
 
 drop policy if exists "Users can delete their courses" on public.courses;
 create policy "Users can delete their courses" on public.courses for delete to authenticated using (auth.uid()::text = created_by);
+
+-- Add prompt column to courses if it doesn't exist
+do $$
+begin
+  if not exists (select 1 from information_schema.columns 
+                 where table_schema = 'public' 
+                 and table_name = 'courses' 
+                 and column_name = 'prompt') then
+    alter table public.courses add column prompt text;
+  end if;
+end $$;
 
 -- Course membership
 create table if not exists public.course_members (

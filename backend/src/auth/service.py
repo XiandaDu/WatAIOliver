@@ -187,7 +187,8 @@ class AuthService:
             return AuthResponse(
                 success=True,
                 message="Account created successfully",
-                user=auth_user
+                user=auth_user,
+                access_token=token_request.access_token  # Return the Google access token
             )
             
         except Exception as e:

@@ -24,15 +24,15 @@ export default function ChatPage() {
   const [isSendingMessage, setIsSendingMessage] = useState(false)
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
-  const [selectedModel, setSelectedModel] = useState("rag")
+  const [selectedModel, setSelectedModel] = useState("daily")
   const [selectedBaseModel, setSelectedBaseModel] = useState("gemini-2.5-flash")
   const [selectedRagModel, setSelectedRagModel] = useState("text-embedding-004")
   const [selectedHeavyModel, setSelectedHeavyModel] = useState("")
   const [selectedCourseId, setSelectedCourseId] = useState("")
   const [useAgents, setUseAgents] = useState(true)
   const modelOptions = [
-    { label: "Standard", value: "qwen", description: "Quick single-model response" },
-    { label: "Advanced", value: "rag", description: "Multi-agent system with full customization options (Default)" }
+    { label: "Daily", value: "daily", description: "RAG-enhanced response with course-specific prompt" },
+    { label: "Problem Solving", value: "problem_solving", description: "Multi-agent system with built-in RAG for complex problems" }
   ]
   const ragModelOptions = [
     { label: "Gemini 004", value: "text-embedding-004", description: "Google's latest embedding model (Default)" },
@@ -303,7 +303,7 @@ export default function ChatPage() {
               sender: 'user',
               content: input.trim() || (experimental_attachments?.length ? 'Please analyze the uploaded file.' : ''),
               course_id: selectedCourseId || null,  // Always save course_id if available
-              model: selectedModel === "rag" ? 'rag' : selectedBaseModel
+              model: selectedModel
             })
           })
         } catch (messageError) {
@@ -322,8 +322,8 @@ export default function ChatPage() {
             prompt: input.trim() || (experimental_attachments?.length ? 'Please help me analyze the uploaded file.' : ''),
             conversation_id: newConversationId,
             file_context: fileContext || null,
-            model: selectedModel === "rag" ? "rag" : selectedBaseModel,
-            course_id: selectedModel === "rag" ? selectedCourseId : null,
+            model: selectedModel,
+            course_id: selectedCourseId,
             rag_model: selectedRagModel,
             heavy_model: useAgents ? selectedHeavyModel : null,
             use_agents: useAgents
@@ -355,7 +355,7 @@ export default function ChatPage() {
               sender: 'assistant',
               content: aiResponse,
               course_id: selectedCourseId || null,  // Always save course_id if available
-              model: selectedModel === "rag" ? 'rag' : selectedBaseModel
+              model: selectedModel
             })
           })
         } catch (saveError) {
@@ -476,7 +476,7 @@ export default function ChatPage() {
             sender: 'user',
             content: message.content,
             course_id: selectedCourseId || null,  // Always save course_id if available
-            model: selectedModel === "rag" ? 'rag' : selectedBaseModel
+            model: selectedModel
           })
         })
       }
@@ -488,8 +488,8 @@ export default function ChatPage() {
         body: JSON.stringify({
           prompt: message.content,
           conversation_id: newConversationId,
-          model: selectedModel === "rag" ? "rag" : selectedBaseModel,
-          course_id: selectedModel === "rag" ? selectedCourseId : null,
+          model: selectedModel,
+          course_id: selectedCourseId,
           rag_model: selectedRagModel,
           heavy_model: useAgents ? selectedHeavyModel : null,
           use_agents: useAgents
@@ -510,7 +510,7 @@ export default function ChatPage() {
             sender: 'assistant',
             content: aiResponse,
             course_id: selectedCourseId || null,  // Always save course_id if available
-            model: selectedModel === "rag" ? 'rag' : selectedBaseModel
+            model: selectedModel
           })
         })
       }

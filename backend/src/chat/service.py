@@ -415,13 +415,52 @@ Please provide a comprehensive answer based on the document content above. Refer
     
     return enhanced_prompt
 
+async def generate_standard_rag_response(data: ChatRequest) -> str:
+    """Generate a response using RAG with course-specific prompt."""
+    if not data.course_id:
+        return "Daily model requires a course selection to access the knowledge base."
+    
+    try:
+        from src.course.CRUD import get_course
+        course = get_course(data.course_id)
+        
+        if not course:
+            return "Course not found. Please select a valid course."
+        
+        # Query RAG system for relevant context
+        rag_result = await query_rag_system(
+            data.conversation_id or "",
+            data.prompt,
+            data.course_id,
+            data.rag_model
+        )
+        
+        # Get course-specific prompt or use default
+        system_prompt = course.get('prompt') or "You are a helpful educational assistant."
+        
+        # Build enhanced prompt with RAG context
+        enhanced_prompt = enhance_prompt_with_rag_context(data.prompt, rag_result)
+        
+        # Create modified ChatRequest with enhanced prompt and system context
+        modified_data = ChatRequest(
+            prompt=f"System: {system_prompt}\n\n{enhanced_prompt}",
+            conversation_id=data.conversation_id,
+            file_context=data.file_context,
+            model='gemini-2.5-flash'  # Use default model since students choose Daily vs Problem Solving
+        )
+        
+        return llm_text_endpoint(modified_data)
+        
+    except Exception as e:
+        return f"Error generating standard response: {str(e)}"
+
 async def generate_response(data: ChatRequest) -> str:
     """
-    Generate a response using either:
-    1. qwen3 (default) - Pure qwen without any RAG
-    2. agents - Multi-agent system with built-in RAG as Agent 2
+    Generate a response using:
+    1. daily - RAG-enhanced response with course-specific prompt
+    2. problem_solving - Multi-agent system with built-in RAG
     """
-    if (data.model in {"rag", "agents"}) and data.use_agents:
+    if data.model == "problem_solving" or ((data.model in {"rag", "agents"}) and data.use_agents):
         # Use Multi-agent system (includes RAG as Agent 2 + reasoning)
         if not data.course_id:
             return "Agent System requires a course selection to identify the knowledge base."
@@ -460,8 +499,8 @@ async def generate_response(data: ChatRequest) -> str:
             return f"The Agent System is currently unavailable. Please try again later.\n\nTechnical details: {str(e)}"
     
     else:
-        # Default simple generation using specified LLM
-        return llm_text_endpoint(data)
+        # Default to daily RAG-enhanced response
+        return await generate_standard_rag_response(data)
 
 
 async def query_agents_system(
