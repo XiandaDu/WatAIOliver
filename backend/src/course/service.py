@@ -1,9 +1,10 @@
 from fastapi import HTTPException, Request, status
 from .CRUD import (
-    create_course, update_course, delete_course, get_courses, get_course, get_all_courses
+    create_course, update_course, delete_course, get_courses, get_course, get_all_courses, get_course_by_invite_code
 )
 from .models import CourseCreate, CourseUpdate, CourseResponse
 from typing import List, Optional, Dict, Any
+import random
 from ..user.service import get_user_courses
 from ..supabaseClient import supabase
 
@@ -16,20 +17,54 @@ def get_current_user(request: Request):
 
 # Business logic functions using Supabase CRUD
 
+def _generate_invite_code() -> str:
+    # 6-digit numeric code as string, leading zeros allowed
+    return f"{random.randint(0, 999999):06d}"
+
+
 def create_course_service(created_by: str, course_data: CourseCreate) -> CourseResponse:
     """Create a new course with business logic validation"""
     try:
+        # Generate a unique 6-digit invite code (retry a few times to avoid collisions)
+        invite_code = _generate_invite_code()
+        for _ in range(5):
+            existing = supabase.table("courses").select("course_id").eq("invite_code", invite_code).execute()
+            if not existing.data:
+                break
+            invite_code = _generate_invite_code()
+
         course = create_course(
             created_by=created_by,
             title=course_data.title,
             description=course_data.description,
-            term=course_data.term
+            term=course_data.term,
+            invite_code=invite_code
         )
         if not course:
             raise HTTPException(status_code=400, detail="Failed to create course")
         return CourseResponse(**course)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating course: {str(e)}")
+
+
+def join_course_by_invite_code_service(user_id: str, invite_code: str) -> Dict[str, Any]:
+    """Allow a user to join a course using a 6-digit invite code"""
+    try:
+        course = get_course_by_invite_code(invite_code)
+        if not course:
+            raise HTTPException(status_code=404, detail="Invalid invite code")
+
+        # Add course to user via RPC
+        supabase.rpc('add_course_to_user', {
+            'user_uuid': str(user_id),
+            'course_id': str(course['course_id'])
+        }).execute()
+
+        return {"success": True, "course_id": course["course_id"], "title": course.get("title")}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to join course: {str(e)}")
 
 def get_course_service(course_id: str, user_id: str) -> CourseResponse:
     """Get a course with access validation"""

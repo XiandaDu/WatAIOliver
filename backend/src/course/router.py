@@ -74,6 +74,15 @@ async def list_courses_api(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching courses: {str(e)}")
 
+
+@router.post("/join-by-code")
+async def join_course_by_code(invite_code: str = Form(...), current_user: AuthUser = Depends(get_current_user)):
+    """Join a course using a 6-digit invite code"""
+    return service.join_course_by_invite_code_service(
+        user_id=current_user.id,
+        invite_code=invite_code
+    )
+
 @router.put("/{course_id}", response_model=CourseResponse)
 async def update_course_api(
     course_id: str,

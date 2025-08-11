@@ -12,7 +12,7 @@ import {
 } from "../components/ui/card";
 
 export default function CourseSelection() {
-  const [inviteLink, setInviteLink] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [courses, setCourses] = useState([]);
@@ -71,12 +71,33 @@ export default function CourseSelection() {
     navigate(`/chat?course=${courseId}`);
   };
 
-  const handleInviteLinkSubmit = (e) => {
+  const handleInviteCodeSubmit = async (e) => {
     e.preventDefault();
-    if (!inviteLink.trim()) {
-      throw new Error('Invite link cannot be empty');
+    const code = inviteCode.trim();
+    if (!code || code.length !== 6) {
+      alert('Please enter a valid 6-digit invite code.');
+      return;
     }
-    throw new Error('Invite link functionality not implemented - API endpoint required');
+    try {
+      const formData = new FormData();
+      formData.append('invite_code', code);
+      const response = await fetch('http://localhost:8000/course/join-by-code', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        },
+        body: formData
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `Failed to join: ${response.statusText}`);
+      }
+      const data = await response.json();
+      navigate(`/chat?course=${data.course_id}`);
+    } catch (err) {
+      console.error('Join by code failed:', err);
+      alert(err.message || 'Failed to join course');
+    }
   };
 
   const handleLogout = () => {
@@ -151,27 +172,27 @@ export default function CourseSelection() {
           )}
         </div>
 
-        {/* Invite Link Section */}
+        {/* Invite Code Section */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-xl">Have an Invite Link?</CardTitle>
-            <CardDescription>Enter your course invite link below</CardDescription>
+            <CardTitle className="text-xl">Have an Invite Code?</CardTitle>
+            <CardDescription>Enter your 6-digit invite code below</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleInviteLinkSubmit} className="space-y-4">
+            <form onSubmit={handleInviteCodeSubmit} className="space-y-4">
               <div>
-                <Label htmlFor="inviteLink">Enter your invite link</Label>
+                <Label htmlFor="inviteCode">Invite code</Label>
                 <Input
-                  id="inviteLink"
+                  id="inviteCode"
                   type="text"
-                  value={inviteLink}
-                  onChange={(e) => setInviteLink(e.target.value)}
-                  placeholder="Paste your invite link here"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="e.g. 123456"
                   className="mt-1 block w-full"
                 />
               </div>
               <Button type="submit" className="w-full">
-                Join via Invite Link
+                Join via Code
               </Button>
             </form>
           </CardContent>
