@@ -1,20 +1,27 @@
-# Backend Setup
+# Backend
 
-## Install Dependencies
+The backend is built with FastAPI and provides the main chat and file upload APIs. It also coordinates with the RAG system and optional agent services.
 
-Ensure you have Python 3.9+ and a virtual environment activated. Then install all required packages:
+## Setup
 
+Create a Python 3.9+ virtual environment and install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-## Launch the Development Server
-
-Navigate to the project root and start the FastAPI server with hot-reloading enabled:
-
+Run the development server:
 ```bash
-uvicorn src.main:app --reload
+PYTHONPATH=backend python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+```
+The interactive docs are available at [http://localhost:8000/docs](http://localhost:8000/docs).
+
+On Linux or macOS the same command works. The Windows example below shows the equivalent using `set`.
+
+### Windows Example
+
+```bat
+set PYTHONPATH=backend
+python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-The API will be available at: [http://localhost:8000](http://localhost:8000)
-You may run [http://localhost:8000/docs](http://localhost:8000/docs) to see fastapi generated documentations. 
+Logs are written to `src/app.log` with rotation. Each request records its method, path and duration.

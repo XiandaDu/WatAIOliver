@@ -21,8 +21,11 @@ class ChatRequest(BaseModel):
     prompt: str
     conversation_id: Optional[str] = None
     file_context: Optional[str] = None
-    model: Optional[str] = "qwen"
+    model: Optional[str] = "qwen3"
     course_id: Optional[str] = None
+    rag_model: Optional[str] = None
+    heavy_model: Optional[str] = None
+    use_agents: bool = False
 
 class ConversationDelete(BaseModel):
     conversation_id: str

@@ -1,14 +1,11 @@
 from fastapi import APIRouter, Request, UploadFile, File, Form, Query, HTTPException, status
-from fastapi.responses import Response, JSONResponse
+
 from typing import List
 import tempfile
 import os
 import httpx
-import sys
 
-# Add the project root to the path so we can import config
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../..'))
-from config.constants import TimeoutConfig, ServiceConfig
+from backend.constants import TimeoutConfig, ServiceConfig
 
 from . import service
 from .models import ConversationCreate, ConversationUpdate, ConversationDelete, MessageCreate, MessageUpdate, MessageDelete, ConversationOut, MessageOut, ChatRequest
@@ -19,130 +16,18 @@ router = APIRouter(
     tags=['chat']
 )
 
-@router.options("/create_conversation")
-async def create_conversation_options():
-    return Response(
-        content="",
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-        }
-    )
-
-@router.options("/conversations/{user_id}")
-async def get_conversations_options():
-    return Response(
-        content="",
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-        }
-    )
-
-@router.options("/delete_conversation")
-async def delete_conversation_options():
-    return Response(
-        content="",
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-        }
-    )
-
-@router.options("/update_conversation")
-async def update_conversation_options():
-    return Response(
-        content="",
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-        }
-    )
-
-@router.options("/create_message")
-async def create_message_options():
-    return Response(
-        content="",
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-        }
-    )
-
-@router.options("/messages/{conversation_id}")
-async def get_messages_options():
-    return Response(
-        content="",
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-        }
-    )
-
-@router.options("/")
-async def chat_options():
-    return Response(
-        content="",
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-        }
-    )
-
-@router.options("")
-async def chat_root_options():
-    return Response(
-        content="",
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-        }
-    )
-
-@router.options("/upload_files")
-async def upload_files_options():
-    return Response(
-        content="",
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-        }
-    )
 
 @router.post("/")
 async def chat(data: ChatRequest):
     result = await service.generate_response(data)
     
-    return JSONResponse(
-        content={"result": result},
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-        }
-    )
+    return {"result": result}
 
 @router.post("")
 async def chat_root(data: ChatRequest):
     result = await service.generate_response(data)
     
-    return JSONResponse(
-        content={"result": result},
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-        }
-    )
+    return {"result": result}
 
 @router.post("/open_ask")
 async def open_ask(data: ConversationCreate):
@@ -151,74 +36,32 @@ async def open_ask(data: ConversationCreate):
 @router.post("/create_conversation")
 async def create_conversation(data: ConversationCreate, response_model=ConversationOut):
     result = supabase_crud.create_conversation(data)
-    return JSONResponse(
-        content=result,
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-        }
-    )
+    return result
 
 @router.get("/conversations/{user_id}")
 async def get_conversations(user_id: str, response_model=ConversationOut):
     result = supabase_crud.get_conversations(user_id)
-    return JSONResponse(
-        content=result,
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-        }
-    )
+    return result
 
 @router.post("/update_conversation")
 async def update_conversation(data: ConversationUpdate, response_model=ConversationOut):
     result = supabase_crud.update_conversation(data)
-    return JSONResponse(
-        content=result,
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-        }
-    )
+    return result
 
 @router.post("/delete_conversation")
 async def delete_conversation(data: ConversationDelete, response_model=ConversationOut):
     result = supabase_crud.delete_conversation(data)
-    return JSONResponse(
-        content=result,
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-        }
-    )
+    return result
 
 @router.post("/create_message")
 async def create_message(data: MessageCreate, response_model=MessageOut):
     result = supabase_crud.create_message(data)
-    return JSONResponse(
-        content=result,
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-        }
-    )
+    return result
 
 @router.get("/messages/{conversation_id}")
 async def get_messages(conversation_id: str, response_model=MessageOut):
     result = supabase_crud.get_messages(conversation_id)
-    return JSONResponse(
-        content=result,
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-        }
-    )
+    return result
 
 @router.post("/update_message")
 async def update_message(data: MessageUpdate, response_model=MessageOut):
@@ -292,18 +135,11 @@ async def upload_files(
                     'status': 'failed'
                 })
         
-        return JSONResponse(
-            content={
-                'message': 'Files processed for chat context',
-                'results': results,
-                'conversation_id': conversation_id
-            },
-            headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "POST, OPTIONS",
-                "Access-Control-Allow-Headers": "Content-Type",
-            }
-        )
+        return {
+            'message': 'Files processed for chat context',
+            'results': results,
+            'conversation_id': conversation_id
+        }
         
     except Exception as e:
         raise HTTPException(
@@ -315,7 +151,8 @@ async def upload_files(
 async def upload_files_for_rag(
     files: List[UploadFile] = File(...),
     course_id: str = Form(...),
-    user_id: str = Form(...)
+    user_id: str = Form(...),
+    rag_model: str | None = Form(None),
 ):
     """
     Upload and process files for RAG knowledge base (admin only):
@@ -341,7 +178,8 @@ async def upload_files_for_rag(
                     rag_result = await process_document_with_rag(
                         course_id,  # Use the course_id parameter from the form
                         pdf_result.get('markdown_content', ''),
-                        filename
+                        filename,
+                        rag_model,
                     )
                     
                     results.append({
@@ -365,7 +203,8 @@ async def upload_files_for_rag(
                 rag_result = await process_document_with_rag(
                     course_id,  # Use the course_id parameter from the form
                     text_content,
-                    filename
+                    filename,
+                    rag_model,
                 )
                 
                 results.append({
@@ -383,18 +222,11 @@ async def upload_files_for_rag(
                     'status': 'failed'
                 })
         
-        return JSONResponse(
-            content={
-                'message': 'Files processed for RAG knowledge base',
-                'results': results,
-                'course_id': course_id
-            },
-            headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "POST, OPTIONS",
-                "Access-Control-Allow-Headers": "Content-Type",
-            }
-        )
+        return {
+            'message': 'Files processed for RAG knowledge base',
+            'results': results,
+            'course_id': course_id
+        }
         
     except Exception as e:
         raise HTTPException(
@@ -408,14 +240,7 @@ async def get_courses():
     try:
         from src.course.CRUD import get_all_courses
         courses = get_all_courses()
-        return JSONResponse(
-            content={"courses": courses},
-            headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, OPTIONS",
-                "Access-Control-Allow-Headers": "Content-Type",
-            }
-        )
+        return {"courses": courses}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching courses: {str(e)}")
 
@@ -430,14 +255,7 @@ async def create_course(data: dict):
             description=data.get('description', ''),
             term=data.get('term', '')
         )
-        return JSONResponse(
-            content={"course": course},
-            headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "POST, OPTIONS",
-                "Access-Control-Allow-Headers": "Content-Type",
-            }
-        )
+        return {"course": course}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating course: {str(e)}")
 
@@ -480,7 +298,7 @@ async def process_pdf_file(file_content: bytes, filename: str) -> dict:
             'error_message': f'PDF processing failed: {str(e)}'
         }
 
-async def process_document_with_rag(course_id: str, content: str, filename: str) -> dict:
+async def process_document_with_rag(course_id: str, content: str, filename: str, rag_model: str | None = None) -> dict:
     """
     Send processed document content to the RAG system for embedding and vector storage.
     RAG system will be running on port 8002 to avoid conflicts with backend.
@@ -491,6 +309,8 @@ async def process_document_with_rag(course_id: str, content: str, filename: str)
                 'course_id': course_id,  # Use the actual course_id parameter
                 'content': content
             }
+            if rag_model:
+                rag_payload['embedding_model'] = rag_model
             
             print(f"DEBUG: Processing document '{filename}' for course_id='{course_id}'")
             

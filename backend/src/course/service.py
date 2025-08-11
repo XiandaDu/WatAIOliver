@@ -4,6 +4,8 @@ from .CRUD import (
 )
 from .models import CourseCreate, CourseUpdate, CourseResponse
 from typing import List, Optional, Dict, Any
+from ..user.service import get_user_courses
+from ..supabaseClient import supabase
 
 # Retrieve the current user from session storage
 def get_current_user(request: Request):
@@ -29,22 +31,45 @@ def create_course_service(created_by: str, course_data: CourseCreate) -> CourseR
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating course: {str(e)}")
 
-def get_course_service(course_id: str, created_by: str) -> CourseResponse:
-    """Get a course with ownership validation"""
-    course = get_course(course_id)
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
-    
-    if course['created_by'] != created_by:
-        raise HTTPException(status_code=403, detail="Access denied")
-    
-    return CourseResponse(**course)
-
-def list_courses_service(created_by: str, limit: Optional[int] = None, 
-                        offset: Optional[int] = None, search: Optional[str] = None) -> List[CourseResponse]:
-    """Get all courses for a user with optional filtering"""
+def get_course_service(course_id: str, user_id: str) -> CourseResponse:
+    """Get a course with access validation"""
     try:
-        courses = get_courses(created_by)
+        course = get_course(course_id)
+        if not course:
+            raise HTTPException(status_code=404, detail="Course not found")
+        
+        # Check if user has access to this course
+        # Business rule: Users can access courses if they:
+        # 1. Have the course in their courses list, OR
+        # 2. Are the creator of the course (permanent access)
+        try:
+            user_courses = get_user_courses(user_id)
+        except Exception as e:
+            # If we can't get user courses, deny access
+            raise HTTPException(status_code=403, detail="Cannot verify course access")
+        
+        if course_id not in user_courses and course['created_by'] != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        return CourseResponse(**course)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching course: {str(e)}")
+
+def list_courses_service(user_id: str, limit: Optional[int] = None, 
+                        offset: Optional[int] = None, search: Optional[str] = None) -> List[CourseResponse]:
+    """Get all courses that a user has access to with optional filtering"""
+    try:
+        # Get user's courses
+        user_courses = get_user_courses(user_id)
+        
+        # Get course details for each course ID
+        courses = []
+        for course_id in user_courses:
+            course = get_course(course_id)
+            if course:
+                courses.append(course)
         
         # Apply search filter if provided
         if search:
@@ -60,14 +85,14 @@ def list_courses_service(created_by: str, limit: Optional[int] = None,
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching courses: {str(e)}")
 
-def update_course_service(course_id: str, created_by: str, course_data: CourseUpdate) -> CourseResponse:
+def update_course_service(course_id: str, user_id: str, course_data: CourseUpdate) -> CourseResponse:
     """Update a course with ownership validation"""
     # First check if course exists and user has access
     existing_course = get_course(course_id)
     if not existing_course:
         raise HTTPException(status_code=404, detail="Course not found")
     
-    if existing_course['created_by'] != created_by:
+    if existing_course['created_by'] != user_id:
         raise HTTPException(status_code=403, detail="Access denied")
     
     # Update the course
@@ -80,14 +105,14 @@ def update_course_service(course_id: str, created_by: str, course_data: CourseUp
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating course: {str(e)}")
 
-def delete_course_service(course_id: str, created_by: str) -> bool:
+def delete_course_service(course_id: str, user_id: str) -> bool:
     """Delete a course with ownership validation"""
     # First check if course exists and user has access
     existing_course = get_course(course_id)
     if not existing_course:
         raise HTTPException(status_code=404, detail="Course not found")
     
-    if existing_course['created_by'] != created_by:
+    if existing_course['created_by'] != user_id:
         raise HTTPException(status_code=403, detail="Access denied")
     
     # Delete the course
@@ -97,12 +122,11 @@ def delete_course_service(course_id: str, created_by: str) -> bool:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting course: {str(e)}")
 
-def get_course_count_service(created_by: str) -> Dict[str, int]:
+def get_course_count_service(user_id: str) -> Dict[str, int]:
     """Get course count for a user"""
     try:
-        from .CRUD import get_course_count
-        count = get_course_count(created_by)
-        return {"count": count}
+        user_courses = get_user_courses(user_id)
+        return {"count": len(user_courses)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting course count: {str(e)}")
 
@@ -113,3 +137,16 @@ def list_all_courses_service() -> List[CourseResponse]:
         return [CourseResponse(**course) for course in courses]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching all courses: {str(e)}")
+
+def get_courses_by_user_service(user_id: str) -> List[CourseResponse]:
+    """Get all courses that a specific user has access to"""
+    try:
+        user_courses = get_user_courses(user_id)
+        courses = []
+        for course_id in user_courses:
+            course = get_course(course_id)
+            if course:
+                courses.append(course)
+        return [CourseResponse(**course) for course in courses]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching user courses: {str(e)}")

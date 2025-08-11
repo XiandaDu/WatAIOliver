@@ -1,3 +1,5 @@
 __pycache__/*
 app.log
 .env
+venv/
+.venv/

@@ -1,42 +1,53 @@
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from pathlib import Path
-import sys
-import os
 
-# Add the project root to the path so we can import config
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../..'))
-from config.constants import ModelConfig, TextProcessingConfig
+from machine_learning.constants import ModelConfig, TextProcessingConfig
 
+# Import document loaders for different file types
 from langchain_community.document_loaders import TextLoader, PyPDFLoader, Docx2txtLoader
 from langchain.chains import RetrievalQA
 from langchain.schema import Document
 
-from app.config import Settings
-from embedding.google_embedding_client import GoogleEmbeddingClient
-from llm_clients.gemini_client import GeminiClient
-from vector_db.supabase_client import SupabaseVectorClient
+from rag_system.app.config import Settings
+from rag_system.embedding.google_embedding_client import GoogleEmbeddingClient
+from rag_system.llm_clients.gemini_client import GeminiClient
+from rag_system.vector_db.supabase_client import SupabaseVectorClient
 
 
 class RAGService:
-    """Orchestrates RAG operations using modular components."""
+    """Orchestrates RAG operations using modular components.
+    
+    Handles document processing, embedding, storage, retrieval, and question-answering.
+    """
     
     def __init__(self, settings: Settings):
+        """
+        Initialize RAGService with application settings and modular clients.
+        Sets up embedding, LLM, and vector database clients.
+        """
         self.settings = settings
         
-        # Initialize modular components
+        # Initialize Google embedding client for document chunking and vectorization
         self.embedding_client = GoogleEmbeddingClient(
             google_cloud_project=settings.google_cloud_project,
-            model="gemini-embedding-001",
+            model="text-embedding-004",  # new
             output_dimensionality=ModelConfig.DEFAULT_OUTPUT_DIMENSIONALITY
         )
+        # self.embedding_client = GoogleEmbeddingClient(
+        #     google_cloud_project=settings.google_cloud_project,
+        #     model="gemini-embedding-001",  # old，commented
+        #     output_dimensionality=ModelConfig.DEFAULT_OUTPUT_DIMENSIONALITY
+        # )
         
+        # Initialize Gemini LLM client for question answering
         self.llm_client = GeminiClient(
             api_key=settings.google_api_key,
             model="gemini-2.5-pro",
             temperature=ModelConfig.DEFAULT_TEMPERATURE
         )
         
+        # Initialize Supabase vector database client for storing and retrieving embeddings
         self.vector_client = SupabaseVectorClient(
             supabase_url=settings.supabase_url or "",
             supabase_service_role_key=settings.supabase_api_key or "",
@@ -53,8 +64,19 @@ class RAGService:
             }
         }
 
-    def process_document(self, course_id: str, content: str, doc_id: Optional[str] = None) -> Dict[str, Any]:
-        """Process and store a document in the vector database."""
+    def process_document(self, course_id: str, content: str, doc_id: str = None) -> Dict[str, Any]:
+        """
+        Process and store a document in the vector database.
+        Splits document, adds metadata, and stores chunks as embeddings.
+        
+        Args:
+            course_id: Identifier for the course the document is associated with
+            content: The raw content of the document to be processed
+            doc_id: Optional pre-defined document ID, if not provided, one will be generated
+            
+        Returns:
+            A dictionary with document processing results, including document ID and chunk count
+        """
         try:
             doc_id = doc_id or f"doc_{hash(content) % 10**10}"
             
@@ -101,15 +123,15 @@ class RAGService:
             Processing result with statistics
         """
         try:
-            print(f"🚀 Starting stateless processing flow for file: {file_identifier}")
+            print(f"Starting stateless processing flow for file: {file_identifier}")
             
             # Step 1: Load - Pull raw file from Supabase Storage
-            print("📁 Step 1: Loading file from storage...")
+            print("Step 1: Loading file from storage...")
             # Note: In production, this would pull from Supabase Storage
             # For now, we'll work with the content directly
             
             # Step 2: Split - Use preset text splitting strategy
-            print("✂️ Step 2: Splitting document into chunks...")
+            print("️Step 2: Splitting document into chunks...")
             document = Document(
                 page_content="Sample content for processing",  # Replace with actual file content
                 metadata={
@@ -123,7 +145,7 @@ class RAGService:
             print(f"   Created {len(chunks)} chunks")
             
             # Step 3: Embed - Convert text chunks to 512D vectors
-            print("🧠 Step 3: Generating embeddings with gemini-embedding-001...")
+            print("Step 3: Generating embeddings with gemini-embedding-001...")
             
             # Add enhanced metadata to chunks
             for i, chunk in enumerate(chunks):
@@ -136,7 +158,7 @@ class RAGService:
                 })
             
             # Step 4: Write Back - Bulk-write to Supabase PG vector table
-            print("💾 Step 4: Bulk-writing vectors to Supabase...")
+            print("Step 4: Bulk-writing vectors to Supabase...")
             document_ids = self.vector_client.add_documents(chunks)
             
             # Get model info for response
@@ -154,13 +176,13 @@ class RAGService:
                 "success": True
             }
             
-            print("✅ Stateless processing flow completed successfully")
-            print(f"   📊 Statistics: {len(chunks)} chunks, {model_info['output_dimensionality']}D vectors")
+            print("Stateless processing flow completed successfully")
+            print(f"Statistics: {len(chunks)} chunks, {model_info['output_dimensionality']}D vectors")
             
             return result
             
         except Exception as e:
-            error_msg = f"❌ Processing flow failed: {str(e)}"
+            error_msg = f"Processing flow failed: {str(e)}"
             print(error_msg)
             return {
                 "file_identifier": file_identifier,
@@ -169,80 +191,86 @@ class RAGService:
             }
 
     def answer_question(self, course_id: str, question: str) -> Dict[str, Any]:
+        """
+        Answer a question using RAG with modular components.
+        Retrieves relevant chunks and generates answer using LLM.
         
-        """Answer a question using RAG with detailed debug logging."""
+        Args:
+            course_id: Identifier for the course
+            question: The question text to be answered
+            
+        Returns:
+            A dictionary with the answer, source information, and success status
+        """
+
         try:
-            print(f"DEBUG: Starting RAG query for course_id='{course_id}', question='{question[:100]}...'")
-            
-            # First, check what vectors exist in the database without any filters
-            print("DEBUG: Checking all vectors in database...")
-            try:
-                all_vectors = self.vector_client.vector_store.similarity_search_with_relevance_scores(
-                    query=question,
-                    k=20  # Get more results to see what's in the database
-                )
-                print(f"DEBUG: Found {len(all_vectors)} total vectors in database (no filters):")
-                for i, (doc, score) in enumerate(all_vectors):
-                    print(f"  Vector {i+1}: score={score:.4f}, course_id='{doc.metadata.get('course_id', 'MISSING')}', content='{doc.page_content[:100]}...'")
-            except Exception as e:
-                print(f"DEBUG: Error checking all vectors: {e}")
-            
-            # Now try with course filter
-            print(f"DEBUG: Searching for vectors with course_id='{course_id}'...")
+            # Get search results with course filter AND scores
             search_results = self.vector_client.similarity_search_with_score(
                 query=question,
                 k=TextProcessingConfig.DEFAULT_RETRIEVAL_K,
                 filter={"course_id": course_id}
             )
             
-            print(f"DEBUG: Retrieved {len(search_results)} vectors for course_id '{course_id}':")
-            for i, (doc, score) in enumerate(search_results):
-                print(f"  Vector {i+1}: score={score:.4f}, content='{doc.page_content[:100]}...'")
-                if hasattr(doc, 'metadata') and doc.metadata:
-                    print(f"    Metadata: {doc.metadata}")
-            
-            if len(search_results) == 0:
-                print(f"DEBUG: No vectors found for course_id '{course_id}'. Trying without course filter...")
-                # If no results with course filter, try without it
+            # Results will be logged by retrieve agent
+            if not search_results:
+                print(f"No results for course {course_id}, trying global search...")
                 search_results = self.vector_client.vector_store.similarity_search_with_relevance_scores(
                     query=question,
                     k=TextProcessingConfig.DEFAULT_RETRIEVAL_K
                 )
-                print(f"DEBUG: Found {len(search_results)} vectors without course filter:")
-                for i, (doc, score) in enumerate(search_results):
-                    print(f"  Vector {i+1}: score={score:.4f}, course_id='{doc.metadata.get('course_id', 'MISSING')}', content='{doc.page_content[:100]}...'")
+                if search_results:
+                    print(f"Global search found {len(search_results)} chunks")
             
-            # Create retriever and QA chain
-            qa_chain = self.create_course_qa_chain(course_id)
+            # Extract documents and preserve scores in metadata
+            documents_with_scores = []
+            for doc, score in search_results:
+                # Ensure the document has metadata
+                if not hasattr(doc, 'metadata') or doc.metadata is None:
+                    doc.metadata = {}
+                # Store the actual similarity score
+                doc.metadata['similarity_score'] = float(score)
+                documents_with_scores.append(doc)
             
-            # Generate answer using modular QA chain
-            response = qa_chain.invoke({"query": question})
+            # Generate answer using LLM directly with context
+            if documents_with_scores:
+                context = "\n\n".join([doc.page_content for doc in documents_with_scores[:4]])
+                prompt = f"""Based on the following context, answer the question:
+
+Context:
+{context}
+
+Question: {question}
+
+Answer:"""
+                
+                answer = self.llm_client.generate(prompt)
+            else:
+                answer = "I couldn't find relevant information to answer your question."
             
-            # Format sources with detailed debug information
-            sources = self._format_sources_with_debug(response.get("source_documents", []))
-            
-            debug_info = {
-                "query": question,
-                "course_id": course_id,
-                "vectors_retrieved": len(search_results),
-                "vector_scores": [{"index": i, "score": score, "content_preview": doc.page_content[:100]} 
-                                 for i, (doc, score) in enumerate(search_results)]
-            }
+            # Format sources with preserved scores
+            sources = self._format_sources(documents_with_scores)
             
             return {
-                "answer": response["result"],
+                "answer": answer,
                 "sources": sources,
-                "debug_info": debug_info,
                 "success": True
             }
         except Exception as e:
-            print(f"DEBUG: RAG query failed: {str(e)}")
-            import traceback
-            print(f"DEBUG: Full error traceback: {traceback.format_exc()}")
+            print(f"RAG Error: {str(e)}")
             return {"error": str(e), "success": False}
     
-    def _format_sources_with_debug(self, source_documents):
-        """Format source documents for response with debug information."""
+
+    def _format_sources(self, source_documents):
+        """
+        Format source documents for response.
+        Truncates content and includes metadata for each source.
+        
+        Args:
+            source_documents: List of source Document objects
+        
+        Returns:
+            A list of formatted source information dictionaries
+        """
         sources = []
         for i, doc in enumerate(source_documents):
             similarity_score = doc.metadata.get('similarity_score', 'N/A') if hasattr(doc, 'metadata') and doc.metadata else 'N/A'
@@ -256,7 +284,16 @@ class RAGService:
         return sources
 
     def load_file(self, file_path: str) -> List[Document]:
-        """Load documents from file."""
+        """
+        Load documents from file using appropriate loader based on file extension.
+        Supports .txt, .pdf, and .docx formats.
+        
+        Args:
+            file_path: The path to the file to be loaded
+        
+        Returns:
+            A list of Document objects loaded from the file
+        """
         path = Path(file_path)
         if path.suffix == '.txt':
             loader = TextLoader(file_path)
@@ -270,14 +307,32 @@ class RAGService:
         return loader.load()
     
     def create_course_retriever(self, course_id: str):
-        """Create a course-specific retriever with filtering."""
+        """
+        Create a course-specific retriever with metadata filtering.
+        Restricts retrieval to documents matching the given course_id.
+        
+        Args:
+            course_id: The ID of the course to filter documents by
+        
+        Returns:
+            A retriever object configured to retrieve documents for the specified course
+        """
         config = self.base_retriever_config.copy()
         config["search_kwargs"]["filter"] = {"course_id": course_id}
         
         return self.vector_client.as_retriever(**config)
     
     def create_course_qa_chain(self, course_id: str):
-        """Create a course-specific QA chain."""
+        """
+        Create a course-specific QA chain using the retriever and LLM client.
+        Enables retrieval-augmented generation for question answering.
+        
+        Args:
+            course_id: The ID of the course to create the QA chain for
+        
+        Returns:
+            A QA chain object configured for the specified course
+        """
         retriever = self.create_course_retriever(course_id)
         
         return RetrievalQA.from_chain_type(

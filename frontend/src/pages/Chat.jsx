@@ -1,12 +1,16 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { ChatContainer } from "@/components/ui/chat"
 import { Sidebar } from "@/components/Sidebar"
 import { WelcomeScreen } from "@/components/WelcomeScreen"
 import { ChatInterface } from "@/components/ChatInterface"
 
 export default function ChatPage() {
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -19,18 +23,65 @@ export default function ChatPage() {
   const [isSendingMessage, setIsSendingMessage] = useState(false)
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
-  const [selectedModel, setSelectedModel] = useState("qwen")
+  const [selectedModel, setSelectedModel] = useState("rag")
+  const [selectedBaseModel, setSelectedBaseModel] = useState("qwen-3-235b-a22b")
+  const [selectedRagModel, setSelectedRagModel] = useState("text-embedding-004")
+  const [selectedHeavyModel, setSelectedHeavyModel] = useState("gemini-2.5-pro")
   const [selectedCourseId, setSelectedCourseId] = useState("")
+  const [useAgents, setUseAgents] = useState(true)
   const modelOptions = [
-    { label: "Qwen 3", value: "qwen" },
-    { label: "RAG System", value: "rag" }
+    { label: "Standard", value: "qwen", description: "Quick single-model response" },
+    { label: "Advanced", value: "rag", description: "Multi-agent system with full customization options (Default)" }
+  ]
+  const ragModelOptions = [
+    { label: "Gemini 004", value: "text-embedding-004", description: "Google's latest embedding model (Default)" },
+    { label: "Gemini 001", value: "gemini-embedding-001", description: "Google's legacy embedding model" },
+    { label: "OpenAI Small", value: "text-embedding-3-small", description: "Fast and cost-effective OpenAI embedding" },
+    { label: "OpenAI Large", value: "text-embedding-3-large", description: "High-quality OpenAI embedding model" },
+    { label: "OpenAI Ada", value: "text-embedding-ada-002", description: "OpenAI's legacy embedding model" }
+  ]
+  const baseModelOptions = [
+    { label: "Cerebras Qwen MoE", value: "qwen-3-235b-a22b", description: "Fast Mixture-of-Experts model from Cerebras (Default)" },
+    { label: "GPT-4.1 Mini", value: "gpt-4.1-mini", description: "Lightweight version of OpenAI's GPT-4.1" },
+    { label: "Gemini Flash", value: "gemini-2.5-flash", description: "Google's fast and efficient model" }
+  ]
+  const heavyModelOptions = [
+    { label: "Gemini Pro", value: "gemini-2.5-pro", description: "Google's most capable model for complex reasoning (Default)" },
+    { label: "GPT-4o", value: "gpt-4o", description: "OpenAI's optimized model for speed and quality" },
+    { label: "Claude Sonnet", value: "claude-3-sonnet-20240229", description: "Anthropic's balanced model for nuanced tasks" }
   ]
 
-  const userId = 'A1' // Using TEST user from database
+  const [userId, setUserId] = useState(null);
 
   useEffect(() => {
-    loadConversations()
-  }, [])
+    const userData = localStorage.getItem('user');
+    if (!userData) {
+      navigate('/login');
+      return;
+    }
+    
+    const user = JSON.parse(userData);
+    if (!user.id) {
+      console.error('No user ID found in stored user data');
+      navigate('/login');
+      return;
+    }
+    
+    setUserId(user.id);
+  }, [navigate]);
+
+  useEffect(() => {
+    if (userId) {
+      loadConversations()
+    }
+  }, [userId])
+
+  useEffect(() => {
+    const courseParam = searchParams.get('course')
+    if (courseParam) {
+      setSelectedCourseId(courseParam)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     // Don't load messages if we're currently sending a message
@@ -256,12 +307,15 @@ export default function ChatPage() {
         const chatResponse = await fetch("http://localhost:8000/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             prompt: input.trim() || (experimental_attachments?.length ? 'Please help me analyze the uploaded file.' : ''),
             conversation_id: newConversationId,
             file_context: fileContext || null,
-            model: selectedModel,
-            course_id: selectedModel === "rag" ? selectedCourseId : null
+            model: selectedModel === "rag" ? "rag" : selectedBaseModel,
+            course_id: selectedModel === "rag" ? selectedCourseId : null,
+            rag_model: selectedRagModel,
+            heavy_model: useAgents ? selectedHeavyModel : null,
+            use_agents: useAgents
           })
         })
         
@@ -412,11 +466,14 @@ export default function ChatPage() {
       const chatResponse = await fetch("http://localhost:8000/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           prompt: message.content,
           conversation_id: newConversationId,
-          model: selectedModel,
-          course_id: selectedModel === "rag" ? selectedCourseId : null
+          model: selectedModel === "rag" ? "rag" : selectedBaseModel,
+          course_id: selectedModel === "rag" ? selectedCourseId : null,
+          rag_model: selectedRagModel,
+          heavy_model: useAgents ? selectedHeavyModel : null,
+          use_agents: useAgents
         })
       })
       
@@ -575,18 +632,26 @@ export default function ChatPage() {
         formatTimestamp={formatTimestamp}
       />
       <div className="flex-1 flex flex-col items-center justify-center w-full h-screen">
-        <div
-          className="flex flex-col min-h-0 w-full h-full items-center justify-center"
-          style={{ aspectRatio: '16/10', maxWidth: '100vw', maxHeight: '100vh' }}
-        >
+        <div className="flex flex-col min-h-0 w-full h-full items-center justify-center max-w-full">
           <ChatContainer className="flex flex-col h-full w-full">
-            {isEmpty ? (
+            {messages.length === 0 ? (
               <WelcomeScreen
                 selectedModel={selectedModel}
                 setSelectedModel={setSelectedModel}
                 modelOptions={modelOptions}
+                selectedBaseModel={selectedBaseModel}
+                setSelectedBaseModel={setSelectedBaseModel}
+                baseModelOptions={baseModelOptions}
+                selectedRagModel={selectedRagModel}
+                setSelectedRagModel={setSelectedRagModel}
+                ragModelOptions={ragModelOptions}
+                selectedHeavyModel={selectedHeavyModel}
+                setSelectedHeavyModel={setSelectedHeavyModel}
+                heavyModelOptions={heavyModelOptions}
                 selectedCourseId={selectedCourseId}
                 setSelectedCourseId={setSelectedCourseId}
+                useAgents={useAgents}
+                setUseAgents={setUseAgents}
                 append={append}
                 handleSubmit={handleSubmit}
                 input={input}
@@ -601,8 +666,19 @@ export default function ChatPage() {
                 selectedModel={selectedModel}
                 setSelectedModel={setSelectedModel}
                 modelOptions={modelOptions}
+                selectedBaseModel={selectedBaseModel}
+                setSelectedBaseModel={setSelectedBaseModel}
+                baseModelOptions={baseModelOptions}
+                selectedRagModel={selectedRagModel}
+                setSelectedRagModel={setSelectedRagModel}
+                ragModelOptions={ragModelOptions}
+                selectedHeavyModel={selectedHeavyModel}
+                setSelectedHeavyModel={setSelectedHeavyModel}
+                heavyModelOptions={heavyModelOptions}
                 selectedCourseId={selectedCourseId}
                 setSelectedCourseId={setSelectedCourseId}
+                useAgents={useAgents}
+                setUseAgents={setUseAgents}
                 messages={messages}
                 isTyping={currentLoadingState.isTyping}
                 handleSubmit={handleSubmit}

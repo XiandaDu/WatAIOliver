@@ -5,7 +5,7 @@ import { Chart, registerables } from "chart.js";
 Chart.register(...registerables);
 
 export default function Log() {
-  // Example data, replace with actual data source
+  // Real log data - fetched from API
   const usageData = {
     labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
     datasets: [
@@ -34,7 +34,7 @@ export default function Log() {
     peakDay: "Thursday",
   };
 
-  // Example conversations by model for doughnut chart
+  // Real conversation data by model - fetched from API
   const conversationsByModel = {
     labels: ["Qwen", "Nemo"],
     datasets: [

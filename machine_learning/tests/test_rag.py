@@ -13,26 +13,26 @@ import traceback
 rag_path = str(Path(__file__).parent.parent / "rag_system")
 sys.path.insert(0, rag_path)
 
-# Load environment variables from .env file
+# Load environment variables from machine_learning .env file
 try:
     from dotenv import load_dotenv
-    env_path = Path(__file__).parent.parent / "rag_system" / ".env"
+    env_path = Path(__file__).parent.parent / ".env"
     load_dotenv(env_path)
 except ImportError:
-    print("⚠️ python-dotenv not installed, using system environment variables")
+    print("️python-dotenv not installed, using system environment variables")
 
 
 def print_header(title: str):
     """Print a formatted header."""
     print(f"\n{'='*60}")
-    print(f"🧪 {title}")
+    print(f"{title}")
     print(f"{'='*60}")
 
 
 def print_section(title: str):
     """Print a formatted section header."""
     print(f"\n{'-'*50}")
-    print(f"📋 {title}")
+    print(f"{title}")
     print(f"{'-'*50}")
 
 
@@ -45,33 +45,38 @@ def test_embedding_client():
     service_account_file = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
     
     if not google_cloud_project:
-        print("❌ GOOGLE_CLOUD_PROJECT not found - required for Vertex AI")
+        print("GOOGLE_CLOUD_PROJECT not found - required for Vertex AI")
         return False
     
     if not service_account_file:
-        print("❌ GOOGLE_APPLICATION_CREDENTIALS not found - required for Vertex AI")
+        print("GOOGLE_APPLICATION_CREDENTIALS not found - required for Vertex AI")
         return False
     
-    print(f"🔐 Using Vertex AI with service account")
-    print(f"🏗️ Project: {google_cloud_project}")
-    print(f"📄 Service Account: {service_account_file}")
+    print(f"Using Vertex AI with service account")
+    print(f"️ Project: {google_cloud_project}")
+    print(f"Service Account: {service_account_file}")
     
     try:
         from embedding.google_embedding_client import GoogleEmbeddingClient
         from langchain.schema import Document
         
-        print(f"\n🔍 Using gemini-embedding-001 model (latest from Google)...")
+        print(f"\nUsing gemini-embedding-001 model (latest from Google)...")
         
         # Create embedding client with gemini model and 512 dimensions
         embedding_client = GoogleEmbeddingClient(
             google_cloud_project=google_cloud_project,
-            model="gemini-embedding-001",
-            output_dimensionality=512
+            model="text-embedding-004",  #  new
+            output_dimensionality=ModelConfig.DEFAULT_OUTPUT_DIMENSIONALITY
         )
+        # embedding_client = GoogleEmbeddingClient(
+        #     google_cloud_project=google_cloud_project,
+        #     model="gemini-embedding-001",  # old
+        #     output_dimensionality=512
+        # )
         
         # Get model info
         model_info = embedding_client.get_model_info()
-        print(f"\n📋 Model Configuration:")
+        print(f"\nModel Configuration:")
         print(f"   Model: {model_info['model']}")
         print(f"   Expected Dimensions: {model_info['expected_dimensionality']}")
         print(f"   Chunk Size: {model_info['chunk_size']}")
@@ -88,24 +93,24 @@ def test_embedding_client():
         
         # Test splitting
         chunks = embedding_client.split_documents([doc])
-        print(f"\n📄 Document split into {len(chunks)} chunks")
+        print(f"\nDocument split into {len(chunks)} chunks")
         for i, chunk in enumerate(chunks):
             print(f"   Chunk {i+1}: {len(chunk.page_content)} characters")
         
         # Test query embedding and SHOW THE VECTORS
-        print(f"\n🔍 Testing Query Embedding:")
+        print(f"\nTesting Query Embedding:")
         query = "What is machine learning?"
         embedding = embedding_client.embed_query(query)
-        print(f"✅ Query: '{query}'")
+        print(f"Query: '{query}'")
         print(f"   Embedding Dimensions: {len(embedding)}")
         print(f"   Vector Preview: [{embedding[0]:.6f}, {embedding[1]:.6f}, {embedding[2]:.6f}, ..., {embedding[-1]:.6f}]")
         print(f"   Vector Range: min={min(embedding):.6f}, max={max(embedding):.6f}")
         
         # Test document embeddings
-        print(f"\n📚 Testing Document Embeddings:")
+        print(f"\nTesting Document Embeddings:")
         texts = [chunk.page_content for chunk in chunks]
         doc_embeddings = embedding_client.embed_documents(texts)
-        print(f"✅ Generated embeddings for {len(doc_embeddings)} document chunks")
+        print(f"Generated embeddings for {len(doc_embeddings)} document chunks")
         
         if doc_embeddings:
             first_embedding = doc_embeddings[0]
@@ -114,7 +119,7 @@ def test_embedding_client():
             print(f"   Vector Range: min={min(first_embedding):.6f}, max={max(first_embedding):.6f}")
         
         # Test similarity between query and document
-        print(f"\n🔍 Testing Vector Similarity:")
+        print(f"\nTesting Vector Similarity:")
         if doc_embeddings:
             # Simple cosine similarity calculation
             import numpy as np
@@ -131,15 +136,15 @@ def test_embedding_client():
         
         # Show actual dimensions
         actual_dims = len(embedding)
-        print(f"\n📊 Vector Analysis:")
+        print(f"\nVector Analysis:")
         print(f"   Actual Dimensions: {actual_dims}")
         print(f"   Model Used: {model_info['model']}")
-        print(f"   ✅ gemini-embedding-001 working correctly!")
+        print(f"   gemini-embedding-001 working correctly!")
         
         return True
         
     except Exception as e:
-        print(f"❌ Embedding client test failed: {e}")
+        print(f"Embedding client test failed: {e}")
         traceback.print_exc()
         return False
 
@@ -152,7 +157,7 @@ def test_llm_client():
     google_cloud_project = os.getenv("GOOGLE_CLOUD_PROJECT", "")
     
     if not google_cloud_project:
-        print("❌ GOOGLE_CLOUD_PROJECT not found - required for LLM")
+        print("GOOGLE_CLOUD_PROJECT not found - required for LLM")
         return False
     
     try:
@@ -163,12 +168,12 @@ def test_llm_client():
         
         # Test generation
         response = llm_client.generate("What is 2+2? Give a brief answer.")
-        print(f"✅ LLM Response: {response[:100]}...")
+        print(f"LLM Response: {response[:100]}...")
         
         return True
         
     except Exception as e:
-        print(f"❌ LLM client test failed: {e}")
+        print(f"LLM client test failed: {e}")
         return False
 
 
@@ -179,20 +184,20 @@ def test_imports():
     try:
         from embedding.google_embedding_client import GoogleEmbeddingClient
         from llm_clients.gemini_client import GeminiClient
-        print("✅ Core imports successful (Embedding + LLM)")
+        print("Core imports successful (Embedding + LLM)")
         
         # Test optional imports
         try:
             from vector_db.supabase_client import SupabaseVectorClient
-            print("✅ Supabase client available (optional)")
+            print("Supabase client available (optional)")
         except ImportError:
-            print("ℹ️ Supabase client not available (skipping)")
+            print("Supabase client not available (skipping)")
         
         return True
         
     except ImportError as e:
-        print(f"❌ Core import failed: {e}")
-        print("💡 Run: pip install -r rag_system/requirements.txt")
+        print(f"Core import failed: {e}")
+        print("Run: pip install -r rag_system/requirements.txt")
         return False
 
 
@@ -202,7 +207,7 @@ def run_all_tests():
     
     # Test imports first
     if not test_imports():
-        print("\n❌ Cannot proceed - import failures")
+        print("\nCannot proceed - import failures")
         return False
     
     # Run embedding-focused tests
@@ -215,24 +220,24 @@ def run_all_tests():
     # Print final results
     print_header("Test Results Summary")
     
-    print("📊 Component Test Results:")
-    print(f"  ✅ Module Imports: {'PASS' if test_results['imports'] else 'FAIL'}")
-    print(f"  {'✅' if test_results['embedding'] else '❌'} Embedding Client (gemini-embedding-001): {'PASS' if test_results['embedding'] else 'FAIL'}")
-    print(f"  {'✅' if test_results['llm'] else '❌'} LLM Client: {'PASS' if test_results['llm'] else 'FAIL'}")
+    print("Component Test Results:")
+    print(f"  Module Imports: {'PASS' if test_results['imports'] else 'FAIL'}")
+    print(f"  Embedding Client (gemini-embedding-001): {'PASS' if test_results['embedding'] else 'FAIL'}")
+    print(f"  LLM Client: {'PASS' if test_results['llm'] else 'FAIL'}")
     
     all_passed = all(test_results.values())
     
     if all_passed:
-        print(f"\n🎉 ALL TESTS PASSED!")
-        print(f"   🧠 Using gemini-embedding-001 model")
-        print(f"   🔢 Vector embeddings working correctly")
-        print(f"   📊 Similarity calculations functional")
+        print(f"\nALL TESTS PASSED!")
+        print(f" Using gemini-embedding-001 model")
+        print(f" Vector embeddings working correctly")
+        print(f" Similarity calculations functional")
     else:
-        print(f"\n⚠️ Some tests failed - check output above")
+        print(f"\n️ Some tests failed - check output above")
         failed_tests = [name for name, result in test_results.items() if not result]
         print(f"   Failed: {', '.join(failed_tests)}")
     
-    print(f"\n✨ Embedding-focused test suite complete!")
+    print(f"\nEmbedding-focused test suite complete!")
     return all_passed
 
 
@@ -242,10 +247,10 @@ def main():
         success = run_all_tests()
         sys.exit(0 if success else 1)
     except KeyboardInterrupt:
-        print(f"\n\n⚠️ Tests interrupted by user")
+        print(f"\n\n️ Tests interrupted by user")
         sys.exit(1)
     except Exception as e:
-        print(f"\n\n❌ Unexpected error: {e}")
+        print(f"\n\nUnexpected error: {e}")
         traceback.print_exc()
         sys.exit(1)
 

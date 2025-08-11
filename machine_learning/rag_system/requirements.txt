@@ -4,37 +4,32 @@ uvicorn[standard]>=0.24.0
 pydantic>=2.0.0
 pydantic-settings>=2.0.0
 
-# LangChain ecosystem for RAG
+# LangChain & Google GenAI
 langchain>=0.1.0
 langchain-community>=0.0.20
 langchain-text-splitters>=0.0.1
-langchain-google-genai>=0.0.11
+langchain-google-genai==2.1.8
 
 # Google AI and Cloud dependencies
-google-genai>=0.1.0
+google-ai-generativelanguage==0.6.18
 google-auth>=2.40.0
 google-cloud-core>=2.4.0
 googleapis-common-protos>=1.70.0
 
 # Database and vector storage
 supabase>=2.0.0
-vecs>=0.4.0
 sqlalchemy>=2.0.0
 
 # Document processing
 PyPDF2>=3.0.1
 python-docx>=0.8.11
-unstructured>=0.10.0
 python-multipart>=0.0.20
 
 # ML and data processing
 numpy>=1.24.0
-torch==2.7.1
-transformers>=4.40.0
 
 # Environment and configuration
 python-dotenv>=1.0.0
-pydantic-settings>=2.0.0
 
 # HTTP and async
 httpx>=0.28.0
@@ -43,3 +38,10 @@ aiofiles>=24.0.0
 # Testing (optional but recommended)
 pytest>=7.0.0
 pytest-asyncio>=0.23.0
+
+# Cerebras AI dependencies
+cerebras-cloud-sdk==1.35.0
+
+# Additional LLM providers
+openai>=1.0.0
+anthropic>=0.3.0

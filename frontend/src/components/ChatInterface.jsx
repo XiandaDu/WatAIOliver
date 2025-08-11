@@ -4,15 +4,28 @@ import { CustomSelect } from "@/components/ui/custom-select"
 import { CourseSelector } from "@/components/ui/course-selector"
 import { ChatFileAttachment } from "@/components/ui/chat-file-attachment"
 import { transcribeAudio } from "@/lib/utils/audio"
-import { marked } from "marked"
+import { MarkdownRenderer } from "@/components/ui/markdown-renderer"
+import { useNavigate } from "react-router-dom"
+import { Button } from "@/components/ui/button"
 
 export function ChatInterface({ 
   selectedConversation,
   selectedModel,
   setSelectedModel,
   modelOptions,
+  selectedBaseModel,
+  setSelectedBaseModel,
+  baseModelOptions,
+  selectedRagModel,
+  setSelectedRagModel,
+  ragModelOptions,
+  selectedHeavyModel,
+  setSelectedHeavyModel,
+  heavyModelOptions,
   selectedCourseId,
   setSelectedCourseId,
+  useAgents,
+  setUseAgents,
   messages,
   isTyping,
   handleSubmit,
@@ -22,27 +35,77 @@ export function ChatInterface({
   stop,
   messagesContainerRef
 }) {
+  const navigate = useNavigate()
+  
+  const handleLogout = () => {
+    localStorage.removeItem('user')
+    localStorage.removeItem('access_token')
+    navigate('/login')
+  }
   return (
     <>
       <div className="px-6 py-4 flex-shrink-0">
         <div className="flex flex-col items-start">
-          <h1 className="text-xl font-semibold text-gray-900">
-            {selectedConversation ? selectedConversation.title : 'Oliver Chat'}
-          </h1>
+          <div className="flex justify-between items-center w-full mb-2">
+            <h1 className="text-xl font-semibold text-gray-900">
+              {selectedConversation ? selectedConversation.title : 'Oliver Chat'}
+            </h1>
+            <Button
+              onClick={handleLogout}
+              variant="outline"
+              size="sm"
+              className="text-red-600 border-red-300 hover:bg-red-50"
+            >
+              Logout
+            </Button>
+          </div>
           <div className="mt-2 space-y-3">
             <CustomSelect
               value={selectedModel}
               onChange={setSelectedModel}
               options={modelOptions}
-              placeholder="Select a model"
+              placeholder="Select mode"
               className="w-40"
             />
+            <CustomSelect
+              value={selectedBaseModel}
+              onChange={setSelectedBaseModel}
+              options={baseModelOptions}
+              placeholder="Foundation model"
+              className="w-48"
+            />
             {selectedModel === "rag" && (
-              <CourseSelector
-                value={selectedCourseId}
-                onChange={setSelectedCourseId}
-                className="w-64"
-              />
+              <>
+                <CustomSelect
+                  value={selectedRagModel}
+                  onChange={setSelectedRagModel}
+                  options={ragModelOptions}
+                  placeholder="Embedding model"
+                  className="w-48"
+                />
+                <CustomSelect
+                  value={selectedHeavyModel}
+                  onChange={setSelectedHeavyModel}
+                  options={heavyModelOptions}
+                  placeholder="Heavy reasoning model"
+                  className="w-48"
+                />
+                {selectedCourseId && (
+                  <div className="w-64 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Course</label>
+                    <p className="text-sm text-blue-700 font-medium">{selectedCourseId}</p>
+                  </div>
+                )}
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    className="form-checkbox h-4 w-4 text-blue-600"
+                    checked={useAgents}
+                    onChange={(e) => setUseAgents(e.target.checked)}
+                  />
+                  <span className="text-sm text-gray-700">Enable multi-agent debate</span>
+                </label>
+              </>
             )}
           </div>
         </div>
@@ -87,10 +150,7 @@ export function ChatInterface({
                         <span className="text-sm font-medium text-gray-600">Oliver Assistant</span>
                       </div>
                       <div className="prose prose-lg max-w-none">
-                        <div 
-                          className="text-gray-800 leading-relaxed space-y-4 text-base"
-                          dangerouslySetInnerHTML={{ __html: marked.parse(message.content) }} 
-                        />
+                        <MarkdownRenderer>{message.content}</MarkdownRenderer>
                       </div>
                     </div>
                   </div>

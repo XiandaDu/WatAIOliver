@@ -5,13 +5,14 @@ starlette==0.46.2
 
 # Data Validation
 pydantic==2.11.7
-
+email-validator
 # HTTP Clients
 requests==2.32.4
 httpx==0.28.1
 
 # Database
 supabase==2.15.3
+SQLAlchemy>=2.0.0
 
 # Environment & Configuration
 python-dotenv==1.1.0

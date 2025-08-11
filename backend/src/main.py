@@ -2,11 +2,12 @@ from fastapi import FastAPI
 from src.api import register_routes
 from starlette.middleware.sessions import SessionMiddleware
 
+from src.log_middleware import LoggingMiddleware
+
 app = FastAPI()
 
-# Add session middleware to handle user sessions (e.g., login sessions)
-app.add_middleware(SessionMiddleware, secret_key="your_secret_key",
-                   max_age=3600)
+app.add_middleware(LoggingMiddleware)
+
 
 @app.get("/")
 async def root():

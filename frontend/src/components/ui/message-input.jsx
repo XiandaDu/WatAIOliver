@@ -90,18 +90,7 @@ export function MessageInput({
     const items = event.clipboardData?.items
     if (!items) return
 
-    const text = event.clipboardData.getData("text")
-    if (text && text.length > 500 && props.allowAttachments) {
-      event.preventDefault()
-      const blob = new Blob([text], { type: "text/plain" })
-      const file = new File([blob], "Pasted text", {
-        type: "text/plain",
-        lastModified: Date.now(),
-      })
-      addFiles([file])
-      return
-    }
-
+    // Check for file attachments in clipboard (images, etc.)
     const files = Array.from(items)
       .map((item) => item.getAsFile())
       .filter((file) => file !== null)
@@ -109,6 +98,9 @@ export function MessageInput({
     if (props.allowAttachments && files.length > 0) {
       addFiles(files)
     }
+
+    // Always allow normal text pasting - don't convert long text to files
+    // Users can manually create text files if they want attachments
   }
 
   const onKeyDown = (event) => {
