@@ -62,7 +62,7 @@ class AuthService:
                     logger.info(f"No existing user found for email: {email}")
                 
                 if existing_user:
-                    # User exists, get their profile and update role based on login request
+                    # User exists, just get their profile and return auth data
                     logger.info(f"Processing existing user login: {existing_user.id}")
                     
                     # Get user profile from database
@@ -78,35 +78,15 @@ class AuthService:
                         logger.info(f"Profile created and retrieved for user {existing_user.id}")
                     else:
                         logger.info(f"Found existing profile for user {existing_user.id}: {profile_response.data[0].get('username')}")
-                        
-                        # Update the role based on the current login request (fresh login overrides stored role)
-                        requested_role = token_request.account_type if token_request.account_type in ["student", "instructor"] else "student"
-                        current_role = profile_response.data[0].get('role', 'student')
-                        
-                        if requested_role != current_role:
-                            logger.info(f"Updating user role from {current_role} to {requested_role} based on login request")
-                            update_response = supabase.table("users").update({
-                                "role": requested_role
-                            }).eq("user_id", existing_user.id).execute()
-                            
-                            if update_response.data:
-                                logger.info(f"Successfully updated role for user {existing_user.id}")
-                                # Refetch the updated profile
-                                profile_response = supabase.table("users").select("*").eq("user_id", existing_user.id).execute()
-                            else:
-                                logger.warning(f"Failed to update role for user {existing_user.id}")
                     
                     profile = profile_response.data[0] if profile_response.data else None
-                    
-                    # Use the role from the login request (fresh login overrides stored role)
-                    login_role = token_request.account_type if token_request.account_type in ["student", "instructor"] else "student"
                     
                     auth_user = AuthUser(
                         id=existing_user.id,
                         email=existing_user.email,
                         username=profile.get("username", google_user.get("name", email.split("@")[0])) if profile else google_user.get("name", email.split("@")[0]),
                         full_name=profile.get("full_name", google_user.get("name")) if profile else google_user.get("name"),
-                        role=login_role,  # Use the role from the current login request
+                        role=profile.get("role", "student") if profile else "student",
                         email_confirmed=existing_user.email_confirmed_at is not None,
                         created_at=existing_user.created_at,
                         last_sign_in=existing_user.last_sign_in_at

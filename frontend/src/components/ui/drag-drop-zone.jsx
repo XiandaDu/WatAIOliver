@@ -103,7 +103,7 @@ export function DragDropZone({ onFilesDrop, acceptedFileTypes = "*", multiple = 
         </div>
 
         {/* Text Content */}
-        <div className="space-y-1">
+        <div className="space-y-2">
           <p className={cn(
             "text-lg font-medium transition-colors",
             isDragOver ? "text-blue-600" : "text-gray-700"
@@ -113,9 +113,14 @@ export function DragDropZone({ onFilesDrop, acceptedFileTypes = "*", multiple = 
           <p className="text-sm text-gray-500">
             {acceptedFileTypes === "*" 
               ? "All file types accepted" 
-              : `Supports: ${acceptedFileTypes.join(", ").toUpperCase()}`
+              : `Accepted formats: ${acceptedFileTypes.join(", ")}`
             }
           </p>
+          {multiple && (
+            <p className="text-xs text-gray-400">
+              You can select multiple files
+            </p>
+          )}
         </div>
 
         {/* Drag Overlay */}

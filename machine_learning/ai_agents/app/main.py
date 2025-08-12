@@ -53,7 +53,9 @@ async def lifespan(app: FastAPI):
         rag_service = RAGService(rag_settings)
         llm_client = CerebrasClient(
             api_key=rag_settings.cerebras_api_key,
-            model="qwen-3-235b-a22b-instruct-2507",
+            model="qwen-3-235b-a22b",
+            temperature=0.6,
+            top_p=0.95,
         )
         
         # Initialize orchestrator

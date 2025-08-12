@@ -12,7 +12,7 @@ import {
 } from "../components/ui/card";
 
 export default function CourseSelection() {
-  const [inviteName, setInviteName] = useState("");
+  const [inviteLink, setInviteLink] = useState("");
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [courses, setCourses] = useState([]);
@@ -71,38 +71,12 @@ export default function CourseSelection() {
     navigate(`/chat?course=${courseId}`);
   };
 
-  const handleJoinByName = async (e) => {
+  const handleInviteLinkSubmit = (e) => {
     e.preventDefault();
-    if (!inviteName.trim()) {
-      throw new Error('Course name cannot be empty');
+    if (!inviteLink.trim()) {
+      throw new Error('Invite link cannot be empty');
     }
-    try {
-      const form = new FormData();
-      form.append('title', inviteName.trim());
-      const resp = await fetch('http://localhost:8000/course/join', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-        },
-        body: form
-      });
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        throw new Error(err.detail || 'Failed to join course');
-      }
-      setInviteName("");
-      // Refresh courses list to show joined course
-      setLoading(true);
-      const fresh = await fetch('http://localhost:8000/course/', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
-      });
-      const data = await fresh.json();
-      setCourses(data || []);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    throw new Error('Invite link functionality not implemented - API endpoint required');
   };
 
   const handleLogout = () => {
@@ -139,9 +113,9 @@ export default function CourseSelection() {
           </Button>
         </div>
 
-        {/* Joined Courses Section */}
+        {/* Available Courses Section */}
         <div className="mb-12">
-          <h3 className="text-xl font-semibold mb-4">Your Courses</h3>
+          <h3 className="text-xl font-semibold mb-4">Available Courses</h3>
           {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
@@ -156,7 +130,7 @@ export default function CourseSelection() {
             </div>
           ) : courses.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-600">No courses joined yet. Join a course below.</p>
+              <p className="text-gray-600">No courses available. Contact your administrator.</p>
             </div>
           ) : (
             <div className="grid gap-4">
@@ -177,27 +151,27 @@ export default function CourseSelection() {
           )}
         </div>
 
-        {/* Join by Course Name */}
+        {/* Invite Link Section */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-xl">Join a Course</CardTitle>
-            <CardDescription>Enter the course name provided by your instructor</CardDescription>
+            <CardTitle className="text-xl">Have an Invite Link?</CardTitle>
+            <CardDescription>Enter your course invite link below</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleJoinByName} className="space-y-4">
+            <form onSubmit={handleInviteLinkSubmit} className="space-y-4">
               <div>
-                <Label htmlFor="inviteName">Course name</Label>
+                <Label htmlFor="inviteLink">Enter your invite link</Label>
                 <Input
-                  id="inviteName"
+                  id="inviteLink"
                   type="text"
-                  value={inviteName}
-                  onChange={(e) => setInviteName(e.target.value)}
-                  placeholder="e.g., CS251"
+                  value={inviteLink}
+                  onChange={(e) => setInviteLink(e.target.value)}
+                  placeholder="Paste your invite link here"
                   className="mt-1 block w-full"
                 />
               </div>
               <Button type="submit" className="w-full">
-                Join Course
+                Join via Invite Link
               </Button>
             </form>
           </CardContent>

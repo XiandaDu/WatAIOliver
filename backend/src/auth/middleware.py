@@ -89,18 +89,7 @@ def auth_required(current_user: AuthUser = Depends(get_current_user)) -> AuthUse
     return current_user
 
 def instructor_required(current_user: AuthUser = Depends(get_current_user)) -> AuthUser:
-    # Admins always allowed
-    if current_user.role == "admin":
-        return current_user
-
-    # Verify instructor whitelist
-    try:
-        whitelist = supabase.table("instructor_whitelist").select("email").eq("email", current_user.email).execute()
-        is_whitelisted = bool(whitelist.data)
-    except Exception:
-        is_whitelisted = False
-
-    if not is_whitelisted:
+    if current_user.role not in ["instructor", "admin"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Instructor access required"

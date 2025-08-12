@@ -11,8 +11,6 @@ def create_conversation(data: ConversationCreate):
             "conversation_id": str(uuid.uuid4()),
             "user_id": data.user_id,
             "title": data.title,
-            # Persist optional course context for analytics and routing
-            "course_id": getattr(data, "course_id", None),
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat(),
         }
@@ -67,9 +65,6 @@ def create_message(data: MessageCreate):
             "user_id": data.user_id,
             "sender": data.sender,
             "content": data.content,
-            # Optional fields for course-scoped analytics and model attribution
-            "course_id": getattr(data, "course_id", None),
-            "model": getattr(data, "model", None),
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat(),
         }

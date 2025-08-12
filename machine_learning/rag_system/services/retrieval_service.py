@@ -42,8 +42,7 @@ class RetrievalService:
     def process_document(self, course_id: str, content: str, doc_id: str | None = None) -> Dict[str, Any]:
         """Split and store a document in the vector database."""
         try:
-            import time
-            doc_id = doc_id or f"doc_{hash(content) % 10**10}_{int(time.time() * 1000)}"
+            doc_id = doc_id or f"doc_{hash(content) % 10**10}"
             document = Document(page_content=content, metadata={"course_id": course_id, "document_id": doc_id})
             chunks = self.embedding_client.split_documents([document])
             for i, chunk in enumerate(chunks):

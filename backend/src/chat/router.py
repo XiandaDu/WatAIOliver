@@ -182,26 +182,13 @@ async def upload_files_for_rag(
                         rag_model,
                     )
                     
-                    # Store metadata in documents table
-                    if rag_result.get('success'):
-                        document_id = rag_result.get('document_id', filename)
-                        store_document_metadata(document_id, course_id, filename, 'pdf')
-                        results.append({
-                            'filename': filename,
-                            'type': 'pdf',
-                            'pdf_processing': pdf_result,
-                            'rag_processing': rag_result,
-                            'status': 'completed'
-                        })
-                    else:
-                        results.append({
-                            'filename': filename,
-                            'type': 'pdf',
-                            'pdf_processing': pdf_result,
-                            'rag_processing': rag_result,
-                            'error': rag_result.get('error_message', 'RAG processing failed'),
-                            'status': 'failed'
-                        })
+                    results.append({
+                        'filename': filename,
+                        'type': 'pdf',
+                        'pdf_processing': pdf_result,
+                        'rag_processing': rag_result,
+                        'status': 'completed'
+                    })
                 else:
                     results.append({
                         'filename': filename,
@@ -219,11 +206,6 @@ async def upload_files_for_rag(
                     filename,
                     rag_model,
                 )
-                
-                # Store metadata in documents table
-                if rag_result.get('success'):
-                    document_id = rag_result.get('document_id', filename)
-                    store_document_metadata(document_id, course_id, filename, 'text')
                 
                 results.append({
                     'filename': filename,
@@ -315,20 +297,6 @@ async def process_pdf_file(file_content: bytes, filename: str) -> dict:
             'success': False,
             'error_message': f'PDF processing failed: {str(e)}'
         }
-
-def store_document_metadata(document_id: str, course_id: str, filename: str, file_type: str):
-    """Store document metadata in the documents table for admin visibility."""
-    try:
-        from src.supabaseClient import supabase
-        supabase.table("documents").insert({
-            "document_id": document_id,
-            "course_id": course_id,
-            "title": filename,
-            "content": f"Uploaded {file_type} file: {filename}",
-            "term": None
-        }).execute()
-    except Exception as e:
-        print(f"Failed to store document metadata: {e}")
 
 async def process_document_with_rag(course_id: str, content: str, filename: str, rag_model: str | None = None) -> dict:
     """

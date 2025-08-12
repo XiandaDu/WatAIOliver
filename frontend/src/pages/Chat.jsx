@@ -25,9 +25,9 @@ export default function ChatPage() {
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
   const [selectedModel, setSelectedModel] = useState("rag")
-  const [selectedBaseModel, setSelectedBaseModel] = useState("gemini-2.5-flash")
+  const [selectedBaseModel, setSelectedBaseModel] = useState("qwen-3-235b-a22b")
   const [selectedRagModel, setSelectedRagModel] = useState("text-embedding-004")
-  const [selectedHeavyModel, setSelectedHeavyModel] = useState("")
+  const [selectedHeavyModel, setSelectedHeavyModel] = useState("gemini-2.5-pro")
   const [selectedCourseId, setSelectedCourseId] = useState("")
   const [useAgents, setUseAgents] = useState(true)
   const modelOptions = [
@@ -42,13 +42,12 @@ export default function ChatPage() {
     { label: "OpenAI Ada", value: "text-embedding-ada-002", description: "OpenAI's legacy embedding model" }
   ]
   const baseModelOptions = [
-    { label: "Gemini Flash", value: "gemini-2.5-flash", description: "Google's fast and efficient model (Default)" },
-    { label: "Cerebras Qwen MoE", value: "qwen-3-235b-a22b-instruct-2507", description: "Fast Mixture-of-Experts model from Cerebras" },
-    { label: "GPT-4.1 Mini", value: "gpt-4.1-mini", description: "Lightweight version of OpenAI's GPT-4.1" }
+    { label: "Cerebras Qwen MoE", value: "qwen-3-235b-a22b", description: "Fast Mixture-of-Experts model from Cerebras (Default)" },
+    { label: "GPT-4.1 Mini", value: "gpt-4.1-mini", description: "Lightweight version of OpenAI's GPT-4.1" },
+    { label: "Gemini Flash", value: "gemini-2.5-flash", description: "Google's fast and efficient model" }
   ]
   const heavyModelOptions = [
-    { label: "None", value: "", description: "Use base model only (Default)" },
-    { label: "Gemini Pro", value: "gemini-2.5-pro", description: "Google's most capable model for complex reasoning" },
+    { label: "Gemini Pro", value: "gemini-2.5-pro", description: "Google's most capable model for complex reasoning (Default)" },
     { label: "GPT-4o", value: "gpt-4o", description: "OpenAI's optimized model for speed and quality" },
     { label: "Claude Sonnet", value: "claude-3-sonnet-20240229", description: "Anthropic's balanced model for nuanced tasks" }
   ]
@@ -79,10 +78,9 @@ export default function ChatPage() {
   }, [userId])
 
   useEffect(() => {
-    const courseParam = searchParams.get('course_id')
+    const courseParam = searchParams.get('course')
     if (courseParam) {
       setSelectedCourseId(courseParam)
-      console.log('Course ID loaded from URL:', courseParam)
     }
   }, [searchParams])
 
@@ -226,7 +224,6 @@ export default function ChatPage() {
             const newConversation = {
               conversation_id: newConversationId,
               title: input || (experimental_attachments?.length ? 'File Upload' : 'New Chat'),
-              course_id: selectedModel === "rag" ? selectedCourseId : null,
               user_id: userId,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
@@ -297,13 +294,10 @@ export default function ChatPage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              message_id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
               conversation_id: newConversationId,
               user_id: userId,
               sender: 'user',
-              content: input.trim() || (experimental_attachments?.length ? 'Please analyze the uploaded file.' : ''),
-              course_id: selectedCourseId || null,  // Always save course_id if available
-              model: selectedModel === "rag" ? 'rag' : selectedBaseModel
+              content: input.trim() || (experimental_attachments?.length ? 'Please analyze the uploaded file.' : '')
             })
           })
         } catch (messageError) {
@@ -349,13 +343,10 @@ export default function ChatPage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              message_id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
               conversation_id: newConversationId,
               user_id: userId,
               sender: 'assistant',
-              content: aiResponse,
-              course_id: selectedCourseId || null,  // Always save course_id if available
-              model: selectedModel === "rag" ? 'rag' : selectedBaseModel
+              content: aiResponse
             })
           })
         } catch (saveError) {
@@ -470,13 +461,10 @@ export default function ChatPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            message_id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             conversation_id: newConversationId,
             user_id: userId,
             sender: 'user',
-            content: message.content,
-            course_id: selectedCourseId || null,  // Always save course_id if available
-            model: selectedModel === "rag" ? 'rag' : selectedBaseModel
+            content: message.content
           })
         })
       }
@@ -508,9 +496,7 @@ export default function ChatPage() {
             conversation_id: newConversationId,
             user_id: userId,
             sender: 'assistant',
-            content: aiResponse,
-            course_id: selectedCourseId || null,  // Always save course_id if available
-            model: selectedModel === "rag" ? 'rag' : selectedBaseModel
+            content: aiResponse
           })
         })
       }

@@ -12,8 +12,6 @@ class ConversationBase(BaseModel):
 class ConversationCreate(BaseModel):
     user_id: str
     title: Optional[str] = None
-    # Associate conversation to a specific course knowledge base when applicable
-    course_id: Optional[str] = None
 
 class ConversationUpdate(BaseModel):
     conversation_id: str
@@ -50,10 +48,6 @@ class MessageCreate(BaseModel):
     user_id: str    
     sender: Literal["user", "assistant"]
     content: str
-    # Track which course this message belongs to for analytics and filtering
-    course_id: Optional[str] = None
-    # Track which model generated assistant responses for analytics
-    model: Optional[str] = None
 
 class MessageUpdate(BaseModel):
     message_id: str
