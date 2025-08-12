@@ -96,7 +96,7 @@ export default function AdminPage() {
       const resp = await fetch(`http://localhost:8000/documents/?course_id=${encodeURIComponent(courseId)}`)
       if (resp.ok) {
         const documents = await resp.json()
-        console.log(`✅ Loaded ${documents.length} documents for course ${courseId}`)
+        console.log(`Loaded ${documents.length} documents for course ${courseId}`)
         return documents
       } else {
         console.error(`Failed to load documents for course ${courseId}:`, resp.status, resp.statusText)
@@ -258,7 +258,7 @@ export default function AdminPage() {
     const loadAllDocuments = async () => {
       if (documentsLoaded) return // Prevent duplicate loading
       
-      console.log(`🚀 Auto-loading documents for ${courses.length} courses...`)
+      console.log(`Auto-loading documents for ${courses.length} courses...`)
       const coursesWithDocs = await Promise.all(
         courses.map(async (course) => {
           const docs = await loadDocuments(course.course_id)
@@ -268,7 +268,7 @@ export default function AdminPage() {
       )
       setCourses(coursesWithDocs)
       setDocumentsLoaded(true)
-      console.log('✅ Auto-load completed:', coursesWithDocs.map(c => 
+      console.log('Auto-load completed:', coursesWithDocs.map(c => 
         `${c.title}: ${c.documents?.length || 0} docs`
       ).join(', '))
     }
@@ -344,9 +344,9 @@ export default function AdminPage() {
         if (failedCount > 0) {
           const failedFiles = uploadData.results.filter(r => r.status === 'failed')
           const errorMessages = failedFiles.map(f => `${f.filename}: ${f.error || 'Unknown error'}`).join('\n')
-          alert(`Upload completed with issues:\n✅ ${successCount} files successful\n❌ ${failedCount} files failed:\n\n${errorMessages}`)
+          alert(`Upload completed with issues:\n${successCount} files successful\n${failedCount} files failed:\n\n${errorMessages}`)
         } else {
-          alert(`✅ Successfully uploaded ${successCount} files to RAG`)
+          alert(`Successfully uploaded ${successCount} files to RAG`)
         }
         
         // Close dialog and reset state
@@ -413,7 +413,7 @@ export default function AdminPage() {
           ) : error ? (
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
-                <div className="text-red-600 text-xl mb-2">⚠️</div>
+                <div className="text-red-600 text-xl mb-2">️</div>
                 <p className="text-red-600 mb-4">{error}</p>
                 <Button onClick={loadInstructorCourses} variant="outline">
                   Try Again
@@ -423,7 +423,7 @@ export default function AdminPage() {
           ) : courses.length === 0 ? (
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
-                <div className="text-gray-400 text-xl mb-2">📚</div>
+                <div className="text-gray-400 text-xl mb-2"></div>
                 <p className="text-gray-600 mb-4">No courses found</p>
                 <Button onClick={() => setShowCreateDialog(true)}>
                   Create Your First Course

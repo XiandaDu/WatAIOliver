@@ -11,8 +11,8 @@ import json
 def add_course_to_user(token, course_id, base_url="http://localhost:8000"):
     """Add a course to the current user"""
     
-    print(f"🎯 Adding course {course_id} to user...")
-    print(f"🌐 Server: {base_url}")
+    print(f"Adding course {course_id} to user...")
+    print(f"Server: {base_url}")
     print()
     
     headers = {
@@ -29,15 +29,15 @@ def add_course_to_user(token, course_id, base_url="http://localhost:8000"):
             user_data = response.json()
             username = user_data.get('username', 'Unknown')
             current_courses = user_data.get('courses', [])
-            print(f"   ✅ User: {username}")
-            print(f"   📚 Current courses: {len(current_courses)}")
+            print(f"User: {username}")
+            print(f"Current courses: {len(current_courses)}")
         else:
-            print(f"   ❌ Failed to get user info: {response.status_code}")
+            print(f"Failed to get user info: {response.status_code}")
             return False
         
         # Check if course already exists in user's list
         if course_id in current_courses:
-            print(f"   ⚠️  Course {course_id} is already in user's course list!")
+            print(f"️  Course {course_id} is already in user's course list!")
             return True
         
         print()
@@ -50,7 +50,7 @@ def add_course_to_user(token, course_id, base_url="http://localhost:8000"):
         
         if response.status_code == 200:
             result = response.json()
-            print(f"   ✅ SUCCESS: {result.get('message', 'Course added successfully')}")
+            print(f"SUCCESS: {result.get('message', 'Course added successfully')}")
             
             # Verify it was added
             print()
@@ -60,51 +60,51 @@ def add_course_to_user(token, course_id, base_url="http://localhost:8000"):
             if response.status_code == 200:
                 updated_courses = response.json()
                 if course_id in updated_courses:
-                    print(f"   ✅ VERIFIED: Course {course_id} is now in user's course list")
-                    print(f"   📚 Total courses: {len(updated_courses)}")
+                    print(f"VERIFIED: Course {course_id} is now in user's course list")
+                    print(f"Total courses: {len(updated_courses)}")
                 else:
-                    print(f"   ❌ VERIFICATION FAILED: Course not found in user's list")
+                    print(f"VERIFICATION FAILED: Course not found in user's list")
                     return False
             else:
-                print(f"   ⚠️  Could not verify (status: {response.status_code})")
+                print(f"️  Could not verify (status: {response.status_code})")
             
             return True
             
         elif response.status_code == 404:
-            print(f"   ❌ FAILED: Course not found (404)")
-            print(f"   💡 Make sure the course ID '{course_id}' exists")
+            print(f"FAILED: Course not found (404)")
+            print(f"Make sure the course ID '{course_id}' exists")
             return False
             
         elif response.status_code == 500:
             try:
                 error_data = response.json()
                 detail = error_data.get('detail', 'Unknown server error')
-                print(f"   ❌ FAILED: Server error - {detail}")
+                print(f"FAILED: Server error - {detail}")
             except:
-                print(f"   ❌ FAILED: Server error (500)")
+                print(f"FAILED: Server error (500)")
             return False
             
         else:
-            print(f"   ❌ FAILED: Unexpected status {response.status_code}")
+            print(f"FAILED: Unexpected status {response.status_code}")
             try:
-                print(f"   📥 Response: {response.json()}")
+                print(f"Response: {response.json()}")
             except:
-                print(f"   📥 Response: {response.text}")
+                print(f"Response: {response.text}")
             return False
             
     except requests.exceptions.ConnectionError:
-        print(f"   ❌ CONNECTION ERROR: Could not connect to {base_url}")
-        print(f"   💡 Make sure the backend server is running")
+        print(f"CONNECTION ERROR: Could not connect to {base_url}")
+        print(f"Make sure the backend server is running")
         return False
         
     except Exception as e:
-        print(f"   ❌ ERROR: {str(e)}")
+        print(f"ERROR: {str(e)}")
         return False
 
 def list_available_courses(token, base_url="http://localhost:8000"):
     """List available courses"""
     
-    print(f"📚 Available courses:")
+    print(f"Available courses:")
     print("-" * 40)
     
     headers = {
@@ -120,20 +120,20 @@ def list_available_courses(token, base_url="http://localhost:8000"):
             if courses:
                 for i, course in enumerate(courses, 1):
                     print(f"{i:2}. {course.get('course_id')}")
-                    print(f"    📖 {course.get('title', 'No title')}")
-                    print(f"    📅 {course.get('term', 'No term')}")
+                    print(f"{course.get('title', 'No title')}")
+                    print(f"{course.get('term', 'No term')}")
                     print()
             else:
                 print("   No courses available")
         else:
-            print(f"   ❌ Failed to get courses: {response.status_code}")
+            print(f"Failed to get courses: {response.status_code}")
             
     except Exception as e:
-        print(f"   ❌ Error: {str(e)}")
+        print(f"Error: {str(e)}")
 
 def main():
     if len(sys.argv) < 2:
-        print("🎯 Add Course to User")
+        print("Add Course to User")
         print("=" * 30)
         print()
         print("Usage:")
@@ -155,7 +155,7 @@ def main():
     token = sys.argv[1]
     
     if len(sys.argv) < 3:
-        print("❌ Missing course ID or --list flag")
+        print("Missing course ID or --list flag")
         print("Usage: python add_course.py YOUR_TOKEN COURSE_ID")
         print("   or: python add_course.py YOUR_TOKEN --list")
         return
@@ -171,12 +171,12 @@ def main():
         
         if success:
             print()
-            print("🎉 COMPLETED SUCCESSFULLY!")
+            print("COMPLETED SUCCESSFULLY!")
         else:
             print()
-            print("💥 FAILED TO ADD COURSE")
+            print("FAILED TO ADD COURSE")
             print()
-            print("💡 Troubleshooting tips:")
+            print("Troubleshooting tips:")
             print("   - Make sure the backend server is running")
             print("   - Verify your auth token is valid")
             print("   - Check that the course ID exists")
