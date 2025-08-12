@@ -1,10 +1,11 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from .models import MessageCreate, MessageUpdate, MessageResponse
 from .service import (
     create_message_service, get_messages_service, get_message_service,
     update_message_service, delete_message_service, get_course_analytics_service
 )
 from typing import List
+from src.auth.middleware import admin_required
 
 router = APIRouter(
     prefix='/messages',
@@ -48,7 +49,7 @@ async def delete_message_api(message_id: str):
 async def get_course_analytics(course_id: str):
     return await get_course_analytics_service(course_id)
 
-@router.post("/seed_test_data/{course_id}")
+@router.post("/seed_test_data/{course_id}", dependencies=[Depends(admin_required)])
 async def seed_test_messages(course_id: str):
     """Create some test messages for demo purposes"""
     from src.supabaseClient import supabase

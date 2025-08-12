@@ -33,60 +33,19 @@ async def delete_message_service(message_id):
 
 
 async def get_course_analytics_service(course_id: str) -> Dict[str, Any]:
-    """Aggregate analytics for a course using the messages table.
-
-    Returns:
-      - total_conversations: distinct conversations for the course
-      - active_users: distinct users who sent at least one message
-      - usage_by_day: last 7 days, count of messages per day
-      - conversations_by_model: assistant message counts grouped by model
-      - recent_pairs: latest anonymized Q&A pairs
-    """
+    """Aggregate analytics for a course using SQL for counts and groupings."""
     logger.info(f"Fetching analytics for course: {course_id}")
-    
-    resp = supabase.table("messages").select("*").eq("course_id", course_id).order("created_at", desc=False).execute()
-    msgs: List[Dict[str, Any]] = resp.data or []
-    
-    logger.info(f"Found {len(msgs)} messages for course {course_id}")
-    
-    # Log sample message structure for debugging
-    if msgs:
-        sample_msg = msgs[0]
-        logger.info(f"Sample message structure: {sample_msg}")
-        logger.info(f"Message keys: {list(sample_msg.keys()) if sample_msg else 'No messages'}")
 
-    conversations = set()
-    users = set()
-    by_day: Dict[str, int] = {}
-    model_counts: Dict[str, int] = {}
+    # 1) Use SQL RPC to compute counts, group-bys, and usage by day
+    rpc_resp = supabase.rpc('get_course_analytics_counts', { 'p_course_id': course_id }).execute()
+    rpc_data: Dict[str, Any] = rpc_resp.data or {}
 
-    for m in msgs:
-        conversations.add(m.get("conversation_id"))
-        if m.get("user_id"):
-            users.add(m.get("user_id"))
-        ts = m.get("created_at")
-        if ts:
-            day = str(ts)[:10]
-            by_day[day] = by_day.get(day, 0) + 1
-        if m.get("sender") == "assistant":
-            model = m.get("model") or "unknown"
-            model_counts[model] = model_counts.get(model, 0) + 1
-
-    logger.info(f"Processed data - Conversations: {len(conversations)}, Users: {len(users)}, Days: {len(by_day)}, Models: {len(model_counts)}")
-    logger.info(f"Usage by day: {by_day}")
-    logger.info(f"Model counts: {model_counts}")
-
-    today = datetime.now(timezone.utc).date()
-    labels = []
-    counts = []
-    for i in range(6, -1, -1):
-        d = today - timedelta(days=i)
-        key = d.isoformat()
-        labels.append(d.strftime("%a"))
-        counts.append(by_day.get(key, 0))
+    # 2) Fetch a limited window of recent messages to construct Q&A pairs
+    pairs_resp = supabase.table("messages").select("sender,content,created_at").eq("course_id", course_id).order("created_at", desc=True).limit(400).execute()
+    msgs: List[Dict[str, Any]] = list(reversed(pairs_resp.data or []))
 
     recent_pairs: List[Dict[str, str]] = []
-    for m in msgs[-200:]:
+    for m in msgs:
         if m.get("sender") == "user":
             recent_pairs.append({"user": m.get("content", ""), "assistant": ""})
         elif m.get("sender") == "assistant" and recent_pairs:
@@ -99,12 +58,12 @@ async def get_course_analytics_service(course_id: str) -> Dict[str, Any]:
     ]
 
     result = {
-        "total_conversations": len([c for c in conversations if c]),
-        "active_users": len([u for u in users if u]),
-        "usage_by_day": {"labels": labels, "counts": counts},
-        "conversations_by_model": model_counts,
+        "total_conversations": rpc_data.get("total_conversations", 0),
+        "active_users": rpc_data.get("active_users", 0),
+        "usage_by_day": rpc_data.get("usage_by_day", {"labels": [], "counts": []}),
+        "conversations_by_model": rpc_data.get("conversations_by_model", {}),
         "recent_pairs": recent_pairs,
     }
-    
+
     logger.info(f"Course analytics result for {course_id}: {result}")
     return result
