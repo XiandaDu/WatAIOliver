@@ -46,7 +46,7 @@ export function WelcomeScreen({
         onClick={handleLogout}
         variant="outline"
         size="sm"
-        className="absolute top-4 right-4 text-red-600 border-red-300 hover:bg-red-50"
+        className="absolute top-4 right-4 text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700"
       >
         Logout
       </Button>

@@ -301,7 +301,7 @@ async def generate_standard_rag_response(data: ChatRequest) -> str:
             prompt=f"System: {system_prompt}\n\n{enhanced_prompt}",
             conversation_id=data.conversation_id,
             file_context=data.file_context,
-            model=data.model or 'gemini-2.5-flash'
+            model=data.model
         )
         
         return llm_text_endpoint(modified_data)
@@ -312,20 +312,29 @@ async def generate_standard_rag_response(data: ChatRequest) -> str:
 async def generate_response(data: ChatRequest) -> str:
     """Generate response using daily (RAG) or rag (Multi-agent) systems"""
     
-    if data.model == "daily":
+    mode = data.mode or "daily"
+    
+    if mode == "daily":
         return await generate_standard_rag_response(data)
     
-    elif data.model == "rag":
+    elif mode == "rag":
         if not data.course_id:
             return "Agent System requires a course selection to identify the knowledge base."
 
         try:
+            # Get course prompt for agents system
+            from src.course.CRUD import get_course
+            course = get_course(data.course_id)
+            course_prompt = course.get('prompt') if course else None
+            
             result = await query_agents_system(
                 data.conversation_id or "",
                 data.prompt,
                 data.course_id,
                 data.rag_model,
                 data.heavy_model,
+                data.model,
+                course_prompt,
             )
 
             if result and result.get('success'):
@@ -338,7 +347,7 @@ async def generate_response(data: ChatRequest) -> str:
             return f"The Agent System is currently unavailable. Please try again later.\n\nTechnical details: {str(e)}"
     
     else:
-        return f"Unknown model '{data.model}'. Please select 'daily' for Daily mode or 'rag' for Problem Solving mode."
+        return f"Unknown mode '{mode}'. Please select 'daily' for Daily mode or 'rag' for Problem Solving mode."
 
 def _format_agents_response_with_debug(result: Dict[str, Any]) -> str:
     """Format agents response with optional debug information"""
@@ -363,6 +372,8 @@ async def query_agents_system(
     course_id: str,
     rag_model: Optional[str] = None,
     heavy_model: Optional[str] = None,
+    base_model: Optional[str] = None,
+    course_prompt: Optional[str] = None,
 ) -> dict:
     """Query the multi-agent system with optional model overrides"""
     
@@ -372,12 +383,16 @@ async def query_agents_system(
                 "query": query,
                 "course_id": course_id,
                 "session_id": conversation_id,
-                "metadata": {"source": "chat_interface"}
+                "metadata": {"source": "chat_interface", "base_model": base_model}
             }
             if rag_model:
                 payload["embedding_model"] = rag_model
             if heavy_model:
                 payload["heavy_model"] = heavy_model
+            if base_model:
+                payload["base_model"] = base_model
+            if course_prompt:
+                payload["course_prompt"] = course_prompt
             
             response = await client.post(
                 f'http://{ServiceConfig.LOCALHOST}:{ServiceConfig.AGENTS_SYSTEM_PORT}/query',

@@ -22,7 +22,8 @@ class ChatRequest(BaseModel):
     prompt: str
     conversation_id: Optional[str] = None
     file_context: Optional[str] = None
-    model: Optional[str] = "qwen3"
+    model: Optional[str] = "gemini-2.5-flash"
+    mode: Optional[str] = "daily"
     course_id: Optional[str] = None
     rag_model: Optional[str] = None
     heavy_model: Optional[str] = None

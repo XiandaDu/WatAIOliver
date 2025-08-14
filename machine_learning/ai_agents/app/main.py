@@ -94,6 +94,7 @@ class QueryRequest(BaseModel):
     session_id: Optional[str] = Field(default=None, description="Optional session identifier")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Additional metadata")
     heavy_model: Optional[str] = Field(default=None, description="Optional heavy model for debate agents")
+    course_prompt: Optional[str] = Field(default=None, description="Course-specific system prompt")
     config_overrides: Optional[Dict[str, Any]] = Field(default=None, description="Configuration overrides")
 
 
@@ -259,6 +260,7 @@ async def process_query(request: QueryRequest):
             session_id=session_id,
             metadata=request.metadata or {},
             heavy_model=request.heavy_model,
+            course_prompt=request.course_prompt,
         )
         
         return QueryResponse(**result)

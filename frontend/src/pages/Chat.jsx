@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { ChatContainer } from "@/components/ui/chat"
+import { Button } from "@/components/ui/button"
 import { Sidebar } from "@/components/Sidebar"
 import { WelcomeScreen } from "@/components/WelcomeScreen"
 import { ChatInterface } from "@/components/ChatInterface"
@@ -55,6 +56,7 @@ export default function ChatPage() {
   ]
 
   const [userId, setUserId] = useState(null);
+  const [userRole, setUserRole] = useState(null);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -71,6 +73,7 @@ export default function ChatPage() {
     }
     
     setUserId(user.id);
+    setUserRole(user.role);
   }, [navigate]);
 
   useEffect(() => {
@@ -320,7 +323,7 @@ export default function ChatPage() {
               sender: 'user',
               content: input.trim() || (experimental_attachments?.length ? 'Please analyze the uploaded file.' : ''),
               course_id: selectedCourseId || null,  // Always save course_id if available
-              model: selectedModel
+              model: selectedBaseModel
             })
           })
         } catch (messageError) {
@@ -336,7 +339,8 @@ export default function ChatPage() {
           prompt: input.trim() || (experimental_attachments?.length ? 'Please help me analyze the uploaded file.' : ''),
           conversation_id: newConversationId,
           file_context: fileContext || null,
-          model: selectedModel,
+          model: selectedBaseModel,
+          mode: selectedModel,
           course_id: selectedCourseId,
           rag_model: selectedRagModel,
           heavy_model: useAgents ? selectedHeavyModel : null,
@@ -382,7 +386,7 @@ export default function ChatPage() {
               sender: 'assistant',
               content: aiResponse,
               course_id: selectedCourseId || null,  // Always save course_id if available
-              model: selectedModel
+              model: selectedBaseModel
             })
           })
         } catch (saveError) {
@@ -505,7 +509,7 @@ export default function ChatPage() {
             sender: 'user',
             content: message.content,
             course_id: selectedCourseId || null,  // Always save course_id if available
-            model: selectedModel
+            model: selectedBaseModel
           })
         })
       }
@@ -517,7 +521,8 @@ export default function ChatPage() {
         body: JSON.stringify({
           prompt: message.content,
           conversation_id: newConversationId,
-          model: selectedModel,
+          model: selectedBaseModel,
+          mode: selectedModel,
           course_id: selectedCourseId,
           rag_model: selectedRagModel,
           heavy_model: useAgents ? selectedHeavyModel : null,
@@ -539,7 +544,7 @@ export default function ChatPage() {
             sender: 'assistant',
             content: aiResponse,
             course_id: selectedCourseId || null,  // Always save course_id if available
-            model: selectedModel
+            model: selectedBaseModel
           })
         })
       }
@@ -684,6 +689,46 @@ export default function ChatPage() {
         formatTimestamp={formatTimestamp}
       />
       <div className="flex-1 flex flex-col items-center justify-center w-full h-screen">
+        {/* Navigation and Logout Buttons */}
+        <div className="absolute top-4 right-4 z-10 flex space-x-2">
+          {/* Back to Admin Panel - Only for instructors/admins */}
+          {(userRole === 'instructor' || userRole === 'admin') && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/admin')}
+              className="bg-white/90 backdrop-blur-sm border-gray-300 hover:bg-gray-50"
+            >
+              ← Admin Panel
+            </Button>
+          )}
+          
+          {/* Back to Course Selection - Only for students */}
+          {userRole === 'student' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/courses')}
+              className="bg-white/90 backdrop-blur-sm border-gray-300 hover:bg-gray-50"
+            >
+              ← Course Selection
+            </Button>
+          )}
+          
+          {/* Logout - For everyone */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              localStorage.removeItem('user');
+              localStorage.removeItem('access_token');
+              navigate('/login');
+            }}
+            className="bg-white/90 backdrop-blur-sm border-red-300 hover:bg-red-50 text-red-600 hover:text-red-700"
+          >
+            Logout
+          </Button>
+        </div>
         <div className="flex flex-col min-h-0 w-full h-full items-center justify-center max-w-full">
           <ChatContainer className="flex flex-col h-full w-full">
             {messages.length === 0 ? (

@@ -63,8 +63,9 @@ class StrategistAgent(BaseAgent):
             self.logger.info(f"Strategist analyzing query: '{query[:100]}...'")
             self.logger.info(f"Working with {len(context)} context items")
             
-            # Build the complete prompt with context
-            strategist_prompt = self._build_strategist_prompt(query, context)
+            # Build the complete prompt with context and course-specific guidance
+            metadata = agent_input.metadata or {}
+            strategist_prompt = self._build_strategist_prompt(query, context, metadata)
             
             # Generate the draft with CoT
             response = await self._generate_draft_solution(strategist_prompt)
@@ -104,14 +105,21 @@ class StrategistAgent(BaseAgent):
             self.logger.error(f"Strategist failed: {str(e)}")
             raise e
     
-    def _build_strategist_prompt(self, query: str, context: List[Dict[str, Any]]) -> str:
+    def _build_strategist_prompt(self, query: str, context: List[Dict[str, Any]], metadata: Dict[str, Any] = None) -> str:
         """Build comprehensive prompt with context and query"""
         
         # Format context information
         context_text = self._format_context_for_prompt(context)
         
+        # Get course-specific prompt if available
+        course_prompt = metadata.get('course_prompt') if metadata else None
+        system_guidance = course_prompt or "You are a helpful educational assistant."
+        
         prompt = f"""
         {self.system_prompt}
+        
+        COURSE-SPECIFIC GUIDANCE:
+        {system_guidance}
         
         CONTEXT INFORMATION:
         {context_text}

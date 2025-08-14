@@ -249,7 +249,8 @@ class MultiAgentOrchestrator:
         course_id: str,
         session_id: str,
         metadata: Optional[Dict[str, Any]] = None,
-        heavy_model: Optional[str] = None
+        heavy_model: Optional[str] = None,
+        course_prompt: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Process a user query through the complete speculative AI workflow
@@ -274,21 +275,34 @@ class MultiAgentOrchestrator:
         original_strategist_llm = None
         original_critic_llm = None
 
-        if heavy_model:
-            heavy_llm = self._create_llm_client(heavy_model)
-            if heavy_llm:
-                original_strategist_llm = self.strategist_agent.llm_client
-                original_critic_llm = self.critic_agent.llm_client
-                self.strategist_agent.llm_client = heavy_llm
-                self.critic_agent.llm_client = heavy_llm
-
         try:
             self.logger.info(f"QUERY: '{query[:80]}...' | Course: {course_id[:8]}...")
+            
+            # Add course prompt to metadata for all agents
+            enhanced_metadata = metadata.copy() if metadata else {}
+            if course_prompt:
+                enhanced_metadata['course_prompt'] = course_prompt
+                self.logger.info(f"Using course-specific prompt: {course_prompt[:50]}...")
+            
+            # Use heavy model if specified, otherwise fall back to base model from metadata
+            debate_model = heavy_model
+            if not debate_model:
+                # If no heavy model specified, check metadata for base model
+                debate_model = enhanced_metadata.get('base_model')
+            
+            if debate_model:
+                debate_llm = self._create_llm_client(debate_model)
+                if debate_llm:
+                    original_strategist_llm = self.strategist_agent.llm_client
+                    original_critic_llm = self.critic_agent.llm_client
+                    self.strategist_agent.llm_client = debate_llm
+                    self.critic_agent.llm_client = debate_llm
+                    self.logger.info(f"Using {debate_model} for debate agents")
             
             # Stage 1: Enhanced Retrieval
             self.logger.info("")
             self.logger.info("=== RETRIEVAL STAGE ===")
-            retrieval_result = await self._execute_retrieval(query, course_id, session_id, metadata)
+            retrieval_result = await self._execute_retrieval(query, course_id, session_id, enhanced_metadata)
             
             if not retrieval_result.success:
                 return self._create_error_response("Retrieval failed", retrieval_result.error_message)
@@ -299,7 +313,7 @@ class MultiAgentOrchestrator:
             # Stage 2: Debate Loop
             self.logger.info("")
             self.logger.info("️  === DEBATE STAGE ===")
-            debate_result = await self._execute_debate_loop(query, context, session_id, metadata)
+            debate_result = await self._execute_debate_loop(query, context, session_id, enhanced_metadata)
             
             if not debate_result["success"]:
                 return self._create_error_response("Debate loop failed", debate_result.get("error"))
@@ -308,7 +322,7 @@ class MultiAgentOrchestrator:
             self.logger.info("")
             self.logger.info("=== SYNTHESIS STAGE ===")
             final_result = await self._execute_final_synthesis(
-                query, context, debate_result["result"], session_id, metadata
+                query, context, debate_result["result"], session_id, enhanced_metadata
             )
             
             if not final_result.success:
@@ -318,7 +332,7 @@ class MultiAgentOrchestrator:
             self.logger.info("")
             self.logger.info("=== TUTOR STAGE ===")
             tutor_result = await self._execute_tutor_interaction(
-                query, final_result.content["final_answer"], session_id, metadata
+                query, final_result.content["final_answer"], session_id, enhanced_metadata
             )
             
             if not tutor_result.success:

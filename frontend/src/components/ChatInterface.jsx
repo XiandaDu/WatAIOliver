@@ -55,7 +55,7 @@ export function ChatInterface({
               onClick={handleLogout}
               variant="outline"
               size="sm"
-              className="text-red-600 border-red-300 hover:bg-red-50"
+              className="text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700"
             >
               Logout
             </Button>

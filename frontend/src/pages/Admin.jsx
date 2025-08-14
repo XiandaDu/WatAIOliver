@@ -395,7 +395,7 @@ export default function AdminPage() {
             <Button onClick={() => setShowCreateDialog(true)}>Add Course</Button>
             <Button
               variant="outline"
-              className="ml-4"
+              className="ml-4 text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700"
               onClick={handleLogout}
             >
               Logout
@@ -438,6 +438,7 @@ export default function AdminPage() {
                     <TableHead className="w-[50px]">#</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Notes</TableHead>
+                    <TableHead>Invite Code</TableHead>
                     <TableHead>Doc</TableHead>
                     <TableHead>Prompt</TableHead>
                     <TableHead>Operate</TableHead>
@@ -451,6 +452,40 @@ export default function AdminPage() {
                       <TableCell className="max-w-xs">
                         <div className="truncate">{course.description || '-'}</div>
                         {course.term && <div className="text-sm text-gray-500">Term: {course.term}</div>}
+                      </TableCell>
+                      <TableCell className="min-w-[120px]">
+                        {course.invite_code ? (
+                          <div className="text-center">
+                            <div className="flex items-center justify-center space-x-2">
+                              <div className="font-mono text-lg font-bold bg-blue-100 text-blue-800 px-3 py-2 rounded-lg border-2 border-blue-300">
+                                {course.invite_code}
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-blue-600 hover:text-blue-800"
+                                onClick={(event) => {
+                                  navigator.clipboard.writeText(course.invite_code);
+                                  // Show brief feedback
+                                  const btn = event.target;
+                                  const originalText = btn.innerHTML;
+                                  btn.innerHTML = '✓';
+                                  btn.className = 'h-8 w-8 p-0 text-green-600';
+                                  setTimeout(() => {
+                                    btn.innerHTML = originalText;
+                                    btn.className = 'h-8 w-8 p-0 text-blue-600 hover:text-blue-800';
+                                  }, 1000);
+                                }}
+                                title="Copy invite code"
+                              >
+                                📋
+                              </Button>
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">Share with students</div>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-sm">No code</span>
+                        )}
                       </TableCell>
                       <TableCell className="min-w-[250px]">
                         {course.documents && course.documents.length > 0 ? (
@@ -519,18 +554,6 @@ export default function AdminPage() {
                           </Button>
                           <Button variant="ghost" size="sm" onClick={() => handleQandA(course)}>
                             Q and A
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={async () => {
-                              const docs = await loadDocuments(course.course_id)
-                              setCourses(prev => prev.map(c => 
-                                c.course_id === course.course_id ? { ...c, documents: docs } : c
-                              ))
-                            }}
-                          >
-                            Refresh Docs
                           </Button>
                         </div>
                       </TableCell>

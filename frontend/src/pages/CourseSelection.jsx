@@ -93,7 +93,26 @@ export default function CourseSelection() {
         throw new Error(err.detail || `Failed to join: ${response.statusText}`);
       }
       const data = await response.json();
-      navigate(`/chat?course=${data.course_id}`);
+      
+      // Success! Clear the invite code and refresh the courses list
+      setInviteCode('');
+      alert(`Successfully joined "${data.title}"! You can now select it from your courses below.`);
+      
+      // Refresh courses to show the newly joined course
+      try {
+        const coursesResponse = await fetch('http://localhost:8000/course/', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+          }
+        });
+        if (coursesResponse.ok) {
+          const coursesData = await coursesResponse.json();
+          setCourses(coursesData || []);
+        }
+      } catch (refreshErr) {
+        console.error('Error refreshing courses:', refreshErr);
+        // Still show success message even if refresh fails
+      }
     } catch (err) {
       console.error('Join by code failed:', err);
       alert(err.message || 'Failed to join course');
@@ -128,7 +147,7 @@ export default function CourseSelection() {
           <Button
             onClick={handleLogout}
             variant="outline"
-            className="ml-4"
+            className="ml-4 text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700"
           >
             Logout
           </Button>
@@ -163,7 +182,7 @@ export default function CourseSelection() {
                       <CardDescription>{course.term}</CardDescription>
                     </div>
                     <Button onClick={() => handleJoinCourse(course.course_id)}>
-                      Join Course
+                      Enter Chat
                     </Button>
                   </CardContent>
                 </Card>
