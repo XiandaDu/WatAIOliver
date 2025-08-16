@@ -27,6 +27,29 @@ from machine_learning.rag_system.app.config import get_settings
 
 BASE_URL = ServiceConfig.NEBULA_BASE_URL
 
+def get_custom_model_api_key(course_id: str, model_name: str) -> Optional[str]:
+    """Get API key for a custom model in a specific course."""
+    if not course_id or not model_name.startswith("custom-"):
+        return None
+    
+    try:
+        from src.course.CRUD import get_course
+        course = get_course(course_id)
+        if not course:
+            return None
+        
+        custom_models = course.get('custom_models', []) or []
+        custom_model_name = model_name.replace("custom-", "")
+        
+        for model in custom_models:
+            if model.get('name') == custom_model_name:
+                return model.get('api_key')
+        
+        return None
+    except Exception as e:
+        logger.error(f"Error getting custom model API key: {e}")
+        return None
+
 def generate(data: ChatRequest) -> str:
     response = requests.post(f"{BASE_URL}/generate", data={"prompt": data.prompt, "reasoning": True})
     return response.json().get("result", "No result returned")
@@ -132,6 +155,14 @@ def llm_text_endpoint(data: ChatRequest) -> str:
 
     settings = get_settings()
     model_name = data.model or "qwen-3-235b-a22b-instruct-2507"
+    
+    # Check if this is a custom model
+    custom_api_key = None
+    if model_name.startswith("custom-") and data.course_id:
+        custom_api_key = get_custom_model_api_key(data.course_id, model_name)
+        if not custom_api_key:
+            return f"Custom model '{model_name}' not found or API key not available for this course."
+    
     try:
         if model_name.startswith("gemini"):
             client = GeminiClient(
@@ -139,10 +170,14 @@ def llm_text_endpoint(data: ChatRequest) -> str:
                 model=model_name,
                 temperature=ModelConfig.DEFAULT_TEMPERATURE,
             )
-        elif model_name.startswith("gpt"):
+        elif model_name.startswith("gpt") or (model_name.startswith("custom-") and custom_api_key):
+            # Use custom API key if available, otherwise use default
+            api_key = custom_api_key if custom_api_key else settings.openai_api_key
+            # For custom models, use a default GPT model
+            actual_model = "gpt-4o-mini" if model_name.startswith("custom-") else model_name
             client = OpenAIClient(
-                api_key=settings.openai_api_key,
-                model=model_name,
+                api_key=api_key,
+                model=actual_model,
                 temperature=0.6,
                 top_p=0.95,
             )
@@ -301,7 +336,8 @@ async def generate_standard_rag_response(data: ChatRequest) -> str:
             prompt=f"System: {system_prompt}\n\n{enhanced_prompt}",
             conversation_id=data.conversation_id,
             file_context=data.file_context,
-            model=data.model
+            model=data.model,
+            course_id=data.course_id
         )
         
         return llm_text_endpoint(modified_data)

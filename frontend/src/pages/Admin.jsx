@@ -39,6 +39,13 @@ export default function AdminPage() {
   const [showDocumentsDialog, setShowDocumentsDialog] = useState(false)
   const [documentsDialogCourse, setDocumentsDialogCourse] = useState(null)
   const [documentsLoaded, setDocumentsLoaded] = useState(false)
+  const [showCustomModelDialog, setShowCustomModelDialog] = useState(false)
+  const [selectedCourseForModel, setSelectedCourseForModel] = useState(null)
+  const [customModelData, setCustomModelData] = useState({
+    name: '',
+    api_key: '',
+    model_type: 'openai'
+  })
   const didFetchCourses = useRef(false)
   const [newCourse, setNewCourse] = useState({
     title: '',
@@ -176,7 +183,48 @@ export default function AdminPage() {
   }
 
   const handleOpenAIAPI = (course) => {
-    const apiKey = prompt(`Please enter ${course.title} OpenAI API Key: `);
+    setSelectedCourseForModel(course)
+    setCustomModelData({
+      name: '',
+      api_key: '',
+      model_type: 'openai'
+    })
+    setShowCustomModelDialog(true)
+  }
+
+  const handleCustomModelSubmit = async () => {
+    if (!selectedCourseForModel || !customModelData.name.trim() || !customModelData.api_key.trim()) {
+      alert('Please fill in all required fields')
+      return
+    }
+
+    try {
+      const response = await fetch(`http://localhost:8000/course/${selectedCourseForModel.course_id}/custom-models`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(customModelData)
+      })
+
+      if (response.ok) {
+        alert(`Custom model "${customModelData.name}" added successfully!`)
+        setShowCustomModelDialog(false)
+        setCustomModelData({
+          name: '',
+          api_key: '',
+          model_type: 'openai'
+        })
+        setSelectedCourseForModel(null)
+      } else {
+        const errorData = await response.json()
+        alert(`Failed to add custom model: ${errorData.detail || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error adding custom model:', error)
+      alert('Error adding custom model')
+    }
   }
 
   const handleSaveCourse = async () => {
@@ -827,6 +875,63 @@ export default function AdminPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDocumentsDialog(false)}>
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Custom Model Dialog */}
+      <Dialog open={showCustomModelDialog} onOpenChange={setShowCustomModelDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Custom OpenAI Model</DialogTitle>
+          </DialogHeader>
+          {selectedCourseForModel && (
+            <div className="space-y-4">
+              <div className="text-sm text-gray-600">
+                Adding custom model for: <strong>{selectedCourseForModel.title}</strong>
+              </div>
+              <div>
+                <Label htmlFor="model-name">Model Name *</Label>
+                <Input
+                  id="model-name"
+                  value={customModelData.name}
+                  onChange={(e) => setCustomModelData(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g., ChatGPT-5, Custom GPT-4"
+                />
+              </div>
+              <div>
+                <Label htmlFor="api-key">OpenAI API Key *</Label>
+                <Input
+                  id="api-key"
+                  type="password"
+                  value={customModelData.api_key}
+                  onChange={(e) => setCustomModelData(prev => ({ ...prev, api_key: e.target.value }))}
+                  placeholder="sk-..."
+                />
+              </div>
+              <div>
+                <Label htmlFor="model-type">Model Type</Label>
+                <Select
+                  value={customModelData.model_type}
+                  onValueChange={(value) => setCustomModelData(prev => ({ ...prev, model_type: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="openai">OpenAI</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCustomModelDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCustomModelSubmit}>
+              Add Model
             </Button>
           </DialogFooter>
         </DialogContent>

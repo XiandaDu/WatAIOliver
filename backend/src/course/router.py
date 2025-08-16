@@ -4,7 +4,7 @@ from .CRUD import (
     create_course, get_course, get_courses, get_all_courses,
     search_courses, get_course_count, update_course, delete_course
 )
-from .models import CourseCreate, CourseUpdate, CourseResponse
+from .models import CourseCreate, CourseUpdate, CourseResponse, CustomModel
 from typing import List, Optional
 
 from datetime import datetime
@@ -136,3 +136,41 @@ async def get_course_count_api(current_user: AuthUser = Depends(get_current_user
         return count
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting course count: {str(e)}")
+
+@router.post("/{course_id}/custom-models")
+async def add_custom_model_api(
+    course_id: str,
+    custom_model: CustomModel,
+    current_user: AuthUser = Depends(instructor_required)
+):
+    """Add a custom OpenAI model to a course"""
+    try:
+        result = service.add_custom_model_service(course_id, current_user.id, custom_model)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error adding custom model: {str(e)}")
+
+@router.get("/{course_id}/custom-models")
+async def get_custom_models_api(
+    course_id: str,
+    current_user: AuthUser = Depends(get_current_user)
+):
+    """Get custom models for a course"""
+    try:
+        models = service.get_custom_models_service(course_id, current_user.id)
+        return models
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching custom models: {str(e)}")
+
+@router.delete("/{course_id}/custom-models/{model_name}")
+async def delete_custom_model_api(
+    course_id: str,
+    model_name: str,
+    current_user: AuthUser = Depends(instructor_required)
+):
+    """Delete a custom model from a course"""
+    try:
+        result = service.delete_custom_model_service(course_id, current_user.id, model_name)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting custom model: {str(e)}")
