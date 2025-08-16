@@ -175,6 +175,10 @@ export default function AdminPage() {
     navigate(`/chat?course_id=${encodeURIComponent(course.course_id)}`)
   }
 
+  const handleOpenAIAPI = (course) => {
+    const apiKey = prompt(`Please enter ${course.title} OpenAI API Key: `);
+  }
+
   const handleSaveCourse = async () => {
     if (!editingCourse) return
     
@@ -554,6 +558,9 @@ export default function AdminPage() {
                           </Button>
                           <Button variant="ghost" size="sm" onClick={() => handleQandA(course)}>
                             Q and A
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleOpenAIAPI(course)}>
+                            OpenAI API
                           </Button>
                         </div>
                       </TableCell>
