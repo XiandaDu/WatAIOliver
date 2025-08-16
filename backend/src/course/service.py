@@ -3,7 +3,7 @@ from .CRUD import (
     create_course, update_course, delete_course, get_courses, get_course, get_all_courses, get_course_by_invite_code,
     find_course_by_title_ilike
 )
-from .models import CourseCreate, CourseUpdate, CourseResponse
+from .models import CourseCreate, CourseUpdate, CourseResponse, CustomModel
 from typing import List, Optional, Dict, Any
 import random
 from ..user.service import get_user_courses
@@ -225,3 +225,109 @@ def list_my_courses_service(user_id: str, limit: Optional[int] = None,
         return [CourseResponse(**course) for course in courses]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching courses: {str(e)}")
+
+def add_custom_model_service(course_id: str, user_id: str, custom_model: CustomModel) -> Dict[str, Any]:
+    """Add a custom model to a course"""
+    try:
+        # Check if course exists and user has access
+        existing_course = get_course(course_id)
+        if not existing_course:
+            raise HTTPException(status_code=404, detail="Course not found")
+        
+        if existing_course['created_by'] != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Get current custom models
+        current_models = existing_course.get('custom_models', []) or []
+        
+        # Check if model name already exists
+        for model in current_models:
+            if model.get('name') == custom_model.name:
+                raise HTTPException(status_code=400, detail="Model name already exists")
+        
+        # Add timestamp
+        from datetime import datetime
+        model_data = custom_model.dict()
+        model_data['created_at'] = datetime.utcnow().isoformat()
+        
+        # Add new model
+        current_models.append(model_data)
+        
+        # Update course
+        updated_course = update_course(course_id, custom_models=current_models)
+        if not updated_course:
+            raise HTTPException(status_code=400, detail="Failed to add custom model")
+        
+        return {"success": True, "message": f"Custom model '{custom_model.name}' added successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error adding custom model: {str(e)}")
+
+def get_custom_models_service(course_id: str, user_id: str) -> Dict[str, Any]:
+    """Get custom models for a course"""
+    try:
+        # Check if course exists and user has access
+        existing_course = get_course(course_id)
+        if not existing_course:
+            raise HTTPException(status_code=404, detail="Course not found")
+        
+        # Check access (either creator or enrolled student)
+        try:
+            user_courses = get_user_courses(user_id)
+        except Exception:
+            user_courses = []
+        
+        if course_id not in user_courses and existing_course['created_by'] != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        custom_models = existing_course.get('custom_models', []) or []
+        
+        # Remove API keys from response for security (only show to course creator)
+        if existing_course['created_by'] != user_id:
+            # For students, only return model names and types
+            safe_models = []
+            for model in custom_models:
+                safe_models.append({
+                    'name': model.get('name'),
+                    'model_type': model.get('model_type'),
+                    'created_at': model.get('created_at')
+                })
+            return {"custom_models": safe_models}
+        
+        return {"custom_models": custom_models}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching custom models: {str(e)}")
+
+def delete_custom_model_service(course_id: str, user_id: str, model_name: str) -> Dict[str, Any]:
+    """Delete a custom model from a course"""
+    try:
+        # Check if course exists and user has access
+        existing_course = get_course(course_id)
+        if not existing_course:
+            raise HTTPException(status_code=404, detail="Course not found")
+        
+        if existing_course['created_by'] != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Get current custom models
+        current_models = existing_course.get('custom_models', []) or []
+        
+        # Find and remove the model
+        updated_models = [model for model in current_models if model.get('name') != model_name]
+        
+        if len(updated_models) == len(current_models):
+            raise HTTPException(status_code=404, detail="Model not found")
+        
+        # Update course
+        updated_course = update_course(course_id, custom_models=updated_models)
+        if not updated_course:
+            raise HTTPException(status_code=400, detail="Failed to delete custom model")
+        
+        return {"success": True, "message": f"Custom model '{model_name}' deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting custom model: {str(e)}")

@@ -32,6 +32,9 @@ export default function ChatPage() {
   const [selectedCourseId, setSelectedCourseId] = useState("")
   const [selectedCourse, setSelectedCourse] = useState(null)
   const [useAgents, setUseAgents] = useState(false)
+  const [customModels, setCustomModels] = useState([])
+  const [allBaseModelOptions, setAllBaseModelOptions] = useState([])
+  
   const modelOptions = [
     { label: "Daily", value: "daily", description: "RAG-enhanced response with course-specific prompt" },
     { label: "Problem Solving", value: "rag", description: "Multi-agent system with built-in RAG for complex problems" }
@@ -43,11 +46,7 @@ export default function ChatPage() {
     { label: "OpenAI Large", value: "text-embedding-3-large", description: "High-quality OpenAI embedding model" },
     { label: "OpenAI Ada", value: "text-embedding-ada-002", description: "OpenAI's legacy embedding model" }
   ]
-  const baseModelOptions = [
-    { label: "Gemini Flash", value: "gemini-2.5-flash", description: "Google's fast and efficient model (Default)" },
-    { label: "Cerebras Qwen MoE", value: "qwen-3-235b-a22b-instruct-2507", description: "Fast Mixture-of-Experts model from Cerebras" },
-    { label: "GPT-4.1 Mini", value: "gpt-4.1-mini", description: "Lightweight version of OpenAI's GPT-4.1" }
-  ]
+
   const heavyModelOptions = [
     { label: "None", value: "", description: "Use base model only (Default)" },
     { label: "Gemini Pro", value: "gemini-2.5-pro", description: "Google's most capable model for complex reasoning" },
@@ -57,6 +56,61 @@ export default function ChatPage() {
 
   const [userId, setUserId] = useState(null);
   const [userRole, setUserRole] = useState(null);
+
+  // Initialize base model options
+  useEffect(() => {
+    const defaultBaseModels = [
+      { label: "Gemini Flash", value: "gemini-2.5-flash", description: "Google's fast and efficient model (Default)" },
+      { label: "Cerebras Qwen MoE", value: "qwen-3-235b-a22b-instruct-2507", description: "Fast Mixture-of-Experts model from Cerebras" },
+      { label: "GPT-4.1 Mini", value: "gpt-4.1-mini", description: "Lightweight version of OpenAI's GPT-4.1" }
+    ]
+    setAllBaseModelOptions(defaultBaseModels)
+  }, [])
+
+  // Load custom models when course is selected
+  const loadCustomModels = async (courseId) => {
+    if (!courseId) {
+      setCustomModels([])
+      return
+    }
+
+    try {
+      const token = localStorage.getItem('access_token')
+      const response = await fetch(`http://localhost:8000/course/${courseId}/custom-models`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        const models = data.custom_models || []
+        setCustomModels(models)
+        
+        // Update base model options to include custom models
+        const defaultBaseModels = [
+          { label: "Gemini Flash", value: "gemini-2.5-flash", description: "Google's fast and efficient model (Default)" },
+          { label: "Cerebras Qwen MoE", value: "qwen-3-235b-a22b-instruct-2507", description: "Fast Mixture-of-Experts model from Cerebras" },
+          { label: "GPT-4.1 Mini", value: "gpt-4.1-mini", description: "Lightweight version of OpenAI's GPT-4.1" }
+        ]
+        
+        const customModelOptions = models.map(model => ({
+          label: model.name,
+          value: `custom-${model.name}`,
+          description: `Custom ${model.model_type} model`,
+          isCustom: true
+        }))
+        
+        setAllBaseModelOptions([...defaultBaseModels, ...customModelOptions])
+      } else {
+        console.error('Failed to load custom models')
+        setCustomModels([])
+      }
+    } catch (error) {
+      console.error('Error loading custom models:', error)
+      setCustomModels([])
+    }
+  }
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -99,6 +153,8 @@ export default function ChatPage() {
         .then(course => {
           setSelectedCourse(course)
           console.log('Course details loaded:', course)
+          // Load custom models for this course
+          loadCustomModels(courseParam)
         })
         .catch(error => {
           console.error('Error loading course details:', error)
@@ -738,7 +794,7 @@ export default function ChatPage() {
                 modelOptions={modelOptions}
                 selectedBaseModel={selectedBaseModel}
                 setSelectedBaseModel={setSelectedBaseModel}
-                baseModelOptions={baseModelOptions}
+                baseModelOptions={allBaseModelOptions}
                 selectedRagModel={selectedRagModel}
                 setSelectedRagModel={setSelectedRagModel}
                 ragModelOptions={ragModelOptions}
@@ -766,7 +822,7 @@ export default function ChatPage() {
                 modelOptions={modelOptions}
                 selectedBaseModel={selectedBaseModel}
                 setSelectedBaseModel={setSelectedBaseModel}
-                baseModelOptions={baseModelOptions}
+                baseModelOptions={allBaseModelOptions}
                 selectedRagModel={selectedRagModel}
                 setSelectedRagModel={setSelectedRagModel}
                 ragModelOptions={ragModelOptions}

@@ -1,9 +1,9 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from .database import Base
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 class Course(Base):
     __tablename__ = 'courses'
@@ -15,6 +15,7 @@ class Course(Base):
     created_by = Column(String(200))
     invite_code = Column(String(6))
     prompt = Column(Text)
+    custom_models = Column(JSON, default=list)  # Store custom OpenAI API configurations
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow)
 
@@ -31,12 +32,19 @@ class CourseCreate(BaseModel):
     prompt: Optional[str] = Field(None, description="Custom system prompt for this course")
     # invite_code is auto-generated; not accepted from clients
 
+class CustomModel(BaseModel):
+    name: str = Field(..., description="Display name for the custom model")
+    api_key: str = Field(..., description="OpenAI API key")
+    model_type: str = Field(default="openai", description="Type of model (openai, etc.)")
+    created_at: Optional[str] = Field(None, description="When this model was added")
+
 class CourseUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=200, description="Course title")
     description: Optional[str] = Field(None, description="Course description")
     term: Optional[str] = Field(None, max_length=200, description="Academic term")
     created_by: Optional[str] = Field(None, max_length=200, description="Created by user")
     prompt: Optional[str] = Field(None, description="Custom system prompt for this course")
+    custom_models: Optional[List[Dict[str, Any]]] = Field(None, description="Custom model configurations")
 
 class CourseResponse(BaseModel):
     course_id: str
@@ -46,6 +54,7 @@ class CourseResponse(BaseModel):
     created_by: Optional[str]
     invite_code: Optional[str]
     prompt: Optional[str]
+    custom_models: Optional[List[Dict[str, Any]]] = []
     created_at: datetime
     updated_at: datetime
 
