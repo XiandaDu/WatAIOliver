@@ -36,33 +36,15 @@ async def get_course_analytics_service(course_id: str) -> Dict[str, Any]:
     """Aggregate analytics for a course using SQL for counts and groupings."""
     logger.info(f"Fetching analytics for course: {course_id}")
 
-    # 1) Use SQL RPC to compute counts, group-bys, and usage by day
+    # Use SQL RPC to compute counts, group-bys, and usage by day
     rpc_resp = supabase.rpc('get_course_analytics_counts', { 'p_course_id': course_id }).execute()
     rpc_data: Dict[str, Any] = rpc_resp.data or {}
-
-    # 2) Fetch a limited window of recent messages to construct Q&A pairs
-    pairs_resp = supabase.table("messages").select("sender,content,created_at").eq("course_id", course_id).order("created_at", desc=True).limit(400).execute()
-    msgs: List[Dict[str, Any]] = list(reversed(pairs_resp.data or []))
-
-    recent_pairs: List[Dict[str, str]] = []
-    for m in msgs:
-        if m.get("sender") == "user":
-            recent_pairs.append({"user": m.get("content", ""), "assistant": ""})
-        elif m.get("sender") == "assistant" and recent_pairs:
-            if recent_pairs[-1].get("assistant", "") == "":
-                recent_pairs[-1]["assistant"] = m.get("content", "")
-
-    recent_pairs = [
-        {"user": p.get("user", "")[:300], "assistant": p.get("assistant", "")[:600]}
-        for p in recent_pairs[-25:]
-    ]
 
     result = {
         "total_conversations": rpc_data.get("total_conversations", 0),
         "active_users": rpc_data.get("active_users", 0),
         "usage_by_day": rpc_data.get("usage_by_day", {"labels": [], "counts": []}),
         "conversations_by_model": rpc_data.get("conversations_by_model", {}),
-        "recent_pairs": recent_pairs,
     }
 
     logger.info(f"Course analytics result for {course_id}: {result}")
