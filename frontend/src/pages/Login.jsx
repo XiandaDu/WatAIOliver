@@ -161,10 +161,7 @@ export default function Login() {
           </Button>
         </div>
 
-        {/* 
-         * Email login temporarily disabled for cleaner UI. Email/password login can be re-enabled
-         * when needed by uncommenting this section.
-         */}
+        {/* Email login temporarily disabled */}
         {/*
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
