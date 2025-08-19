@@ -26,7 +26,7 @@ export default function ChatPage() {
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
   const [selectedModel, setSelectedModel] = useState("rag")
-  const [selectedBaseModel, setSelectedBaseModel] = useState("gemini-2.5-flash")
+  const [selectedBaseModel, setSelectedBaseModel] = useState("qwen-3-235b-a22b-instruct-2507")
   const [selectedRagModel, setSelectedRagModel] = useState("text-embedding-004")
   const [selectedHeavyModel, setSelectedHeavyModel] = useState("")
   const [selectedCourseId, setSelectedCourseId] = useState("")
@@ -34,7 +34,8 @@ export default function ChatPage() {
   const [useAgents, setUseAgents] = useState(false)
   const [customModels, setCustomModels] = useState([])
   const [allBaseModelOptions, setAllBaseModelOptions] = useState([])
-  const [lastAssistantMessageId, setLastAssistantMessageId] = useState(null);
+  const [lastAssistantMessageId, setLastAssistantMessageId] = useState(null)
+  const [agentProgress, setAgentProgress] = useState({ stage: "", message: "", visible: false });
   
   const modelOptions = [
     { label: "Daily", value: "daily", description: "RAG-enhanced response with course-specific prompt" },
@@ -464,35 +465,42 @@ export default function ChatPage() {
 
             for (const line of lines) {
               if (line.startsWith('data: ')) {
-                const json_str_from_line = line.substring(6); // Remove 'data: '
+                const content_from_line = line.substring(6); // Remove 'data: '
                 try {
-                  const agent_chunk = JSON.parse(json_str_from_line);
+                  // Try to parse as JSON first (for agent streaming)
+                  const agent_chunk = JSON.parse(content_from_line);
                   
                   // Handle agent streaming specifically
                   if (chatRequestData.mode === "rag" && chatRequestData.use_agents) {
                     if (agent_chunk.status === "in_progress") {
+                      // Update progress bar
+                      setAgentProgress({
+                        stage: agent_chunk.stage || "processing",
+                        message: agent_chunk.message || "Agent system is working...",
+                        visible: true
+                      });
                       receivedContent = `Agent System: ${agent_chunk.message || agent_chunk.stage}...`;
                     } else if (agent_chunk.status === "complete") {
+                      // Hide progress bar when complete
+                      setAgentProgress({ stage: "", message: "", visible: false });
                       receivedContent = agent_chunk.final_response?.answer?.step_by_step_solution || agent_chunk.final_response?.answer?.introduction || "Agent response complete.";
                     } else if (agent_chunk.error) {
+                      // Hide progress bar on error
+                      setAgentProgress({ stage: "", message: "", visible: false });
                       receivedContent = `Agent System Error: ${agent_chunk.error.message || "Unknown error"}`;
                     }
                   } else {
-                    // Existing non-agent streaming logic (Cerebras for direct chat)
-                    receivedContent += agent_chunk.content || ""; // Assume non-agent stream has a 'content' key
+                    // Handle JSON-formatted LLM streaming (shouldn't happen anymore)
+                    receivedContent += agent_chunk.content || "";
                   }
-                  setMessages(prev => prev.map(msg => 
-                    msg.id === assistantMessageId ? { ...msg, content: receivedContent } : msg
-                  ));
-                  scrollToBottom();
                 } catch (jsonError) {
-                  console.error(`JSON parse error in streaming response: ${jsonError} - Chunk: ${json_str_from_line}`);
-                  receivedContent += `\n[JSON Parsing Error: ${jsonError.message}]`;
-                  setMessages(prev => prev.map(msg => 
-                    msg.id === assistantMessageId ? { ...msg, content: receivedContent } : msg
-                  ));
-                  scrollToBottom();
+                  // If JSON parsing fails, treat as plain text streaming (for daily mode LLMs)
+                  receivedContent += content_from_line;
                 }
+                setMessages(prev => prev.map(msg => 
+                  msg.id === assistantMessageId ? { ...msg, content: receivedContent } : msg
+                ));
+                scrollToBottom();
               }
             }
           }
@@ -719,10 +727,20 @@ export default function ChatPage() {
                 
                 if (chatRequestData.mode === "rag" && chatRequestData.use_agents) {
                   if (agent_chunk.status === "in_progress") {
+                    // Update progress bar
+                    setAgentProgress({
+                      stage: agent_chunk.stage || "processing",
+                      message: agent_chunk.message || "Agent system is working...",
+                      visible: true
+                    });
                     receivedContent = `Agent System: ${agent_chunk.message || agent_chunk.stage}...`;
                   } else if (agent_chunk.status === "complete") {
+                    // Hide progress bar when complete
+                    setAgentProgress({ stage: "", message: "", visible: false });
                     receivedContent = agent_chunk.final_response?.answer?.step_by_step_solution || agent_chunk.final_response?.answer?.introduction || "Agent response complete.";
                   } else if (agent_chunk.error) {
+                    // Hide progress bar on error
+                    setAgentProgress({ stage: "", message: "", visible: false });
                     receivedContent = `Agent System Error: ${agent_chunk.error.message || "Unknown error"}`;
                   }
                 } else {
@@ -733,8 +751,8 @@ export default function ChatPage() {
                 ));
                 scrollToBottom();
               } catch (jsonError) {
-                console.error(`JSON parse error in streaming response: ${jsonError} - Chunk: ${json_str_from_line}`);
-                receivedContent += `\n[JSON Parsing Error: ${jsonError.message}]`;
+                // If JSON parsing fails, treat as plain text streaming (for daily mode LLMs)
+                receivedContent += json_str_from_line;
                 setMessages(prev => prev.map(msg => 
                   msg.id === assistantMessageId ? { ...msg, content: receivedContent } : msg
                 ));
@@ -1006,6 +1024,7 @@ export default function ChatPage() {
                 isLoading={currentLoadingState.isLoading}
                 stop={stop}
                 messagesContainerRef={messagesContainerRef}
+                agentProgress={agentProgress}
               />
             )}
           </ChatContainer>

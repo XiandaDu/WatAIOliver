@@ -166,14 +166,19 @@ async def llm_text_endpoint(data: ChatRequest) -> StreamingResponse:
             return f"Custom model '{model_name}' not found or API key not available for this course."
     
     try:
+        async def format_stream_for_sse(stream_generator):
+            """Format plain text stream as Server-Sent Events."""
+            async for chunk in stream_generator:
+                if chunk:
+                    yield f"data: {chunk}\n\n"
+
         if model_name.startswith("gemini"):
             client = GeminiClient(
                 api_key=settings.google_api_key,
                 model=model_name,
                 temperature=ModelConfig.DEFAULT_TEMPERATURE,
             )
-            response_content = client.generate(full_prompt)
-            return StreamingResponse(iter([response_content]), media_type="text/plain")
+            return StreamingResponse(format_stream_for_sse(client.generate_stream(full_prompt)), media_type="text/event-stream")
         elif model_name.startswith("gpt") or (model_name.startswith("custom-") and custom_api_key):
             # Use custom API key if available, otherwise use default
             api_key = custom_api_key if custom_api_key else settings.openai_api_key
@@ -185,8 +190,7 @@ async def llm_text_endpoint(data: ChatRequest) -> StreamingResponse:
                 temperature=0.6,
                 top_p=0.95,
             )
-            response_content = client.generate(full_prompt)
-            return StreamingResponse(iter([response_content]), media_type="text/plain")
+            return StreamingResponse(format_stream_for_sse(client.generate_stream(full_prompt)), media_type="text/event-stream")
         elif model_name.startswith("claude"):
             client = AnthropicClient(
                 api_key=settings.anthropic_api_key,
@@ -194,8 +198,7 @@ async def llm_text_endpoint(data: ChatRequest) -> StreamingResponse:
                 temperature=0.6,
                 top_p=0.95,
             )
-            response_content = client.generate(full_prompt)
-            return StreamingResponse(iter([response_content]), media_type="text/plain")
+            return StreamingResponse(format_stream_for_sse(client.generate_stream(full_prompt)), media_type="text/event-stream")
         elif model_name.startswith("qwen") or model_name.startswith("cerebras"):
             client = CerebrasClient(
                 api_key=settings.cerebras_api_key,
@@ -203,15 +206,14 @@ async def llm_text_endpoint(data: ChatRequest) -> StreamingResponse:
                 temperature=0.6,
                 top_p=0.95,
             )
-            return StreamingResponse(client.generate_stream(full_prompt), media_type="text/event-stream")
+            return StreamingResponse(format_stream_for_sse(client.generate_stream(full_prompt)), media_type="text/event-stream")
         else:
             client = GeminiClient(
                 api_key=settings.google_api_key,
                 model=model_name,
                 temperature=ModelConfig.DEFAULT_TEMPERATURE,
             )
-            response_content = client.generate(full_prompt)
-            return StreamingResponse(iter([response_content]), media_type="text/plain")
+            return StreamingResponse(format_stream_for_sse(client.generate_stream(full_prompt)), media_type="text/event-stream")
     except Exception as e:
         logger.error(f"LLM generation failed: {e}")
         return f"Error communicating with model: {str(e)}"
@@ -315,17 +317,21 @@ Please provide a comprehensive answer based on the document content above. Refer
     
     return enhanced_prompt
 
-async def generate_standard_rag_response(data: ChatRequest) -> str:
+async def generate_standard_rag_response(data: ChatRequest) -> StreamingResponse:
     """Generate a response using RAG with course-specific prompt."""
     if not data.course_id:
-        return "RAG model requires a course selection to access the knowledge base."
+        async def error_generator():
+            yield b"RAG model requires a course selection to access the knowledge base."
+        return StreamingResponse(error_generator(), media_type="text/plain")
     
     try:
         from src.course.CRUD import get_course
         course = get_course(data.course_id)
         
         if not course:
-            return "Course not found. Please select a valid course."
+            async def error_generator():
+                yield b"Course not found. Please select a valid course."
+            return StreamingResponse(error_generator(), media_type="text/plain")
         
         # Query RAG system for relevant context
         rag_result = await query_rag_system(
@@ -346,14 +352,16 @@ async def generate_standard_rag_response(data: ChatRequest) -> str:
             prompt=f"System: {system_prompt}\n\n{enhanced_prompt}",
             conversation_id=data.conversation_id,
             file_context=data.file_context,
-            model=data.model,
+            model=data.model or "qwen-3-235b-a22b-instruct-2507",
             course_id=data.course_id
         )
         
-        return llm_text_endpoint(modified_data)
+        return await llm_text_endpoint(modified_data)
         
     except Exception as e:
-        return f"Error generating standard response: {str(e)}"
+        async def error_generator():
+            yield f"Error generating standard response: {str(e)}".encode('utf-8')
+        return StreamingResponse(error_generator(), media_type="text/plain")
 
 async def generate_response(data: ChatRequest) -> StreamingResponse:
     """Generate response using daily (RAG) or rag (Multi-agent) systems"""
@@ -362,8 +370,9 @@ async def generate_response(data: ChatRequest) -> StreamingResponse:
     
     async def generate_chunks():
         if mode == "daily":
-            response_content = await generate_standard_rag_response(data)
-            yield response_content.encode('utf-8')
+            streaming_response = await generate_standard_rag_response(data)
+            async for chunk in streaming_response.body_iterator:
+                yield chunk
         
         elif mode == "rag":
             if not data.course_id:

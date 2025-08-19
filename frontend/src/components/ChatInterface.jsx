@@ -34,7 +34,8 @@ export function ChatInterface({
   handleInputChange,
   isLoading,
   stop,
-  messagesContainerRef
+  messagesContainerRef,
+  agentProgress
 }) {
   const navigate = useNavigate()
   
@@ -130,6 +131,30 @@ export function ChatInterface({
         style={{ minHeight: 0 }}
       >
         <ChatMessages className="py-8">
+          {/* Agent Progress Bar */}
+          {agentProgress?.visible && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                <div>
+                  <div className="text-sm font-medium text-blue-900">
+                    {agentProgress.stage === "initialization" && "🚀 Initializing"}
+                    {agentProgress.stage === "retrieval" && "🔍 Retrieving Context"}
+                    {agentProgress.stage === "retrieval_complete" && "✅ Context Retrieved"}
+                    {agentProgress.stage === "debate" && "💭 Multi-Agent Debate"}
+                    {agentProgress.stage === "debate_complete" && "✅ Debate Complete"}
+                    {agentProgress.stage === "synthesis" && "🧠 Synthesizing Answer"}
+                    {agentProgress.stage === "synthesis_complete" && "✅ Answer Synthesized"}
+                    {agentProgress.stage === "tutor_interaction" && "👨‍🏫 Tutor Review"}
+                    {!["initialization", "retrieval", "retrieval_complete", "debate", "debate_complete", "synthesis", "synthesis_complete", "tutor_interaction"].includes(agentProgress.stage) && "⚙️ Processing"}
+                  </div>
+                  <div className="text-xs text-blue-700 mt-1">
+                    {agentProgress.message}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="space-y-8">
             {messages.map((message) => (
               <div
