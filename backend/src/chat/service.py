@@ -167,28 +167,10 @@ async def llm_text_endpoint(data: ChatRequest) -> StreamingResponse:
     
     try:
         async def format_stream_for_sse(stream_generator):
-            """
-            Convert LLM streaming responses to Server-Sent Events format.
-            
-            Ensures consistent JSON-encoded chunks and proper error handling.
-            """
-            full_response = ""
-            try:
-                async for chunk in stream_generator:
-                    if chunk:
-                        full_response += chunk
-                        # JSON-encode prevents client-side parsing issues with quotes/newlines
-                        json_chunk = json.dumps({"content": chunk})
-                        yield f"data: {json_chunk}\n\n"
-            except Exception as e:
-                # Error recovery: send error as properly formatted SSE
-                logger.error(f"Streaming error: {e}")
-                error_chunk = json.dumps({"content": f"[Streaming Error: {str(e)}]"})
-                yield f"data: {error_chunk}\n\n"
-            finally:
-                # Debug output for monitoring response quality
-                logger.debug(f"LLM Response completed: {len(full_response)} chars")
-            
+            """Format plain text stream as Server-Sent Events."""
+            async for chunk in stream_generator:
+                if chunk:
+                    yield f"data: {chunk}\n\n"
 
         if model_name.startswith("gemini"):
             client = GeminiClient(
@@ -196,8 +178,7 @@ async def llm_text_endpoint(data: ChatRequest) -> StreamingResponse:
                 model=model_name,
                 temperature=ModelConfig.DEFAULT_TEMPERATURE,
             )
-            response_content = client.generate(full_prompt)
-            return StreamingResponse(iter([response_content]), media_type="text/plain")
+            return StreamingResponse(format_stream_for_sse(client.generate_stream(full_prompt)), media_type="text/event-stream")
         elif model_name.startswith("gpt") or (model_name.startswith("custom-") and custom_api_key):
             # Use custom API key if available, otherwise use default
             api_key = custom_api_key if custom_api_key else settings.openai_api_key
@@ -209,8 +190,7 @@ async def llm_text_endpoint(data: ChatRequest) -> StreamingResponse:
                 temperature=0.6,
                 top_p=0.95,
             )
-            response_content = client.generate(full_prompt)
-            return StreamingResponse(iter([response_content]), media_type="text/plain")
+            return StreamingResponse(format_stream_for_sse(client.generate_stream(full_prompt)), media_type="text/event-stream")
         elif model_name.startswith("claude"):
             client = AnthropicClient(
                 api_key=settings.anthropic_api_key,
@@ -218,8 +198,7 @@ async def llm_text_endpoint(data: ChatRequest) -> StreamingResponse:
                 temperature=0.6,
                 top_p=0.95,
             )
-            response_content = client.generate(full_prompt)
-            return StreamingResponse(iter([response_content]), media_type="text/plain")
+            return StreamingResponse(format_stream_for_sse(client.generate_stream(full_prompt)), media_type="text/event-stream")
         elif model_name.startswith("qwen") or model_name.startswith("cerebras"):
             client = CerebrasClient(
                 api_key=settings.cerebras_api_key,
@@ -227,15 +206,14 @@ async def llm_text_endpoint(data: ChatRequest) -> StreamingResponse:
                 temperature=0.6,
                 top_p=0.95,
             )
-            return StreamingResponse(client.generate_stream(full_prompt), media_type="text/event-stream")
+            return StreamingResponse(format_stream_for_sse(client.generate_stream(full_prompt)), media_type="text/event-stream")
         else:
             client = GeminiClient(
                 api_key=settings.google_api_key,
                 model=model_name,
                 temperature=ModelConfig.DEFAULT_TEMPERATURE,
             )
-            response_content = client.generate(full_prompt)
-            return StreamingResponse(iter([response_content]), media_type="text/plain")
+            return StreamingResponse(format_stream_for_sse(client.generate_stream(full_prompt)), media_type="text/event-stream")
     except Exception as e:
         logger.error(f"LLM generation failed: {e}")
         return f"Error communicating with model: {str(e)}"
@@ -433,8 +411,9 @@ async def generate_response(data: ChatRequest) -> StreamingResponse:
     
     async def generate_chunks():
         if mode == "daily":
-            response_content = await generate_standard_rag_response(data)
-            yield response_content.encode('utf-8')
+            streaming_response = await generate_standard_rag_response(data)
+            async for chunk in streaming_response.body_iterator:
+                yield chunk
         
         elif mode == "rag":
             if not data.course_id:

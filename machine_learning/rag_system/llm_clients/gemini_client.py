@@ -36,11 +36,7 @@ class GeminiClient:
         return response.content
     
     async def generate_stream(self, prompt: str):
-        """
-        Generate streaming response from prompt using Gemini via LangChain.
-        
-        Uses LangChain's astream method for async streaming.
-        """
+        """Generate streaming response from prompt using Gemini via LangChain."""
         # Use LangChain's astream method for streaming
         async for chunk in self.llm.astream(prompt):
             if chunk.content:

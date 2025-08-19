@@ -31,9 +31,7 @@ class OpenAIClient:
         return content
 
     async def generate_stream(self, prompt: str):
-        """
-        Generate streaming response from prompt using OpenAI.
-        """
+        """Generate streaming response from prompt using OpenAI."""
         response = self.client.chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
@@ -42,7 +40,6 @@ class OpenAIClient:
             stream=True
         )
         
-        # Stream chunks as they arrive from OpenAI API
         for chunk in response:
             if chunk.choices and chunk.choices[0].delta.content:
                 yield chunk.choices[0].delta.content
