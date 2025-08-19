@@ -168,9 +168,19 @@ async def llm_text_endpoint(data: ChatRequest) -> StreamingResponse:
     try:
         async def format_stream_for_sse(stream_generator):
             """Format plain text stream as Server-Sent Events."""
+            full_response = ""  # Debug: accumulate response
             async for chunk in stream_generator:
                 if chunk:
-                    yield f"data: {chunk}\n\n"
+                    full_response += chunk  # Debug: build full response
+                    # JSON-encode the chunk to properly escape special characters
+                    json_chunk = json.dumps({"content": chunk})
+                    yield f"data: {json_chunk}\n\n"
+            
+            # Debug: Print final response
+            print("=== DEBUG LLM RESPONSE ===")
+            print("FINAL ML OUTPUT:", repr(full_response[:1000]))  # First 1000 chars
+            print("==========================")
+            
 
         if model_name.startswith("gemini"):
             client = GeminiClient(
@@ -442,6 +452,11 @@ async def generate_response(data: ChatRequest) -> StreamingResponse:
                         error_msg = chunk.get('error', {}).get('message', "An unexpected error occurred.")
                         yield b"data: " + json.dumps({"success": False, "error": {"type": "agent_error", "message": f"The Agent System encountered an error while processing your request.\n\nDetails: {error_msg}"}}).encode('utf-8') + b"\n\n"
                         return
+                    
+                    # DEBUG: Log what the agents system sends to frontend
+                    print("=== DEBUG AGENT CHUNK TO FRONTEND ===")
+                    print("CHUNK CONTENT:", repr(str(chunk)[:500]))
+                    print("======================================")
                     
                     # For simplicity, just yield string representation for now
                     # Further refinement needed to format different stages

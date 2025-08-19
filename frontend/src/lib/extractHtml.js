@@ -10,7 +10,6 @@ export function extractHtml(content) {
   console.log("Content received:", content.substring(0, 500));
   console.log("==========================");
 
-  // First priority: Look for explicit HTML code blocks
   const fence = content.match(/```html\s*([\s\S]*?)```/i);
   if (fence && fence[1] && fence[1].trim()) {
     console.log("=== HTML EXTRACTED ===");
