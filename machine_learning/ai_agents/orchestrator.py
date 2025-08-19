@@ -7,7 +7,7 @@ Implements the complete debate loop with proper error handling and monitoring.
 
 import asyncio
 import logging
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, AsyncGenerator
 from datetime import datetime
 
 from ai_agents.config import SpeculativeAIConfig
@@ -251,18 +251,9 @@ class MultiAgentOrchestrator:
         metadata: Optional[Dict[str, Any]] = None,
         heavy_model: Optional[str] = None,
         course_prompt: Optional[str] = None
-    ) -> Dict[str, Any]:
+    ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Process a user query through the complete speculative AI workflow
-        
-        Args:
-            query: User's question
-            course_id: Course identifier for context retrieval
-            session_id: Unique session identifier
-            metadata: Additional metadata
-            
-        Returns:
-            Dict containing final answer and processing metadata
         """
         
         start_time = datetime.now()
@@ -277,6 +268,8 @@ class MultiAgentOrchestrator:
 
         try:
             self.logger.info(f"QUERY: '{query[:80]}...' | Course: {course_id[:8]}...")
+            
+            yield {"status": "in_progress", "stage": "initialization", "message": "Starting agent processing..."}
             
             # Add course prompt to metadata for all agents
             enhanced_metadata = metadata.copy() if metadata else {}
@@ -302,35 +295,47 @@ class MultiAgentOrchestrator:
             # Stage 1: Enhanced Retrieval
             self.logger.info("")
             self.logger.info("=== RETRIEVAL STAGE ===")
+            yield {"status": "in_progress", "stage": "retrieval", "message": "Performing contextual retrieval..."}
             retrieval_result = await self._execute_retrieval(query, course_id, session_id, enhanced_metadata)
             
             if not retrieval_result.success:
-                return self._create_error_response("Retrieval failed", retrieval_result.error_message)
+                yield self._create_error_response("Retrieval failed", retrieval_result.error_message)
+                return # Stop execution on error
 
             context = retrieval_result.content.get("retrieval_results", [])
             self.logger.info(f"   Retrieved {len(context)} context chunks")
+            yield {"status": "in_progress", "stage": "retrieval_complete", "message": f"Retrieved {len(context)} context chunks.", "context_items": len(context)}
 
             # Stage 2: Debate Loop
             self.logger.info("")
             self.logger.info("️  === DEBATE STAGE ===")
+            yield {"status": "in_progress", "stage": "debate", "message": "Starting multi-agent debate..."}
             debate_result = await self._execute_debate_loop(query, context, session_id, enhanced_metadata)
             
             if not debate_result["success"]:
-                return self._create_error_response("Debate loop failed", debate_result.get("error"))
-
+                yield self._create_error_response("Debate loop failed", debate_result.get("error"))
+                return # Stop execution on error
+            
+            yield {"status": "in_progress", "stage": "debate_complete", "message": f"Debate completed in {debate_result['result']['debate_rounds']} rounds.", "debate_rounds": debate_result['result']['debate_rounds']}
+            
             # Stage 3: Final Synthesis
             self.logger.info("")
             self.logger.info("=== SYNTHESIS STAGE ===")
+            yield {"status": "in_progress", "stage": "synthesis", "message": "Synthesizing final answer..."}
             final_result = await self._execute_final_synthesis(
                 query, context, debate_result["result"], session_id, enhanced_metadata
             )
             
             if not final_result.success:
-                return self._create_error_response("Final synthesis failed", final_result.error_message)
-
+                yield self._create_error_response("Final synthesis failed", final_result.error_message)
+                return # Stop execution on error
+            
+            yield {"status": "in_progress", "stage": "synthesis_complete", "message": "Final answer synthesized."}
+            
             # Stage 4: Tutor Interaction
             self.logger.info("")
             self.logger.info("=== TUTOR STAGE ===")
+            yield {"status": "in_progress", "stage": "tutor_interaction", "message": "Engaging tutor for additional insights..."}
             tutor_result = await self._execute_tutor_interaction(
                 query, final_result.content["final_answer"], session_id, enhanced_metadata
             )
@@ -361,12 +366,11 @@ class MultiAgentOrchestrator:
             )
             
             self.logger.info(f"Query completed successfully in {processing_time:.2f}s")
-            
-            return response
+            yield {"status": "complete", "final_response": response, "processing_time": processing_time}
 
         except Exception as e:
             self.logger.error(f"Query processing failed: {str(e)}")
-            return self._create_error_response("System error", str(e))
+            yield self._create_error_response("System error", str(e))
         finally:
             if heavy_llm:
                 if original_strategist_llm:

@@ -14,12 +14,18 @@ class LangChainCerebras(LLM):
         self._top_p = top_p
         self._client = Cerebras(api_key=api_key)
 
-    def _call(self, prompt: str, stop: Optional[List[str]] = None) -> str:
+    def _call(self, prompt: str, stop: Optional[List[str]] = None, *args, **kwargs) -> str:
+        # Extract temperature and top_p from kwargs if they exist, otherwise use instance defaults
+        temperature = kwargs.pop("temperature", self._temperature)
+        top_p = kwargs.pop("top_p", self._top_p)
+
         response = self._client.chat.completions.create(
             messages=[{"role": "user", "content": prompt + " /no_think"}],
             model=self._model_name,
-            temperature=self._temperature,
-            top_p=self._top_p,
+            temperature=temperature,
+            top_p=top_p,
+            stop=stop if stop else [],
+            **kwargs
         )
         return response.choices[0].message.content
 
@@ -51,4 +57,33 @@ class CerebrasClient:
         """
         # Delegate to the underlying LangChain LLM instance
         return self.llm(prompt)
+       
+
+    async def generate_stream(self, prompt: str):
+        """Generate streaming response from prompt using Cerebras LLM."""
+        response_generator = self.llm._client.chat.completions.create(
+            messages=[{"role": "user", "content": prompt + " /no_think"}],
+            model=self.llm._model_name,
+            temperature=self.llm._temperature,
+            top_p=self.llm._top_p,
+            stream=True  # Ensure streaming is enabled for this method
+        )
+        
+        for chunk in response_generator:
+            if chunk.choices and chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
+
+    def generate(self, prompt: str) -> str:
+        """
+        Generate response from prompt using Cerebras LLM.
+        """
+        # Ensure non-streaming for agent usage
+        response = self.llm._client.chat.completions.create(
+            messages=[{"role": "user", "content": prompt + " /no_think"}],
+            model=self.llm._model_name,
+            temperature=self.llm._temperature,
+            top_p=self.llm._top_p,
+            stream=False  # Explicitly disable streaming for the non-streaming generate method
+        )
+        return response.choices[0].message.content
        

@@ -253,17 +253,27 @@ async def process_query(request: QueryRequest):
             # Note: In production, you'd create a new config with overrides
             # For now, we'll log the request but use default config
         
-        # Process the query
-        result = await orchestrator.process_query(
+        # Process the query and collect the final result
+        final_result = None
+        async for chunk in orchestrator.process_query(
             query=request.query,
             course_id=request.course_id,
             session_id=session_id,
             metadata=request.metadata or {},
             heavy_model=request.heavy_model,
             course_prompt=request.course_prompt,
-        )
+        ):
+            if chunk.get("status") == "complete":
+                final_result = chunk.get("final_response")
+                break # Stop iterating after receiving the final response
+            elif chunk.get("error"):
+                # If an error chunk is yielded, raise an HTTPException immediately
+                raise HTTPException(status_code=500, detail=f"Agent processing error: {chunk['error']['message']}")
         
-        return QueryResponse(**result)
+        if not final_result:
+            raise HTTPException(status_code=500, detail="Agent system did not return a final response.")
+        
+        return QueryResponse(**final_result)
         
     except HTTPException:
         raise

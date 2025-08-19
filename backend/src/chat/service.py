@@ -2,8 +2,9 @@ import requests
 import requests.exceptions
 import tempfile
 import os
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, AsyncGenerator
 from fastapi import UploadFile
+import json
 
 from ..logger import logger
 from .models import (
@@ -16,6 +17,7 @@ from .models import (
 )
 from .CRUD import get_messages
 import httpx
+from starlette.responses import StreamingResponse
 
 from backend.constants import TimeoutConfig, ServiceConfig
 from machine_learning.constants import ModelConfig
@@ -124,7 +126,7 @@ def nebula_text_endpoint(data: ChatRequest) -> str:
         logger.error(f"Request failed: {e}")
         return f"Error communicating with model: {str(e)}"
 
-def llm_text_endpoint(data: ChatRequest) -> str:
+async def llm_text_endpoint(data: ChatRequest) -> StreamingResponse:
     """Generate a response using a specified LLM client."""
 
     conversation_context = ""
@@ -170,6 +172,8 @@ def llm_text_endpoint(data: ChatRequest) -> str:
                 model=model_name,
                 temperature=ModelConfig.DEFAULT_TEMPERATURE,
             )
+            response_content = client.generate(full_prompt)
+            return StreamingResponse(iter([response_content]), media_type="text/plain")
         elif model_name.startswith("gpt") or (model_name.startswith("custom-") and custom_api_key):
             # Use custom API key if available, otherwise use default
             api_key = custom_api_key if custom_api_key else settings.openai_api_key
@@ -181,6 +185,8 @@ def llm_text_endpoint(data: ChatRequest) -> str:
                 temperature=0.6,
                 top_p=0.95,
             )
+            response_content = client.generate(full_prompt)
+            return StreamingResponse(iter([response_content]), media_type="text/plain")
         elif model_name.startswith("claude"):
             client = AnthropicClient(
                 api_key=settings.anthropic_api_key,
@@ -188,6 +194,8 @@ def llm_text_endpoint(data: ChatRequest) -> str:
                 temperature=0.6,
                 top_p=0.95,
             )
+            response_content = client.generate(full_prompt)
+            return StreamingResponse(iter([response_content]), media_type="text/plain")
         elif model_name.startswith("qwen") or model_name.startswith("cerebras"):
             client = CerebrasClient(
                 api_key=settings.cerebras_api_key,
@@ -195,13 +203,15 @@ def llm_text_endpoint(data: ChatRequest) -> str:
                 temperature=0.6,
                 top_p=0.95,
             )
+            return StreamingResponse(client.generate_stream(full_prompt), media_type="text/event-stream")
         else:
             client = GeminiClient(
                 api_key=settings.google_api_key,
                 model=model_name,
                 temperature=ModelConfig.DEFAULT_TEMPERATURE,
             )
-        return client.generate(full_prompt)
+            response_content = client.generate(full_prompt)
+            return StreamingResponse(iter([response_content]), media_type="text/plain")
     except Exception as e:
         logger.error(f"LLM generation failed: {e}")
         return f"Error communicating with model: {str(e)}"
@@ -345,45 +355,57 @@ async def generate_standard_rag_response(data: ChatRequest) -> str:
     except Exception as e:
         return f"Error generating standard response: {str(e)}"
 
-async def generate_response(data: ChatRequest) -> str:
+async def generate_response(data: ChatRequest) -> StreamingResponse:
     """Generate response using daily (RAG) or rag (Multi-agent) systems"""
     
     mode = data.mode or "daily"
     
-    if mode == "daily":
-        return await generate_standard_rag_response(data)
-    
-    elif mode == "rag":
-        if not data.course_id:
-            return "Agent System requires a course selection to identify the knowledge base."
-
-        try:
-            # Get course prompt for agents system
-            from src.course.CRUD import get_course
-            course = get_course(data.course_id)
-            course_prompt = course.get('prompt') if course else None
-            
-            result = await query_agents_system(
-                data.conversation_id or "",
-                data.prompt,
-                data.course_id,
-                data.rag_model,
-                data.heavy_model,
-                data.model,
-                course_prompt,
-            )
-
-            if result and result.get('success'):
-                return _format_agents_response_with_debug(result)
-            else:
-                error_msg = result.get('error', {}).get('message', "An unexpected error occurred.")
-                return f"The Agent System encountered an error while processing your request.\n\nDetails: {error_msg}"
+    async def generate_chunks():
+        if mode == "daily":
+            response_content = await generate_standard_rag_response(data)
+            yield response_content.encode('utf-8')
         
-        except Exception as e:
-            return f"The Agent System is currently unavailable. Please try again later.\n\nTechnical details: {str(e)}"
-    
-    else:
-        return f"Unknown mode '{mode}'. Please select 'daily' for Daily mode or 'rag' for Problem Solving mode."
+        elif mode == "rag":
+            if not data.course_id:
+                # Yield a JSON error object, not a plain string
+                yield b"data: " + json.dumps({"success": False, "error": {"type": "validation_error", "message": "Agent System requires a course selection to identify the knowledge base."}}).encode('utf-8') + b"\n\n"
+                return
+
+            try:
+                # Get course prompt for agents system
+                from src.course.CRUD import get_course
+                course = get_course(data.course_id)
+                course_prompt = course.get('prompt') if course else None
+                
+                async for chunk in query_agents_system(
+                    data.conversation_id or "",
+                    data.prompt,
+                    data.course_id,
+                    data.rag_model,
+                    data.heavy_model,
+                    data.model,
+                    course_prompt,
+                ):
+                    # Format each chunk before yielding
+                    # If it's an error, yield and stop
+                    if not chunk.get('success', True):
+                        error_msg = chunk.get('error', {}).get('message', "An unexpected error occurred.")
+                        yield b"data: " + json.dumps({"success": False, "error": {"type": "agent_error", "message": f"The Agent System encountered an error while processing your request.\n\nDetails: {error_msg}"}}).encode('utf-8') + b"\n\n"
+                        return
+                    
+                    # For simplicity, just yield string representation for now
+                    # Further refinement needed to format different stages
+                    yield f"data: {json.dumps(chunk)}\n\n".encode('utf-8')
+            
+            except Exception as e:
+                # Yield a JSON error object, not a plain string
+                yield b"data: " + json.dumps({"success": False, "error": {"type": "system_error", "message": f"The Agent System is currently unavailable. Please try again later.\n\nTechnical details: {str(e)}"}}).encode('utf-8') + b"\n\n"
+        
+        else:
+            # Yield a JSON error object for unknown mode
+            yield b"data: " + json.dumps({"success": False, "error": {"type": "invalid_mode", "message": f"Unknown mode '{mode}'. Please select 'daily' for Daily mode or 'rag' for Problem Solving mode."}}).encode('utf-8') + b"\n\n"
+            
+    return StreamingResponse(generate_chunks(), media_type="text/event-stream")
 
 def _format_agents_response_with_debug(result: Dict[str, Any]) -> str:
     """Format agents response with optional debug information"""
@@ -410,7 +432,7 @@ async def query_agents_system(
     heavy_model: Optional[str] = None,
     base_model: Optional[str] = None,
     course_prompt: Optional[str] = None,
-) -> dict:
+) -> AsyncGenerator[Dict[str, Any], None]:
     """Query the multi-agent system with optional model overrides"""
     
     try:
@@ -430,24 +452,31 @@ async def query_agents_system(
             if course_prompt:
                 payload["course_prompt"] = course_prompt
             
-            response = await client.post(
+            async with client.stream(
+                "POST",
                 f'http://{ServiceConfig.LOCALHOST}:{ServiceConfig.AGENTS_SYSTEM_PORT}/query',
-                json=payload
-            )
-            
-            if response.status_code == 200:
-                return response.json()
-            else:
-                return {
-                    'success': False,
-                    'error': {
-                        'type': 'http_error',
-                        'message': f'Agents service returned {response.status_code}: {response.text}'
-                    }
-                }
+                json=payload,
+                headers={'Accept': 'text/event-stream'}
+            ) as response:
+                response.raise_for_status() # Raise an exception for HTTP errors
+                async for chunk in response.aiter_bytes():
+                    # Decode each chunk and yield as dictionary
+                    # Assuming the agent system sends valid JSON chunks as text/event-stream
+                    try:
+                        decoded_chunk = chunk.decode('utf-8').strip()
+                        # Remove 'data: ' prefix if present and split into individual JSONs
+                        json_strings = [line[len("data: "):] for line in decoded_chunk.split('\n\n') if line.startswith("data: ")]
+                        for json_str in json_strings:
+                            if json_str:
+                                yield json.loads(json_str)
+                    except json.JSONDecodeError as e:
+                        logger.error(f"JSON decode error in agent stream: {e} - Chunk: {decoded_chunk}")
+                        # Yield an error chunk or handle as appropriate
+                        yield {'success': False, 'error': {'type': 'parsing_error', 'message': f'Failed to parse agent response chunk: {e}'}}
     
     except Exception as e:
-        return {
+        logger.error(f"Failed to connect to Agents service: {str(e)}")
+        yield {
             'success': False,
             'error': {
                 'type': 'connection_error',

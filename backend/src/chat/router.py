@@ -19,15 +19,11 @@ router = APIRouter(
 
 @router.post("/")
 async def chat(data: ChatRequest):
-    result = await service.generate_response(data)
-    
-    return {"result": result}
+    return await service.generate_response(data)
 
 @router.post("")
 async def chat_root(data: ChatRequest):
-    result = await service.generate_response(data)
-    
-    return {"result": result}
+    return await service.generate_response(data)
 
 @router.post("/open_ask")
 async def open_ask(data: ConversationCreate):

@@ -34,6 +34,7 @@ export default function ChatPage() {
   const [useAgents, setUseAgents] = useState(false)
   const [customModels, setCustomModels] = useState([])
   const [allBaseModelOptions, setAllBaseModelOptions] = useState([])
+  const [lastAssistantMessageId, setLastAssistantMessageId] = useState(null);
   
   const modelOptions = [
     { label: "Daily", value: "daily", description: "RAG-enhanced response with course-specific prompt" },
@@ -310,11 +311,11 @@ export default function ChatPage() {
             setSelectedConversation(newConversation)
             setConversations(prev => [newConversation, ...prev])
             
-            // Set loading state for the new conversation
-            setConversationLoadingStates(prev => ({
-              ...prev,
-              [newConversationId]: { isLoading: true, isTyping: true }
-            }))
+            // Removed: Set loading state for the new conversation (will be handled by main loading states)
+            // setConversationLoadingStates(prev => ({
+            //   ...prev,
+            //   [newConversationId]: { isLoading: true, isTyping: true }
+            // }))
           }
         }
       }
@@ -373,7 +374,7 @@ export default function ChatPage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              message_id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              message_id: userMessage.id,
               conversation_id: newConversationId,
               user_id: userId,
               sender: 'user',
@@ -389,7 +390,9 @@ export default function ChatPage() {
       }
 
       // Get AI response
-      let aiResponse = "I'm processing your request..."
+      let aiResponseContent = ""; // Start with empty content
+      let assistantMessageId = null; 
+      
       try {
         const chatRequestData = {
           prompt: input.trim() || (experimental_attachments?.length ? 'Please help me analyze the uploaded file.' : ''),
@@ -409,58 +412,141 @@ export default function ChatPage() {
         console.log('Full request:', chatRequestData)
         console.log('==========================')
         
-
-        
         const chatResponse = await fetch("http://localhost:8000/chat", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json" }, // Initially assume JSON, check header later
           body: JSON.stringify(chatRequestData)
         })
         
-        if (chatResponse.ok) {
-          const chatData = await chatResponse.json()
-          aiResponse = chatData.result || "No response from AI"
+        if (!chatResponse.ok) {
+          console.error('Chat API error:', chatResponse.status, chatResponse.statusText);
+          aiResponseContent = `I'm sorry, I encountered an error while processing your request. Please try again. Status: ${chatResponse.status}`;
+          // Directly add the error message if something went wrong before stream started
+          assistantMessageId = `msg_${Date.now() + 1}_${Math.random().toString(36).substr(2, 9)}`;
+          setMessages(prev => [...prev, {
+            id: assistantMessageId,
+            role: "assistant",
+            content: aiResponseContent,
+            createdAt: new Date()
+          }]);
+          return; // Exit early if response is not ok
+        }
+
+        const contentType = chatResponse.headers.get('Content-Type');
+        
+        if (contentType && contentType.includes('text/event-stream')) {
+          // Add initial empty message for streaming response
+          assistantMessageId = `msg_${Date.now() + 1}_${Math.random().toString(36).substr(2, 9)}`;
+          setMessages(prev => [...prev, {
+            id: assistantMessageId,
+            role: "assistant",
+            content: "", // Start with empty content for streaming
+            createdAt: new Date()
+          }]);
+          setLastAssistantMessageId(assistantMessageId); // Store this ID for updates
+
+          let receivedContent = ""; // Initialize receivedContent for streaming
+          let json_buffer = ""; // Buffer for incomplete JSON objects
+          
+          const reader = chatResponse.body.getReader();
+          const decoder = new TextDecoder();
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              break;
+            }
+            json_buffer += decoder.decode(value, { stream: true });
+
+            // Process lines from the buffer
+            const lines = json_buffer.split('\n');
+            json_buffer = lines.pop(); // Keep the last (possibly incomplete) line in the buffer
+
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const json_str_from_line = line.substring(6); // Remove 'data: '
+                try {
+                  const agent_chunk = JSON.parse(json_str_from_line);
+                  
+                  // Handle agent streaming specifically
+                  if (chatRequestData.mode === "rag" && chatRequestData.use_agents) {
+                    if (agent_chunk.status === "in_progress") {
+                      receivedContent = `Agent System: ${agent_chunk.message || agent_chunk.stage}...`;
+                    } else if (agent_chunk.status === "complete") {
+                      receivedContent = agent_chunk.final_response?.answer?.step_by_step_solution || agent_chunk.final_response?.answer?.introduction || "Agent response complete.";
+                    } else if (agent_chunk.error) {
+                      receivedContent = `Agent System Error: ${agent_chunk.error.message || "Unknown error"}`;
+                    }
+                  } else {
+                    // Existing non-agent streaming logic (Cerebras for direct chat)
+                    receivedContent += agent_chunk.content || ""; // Assume non-agent stream has a 'content' key
+                  }
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === assistantMessageId ? { ...msg, content: receivedContent } : msg
+                  ));
+                  scrollToBottom();
+                } catch (jsonError) {
+                  console.error(`JSON parse error in streaming response: ${jsonError} - Chunk: ${json_str_from_line}`);
+                  receivedContent += `\n[JSON Parsing Error: ${jsonError.message}]`;
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === assistantMessageId ? { ...msg, content: receivedContent } : msg
+                  ));
+                  scrollToBottom();
+                }
+              }
+            }
+          }
+          aiResponseContent = receivedContent; // Final content after stream ends
         } else {
-          console.error('Chat API error:', chatResponse.status, chatResponse.statusText)
-          aiResponse = "I'm sorry, I encountered an error while processing your request. Please try again."
+          // For non-streaming, directly add the message here
+          const chatData = await chatResponse.json();
+          aiResponseContent = chatData.result || "No response from AI";
+
+          assistantMessageId = `msg_${Date.now() + 1}_${Math.random().toString(36).substr(2, 9)}`;
+          setMessages(prev => [...prev, {
+            id: assistantMessageId,
+            role: "assistant",
+            content: aiResponseContent,
+            createdAt: new Date()
+          }]);
+          scrollToBottom();
         }
       } catch (chatError) {
-        console.error('Chat error:', chatError)
-        aiResponse = "I'm sorry, I encountered an error while processing your request. Please try again."
+        console.error('Chat error:', chatError);
+        aiResponseContent = `I'm sorry, I encountered an error while processing your request. Please try again. Details: ${chatError.message || chatError}`;
+        // If error during streaming, update the last message or add a new one if stream never started
+        if (assistantMessageId) {
+          setMessages(prev => prev.map(msg => msg.id === assistantMessageId ? { ...msg, content: aiResponseContent } : msg));
+        } else {
+          setMessages(prev => [...prev, {
+            id: `msg_${Date.now() + 1}_${Math.random().toString(36).substr(2, 9)}`,
+            role: "assistant",
+            content: aiResponseContent,
+            createdAt: new Date()
+          }]);
+        }
       }
 
-      // Save AI response
-      if (newConversationId) {
+      // Save AI response (only if it's not an error message and an ID was successfully generated)
+      if (newConversationId && assistantMessageId && !aiResponseContent.startsWith("I'm sorry, I encountered an error")) {
         try {
           await fetch('http://localhost:8000/chat/create_message', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              message_id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              message_id: assistantMessageId, // Ensure this is the correct ID
               conversation_id: newConversationId,
               user_id: userId,
               sender: 'assistant',
-              content: aiResponse,
-              course_id: selectedCourseId || null,  // Always save course_id if available
+              content: aiResponseContent,
+              course_id: selectedCourseId || null,
               model: selectedBaseModel
             })
           })
         } catch (saveError) {
           console.error('Failed to save AI response:', saveError)
-          // Continue anyway, the response is already in the UI
         }
       }
-
-      // Add AI response to messages
-      const maybeHtml = extractHtml(aiResponse);
-      const assistantMessage = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: aiResponse,
-        createdAt: new Date(),
-        meta: maybeHtml ? { type: "html", html: maybeHtml } : undefined
-      };
-      setMessages(prev => [...prev, assistantMessage])
 
     } catch (err) {
       console.error('Chat error:', err)
@@ -491,34 +577,33 @@ export default function ChatPage() {
   }
 
   const append = async (message) => {
-    setIsSendingMessage(true)
-    
-
+    setIsSendingMessage(true);
     
     const userMessage = {
       id: Date.now().toString(),
       role: "user",
       content: message.content,
       createdAt: new Date()
-    }
-    setMessages(prev => [...prev, userMessage])
+    };
+    setMessages(prev => [...prev, userMessage]);
     
-    // Set loading state for current conversation
-    const currentConversationId = selectedConversation?.conversation_id
-    let newConversationId = currentConversationId // Declare at function level
+    const currentConversationId = selectedConversation?.conversation_id;
+    let newConversationId = currentConversationId;
     
     if (currentConversationId) {
       setConversationLoadingStates(prev => ({
         ...prev,
         [currentConversationId]: { isLoading: true, isTyping: true }
-      }))
+      }));
     } else {
-      setIsLoading(true)
-      setIsTyping(true)
+      setIsLoading(true);
+      setIsTyping(true);
     }
     
+    let aiResponseContent = "";
+    let assistantMessageId = null; // Declare here to be accessible in finally
+
     try {
-      // If no conversation is selected, create a new one
       if (!newConversationId) {
         const createResponse = await fetch('http://localhost:8000/chat/create_conversation', {
           method: 'POST',
@@ -527,11 +612,11 @@ export default function ChatPage() {
             user_id: userId,
             title: message.content.length > 50 ? message.content.substring(0, 50) + '...' : message.content
           })
-        })
+        });
 
         if (createResponse.ok) {
-          const conversationData = await createResponse.json()
-          newConversationId = conversationData[0]?.conversation_id
+          const conversationData = await createResponse.json();
+          newConversationId = conversationData[0]?.conversation_id;
           
           if (newConversationId) {
             const newConversation = {
@@ -540,15 +625,14 @@ export default function ChatPage() {
               user_id: userId,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
-            }
-            setSelectedConversation(newConversation)
-            setConversations(prev => [newConversation, ...prev])
+            };
+            setSelectedConversation(newConversation);
+            setConversations(prev => [newConversation, ...prev]);
             
-            // Set loading state for the new conversation
             setConversationLoadingStates(prev => ({
               ...prev,
               [newConversationId]: { isLoading: true, isTyping: true }
-            }))
+            }));
           }
         }
       }
@@ -559,15 +643,15 @@ export default function ChatPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            message_id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            message_id: userMessage.id,
             conversation_id: newConversationId,
             user_id: userId,
             sender: 'user',
             content: message.content,
-            course_id: selectedCourseId || null,  // Always save course_id if available
+            course_id: selectedCourseId || null,
             model: selectedBaseModel
           })
-        })
+        });
       }
 
       // Get AI response
@@ -584,61 +668,141 @@ export default function ChatPage() {
           heavy_model: useAgents ? selectedHeavyModel : null,
           use_agents: useAgents
         })
-      })
+      });
       
-      const chatData = await chatResponse.json()
-      const aiResponse = chatData.result || "No response from AI"
+      if (!chatResponse.ok) {
+        console.error('Chat API error:', chatResponse.status, chatResponse.statusText);
+        aiResponseContent = `I'm sorry, I encountered an error while processing your request. Please try again. Status: ${chatResponse.status}`;
+        assistantMessageId = `msg_${Date.now() + 1}_${Math.random().toString(36).substr(2, 9)}`;
+        setMessages(prev => [...prev, {
+          id: assistantMessageId,
+          role: "assistant",
+          content: aiResponseContent,
+          createdAt: new Date()
+        }]);
+        return; 
+      }
+      
+      const contentType = chatResponse.headers.get('Content-Type');
+      
+      if (contentType && contentType.includes('text/event-stream')) {
+        assistantMessageId = `msg_${Date.now() + 1}_${Math.random().toString(36).substr(2, 9)}`;
+        setMessages(prev => [...prev, {
+          id: assistantMessageId,
+          role: "assistant",
+          content: "",
+          createdAt: new Date()
+        }]);
+        setLastAssistantMessageId(assistantMessageId);
 
-      // Save AI response
-      if (newConversationId) {
+        let receivedContent = "";
+        let json_buffer = "";
+        
+        const reader = chatResponse.body.getReader();
+        const decoder = new TextDecoder();
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            break;
+          }
+          json_buffer += decoder.decode(value, { stream: true });
+          
+          const lines = json_buffer.split('\n');
+          json_buffer = lines.pop();
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const json_str_from_line = line.substring(6);
+              try {
+                const agent_chunk = JSON.parse(json_str_from_line);
+                
+                if (chatRequestData.mode === "rag" && chatRequestData.use_agents) {
+                  if (agent_chunk.status === "in_progress") {
+                    receivedContent = `Agent System: ${agent_chunk.message || agent_chunk.stage}...`;
+                  } else if (agent_chunk.status === "complete") {
+                    receivedContent = agent_chunk.final_response?.answer?.step_by_step_solution || agent_chunk.final_response?.answer?.introduction || "Agent response complete.";
+                  } else if (agent_chunk.error) {
+                    receivedContent = `Agent System Error: ${agent_chunk.error.message || "Unknown error"}`;
+                  }
+                } else {
+                  receivedContent += agent_chunk.content || "";
+                }
+                setMessages(prev => prev.map(msg => 
+                  msg.id === assistantMessageId ? { ...msg, content: receivedContent } : msg
+                ));
+                scrollToBottom();
+              } catch (jsonError) {
+                console.error(`JSON parse error in streaming response: ${jsonError} - Chunk: ${json_str_from_line}`);
+                receivedContent += `\n[JSON Parsing Error: ${jsonError.message}]`;
+                setMessages(prev => prev.map(msg => 
+                  msg.id === assistantMessageId ? { ...msg, content: receivedContent } : msg
+                ));
+                scrollToBottom();
+              }
+            }
+          }
+        }
+        aiResponseContent = receivedContent; 
+      } else {
+        const chatData = await chatResponse.json();
+        aiResponseContent = chatData.result || "No response from AI";
+        assistantMessageId = `msg_${Date.now() + 1}_${Math.random().toString(36).substr(2, 9)}`;
+        setMessages(prev => [...prev, {
+          id: assistantMessageId,
+          role: "assistant",
+          content: aiResponseContent,
+          createdAt: new Date()
+        }]);
+        scrollToBottom();
+      }
+      
+      // Save AI response (only if it's not an error message)
+      if (newConversationId && assistantMessageId && !aiResponseContent.startsWith("I'm sorry, I encountered an error")) {
         await fetch('http://localhost:8000/chat/create_message', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            message_id: assistantMessageId,
             conversation_id: newConversationId,
             user_id: userId,
             sender: 'assistant',
-            content: aiResponse,
-            course_id: selectedCourseId || null,  // Always save course_id if available
+            content: aiResponseContent,
+            course_id: selectedCourseId || null,
             model: selectedBaseModel
           })
-        })
+        });
       }
-
-      const maybeHtml = extractHtml(aiResponse);
-      const assistantMessage = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: aiResponse,
-        createdAt: new Date(),
-        meta: maybeHtml ? { type: "html", html: maybeHtml } : undefined
-      };
-      setMessages(prev => [...prev, assistantMessage])
+      
     } catch (err) {
-      console.error('Chat error:', err)
-      setMessages(prev => [...prev, {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: "Error: Could not get response from backend.",
-        createdAt: new Date()
-      }])
+      console.error('Chat error:', err);
+      aiResponseContent = `I'm sorry, I encountered an error while processing your request. Please try again. Details: ${err.message || err}`;
+      if (assistantMessageId) {
+        setMessages(prev => prev.map(msg => msg.id === assistantMessageId ? { ...msg, content: aiResponseContent } : msg));
+      } else {
+        setMessages(prev => [...prev, {
+          id: `msg_${Date.now() + 1}_${Math.random().toString(36).substr(2, 9)}`,
+          role: "assistant",
+          content: aiResponseContent,
+          createdAt: new Date()
+        }]);
+      }
     } finally {
-      // Clear loading state for the conversation that was actually used
       if (newConversationId) {
         setConversationLoadingStates(prev => ({
           ...prev,
           [newConversationId]: { isLoading: false, isTyping: false }
-        }))
+        }));
       } else if (currentConversationId) {
         setConversationLoadingStates(prev => ({
           ...prev,
           [currentConversationId]: { isLoading: false, isTyping: false }
-        }))
+        }));
       } else {
-        setIsLoading(false)
-        setIsTyping(false)
+        setIsLoading(false);
+        setIsTyping(false);
       }
-      setIsSendingMessage(false)
+      setIsSendingMessage(false);
     }
   }
 
