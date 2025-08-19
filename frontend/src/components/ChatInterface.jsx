@@ -4,8 +4,6 @@ import { CustomSelect } from "@/components/ui/custom-select"
 import { ChatFileAttachment } from "@/components/ui/chat-file-attachment"
 import { transcribeAudio } from "@/lib/utils/audio"
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer"
-import { useNavigate } from "react-router-dom"
-import { Button } from "@/components/ui/button"
 import { HtmlPreview } from "@/components/HtmlPreview"
 
 export function ChatInterface({ 
@@ -35,15 +33,9 @@ export function ChatInterface({
   isLoading,
   stop,
   messagesContainerRef,
-  agentProgress
+  agentProgress,
+  ragProgress
 }) {
-  const navigate = useNavigate()
-  
-  const handleLogout = () => {
-    localStorage.removeItem('user')
-    localStorage.removeItem('access_token')
-    navigate('/login')
-  }
   return (
     <>
       <div className="px-6 py-4 flex-shrink-0">
@@ -52,14 +44,6 @@ export function ChatInterface({
             <h1 className="text-xl font-semibold text-gray-900">
               {selectedConversation ? selectedConversation.title : 'Oliver Chat'}
             </h1>
-            <Button
-              onClick={handleLogout}
-              variant="outline"
-              size="sm"
-              className="text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700"
-            >
-              Logout
-            </Button>
           </div>
           <div className="mt-2 space-y-3">
             <CustomSelect
@@ -155,8 +139,44 @@ export function ChatInterface({
               </div>
             </div>
           )}
+          
+          {/* RAG Progress Bar for Daily Mode */}
+          {ragProgress?.visible && (
+            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-green-600"></div>
+                <div>
+                  <div className="text-sm font-medium text-green-900">
+                    {ragProgress.stage === "initialization" && "🚀 Initializing Knowledge Search"}
+                    {ragProgress.stage === "retrieval" && "🔍 Searching Knowledge Base"}
+                    {ragProgress.stage === "processing" && "📚 Processing Course Materials"}
+                    {ragProgress.stage === "generating" && "✨ Generating Response"}
+                    {!["initialization", "retrieval", "processing", "generating"].includes(ragProgress.stage) && "⚙️ Processing"}
+                  </div>
+                  <div className="text-xs text-green-700 mt-1">
+                    {ragProgress.message}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="space-y-8">
-            {messages.map((message) => (
+            {messages.filter((message, index) => {
+              // Show user messages always
+              if (message.role === "user") return true;
+              
+              // For assistant messages, show if they have content
+              if (message.content.trim()) return true;
+              
+              // For empty assistant messages, only show if we're loading but NOT typing
+              // (when typing=true, we show the separate typing indicator instead)
+              if (isLoading && !isTyping) {
+                const laterAssistantMessages = messages.slice(index + 1).filter(m => m.role === "assistant");
+                return laterAssistantMessages.length === 0; // This is the latest assistant message
+              }
+              
+              return false;
+            }).map((message) => (
               <div
                 key={message.id}
                 className={`${

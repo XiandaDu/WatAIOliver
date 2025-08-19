@@ -168,9 +168,19 @@ async def llm_text_endpoint(data: ChatRequest) -> StreamingResponse:
     try:
         async def format_stream_for_sse(stream_generator):
             """Format plain text stream as Server-Sent Events."""
+            full_response = ""  # Debug: accumulate response
             async for chunk in stream_generator:
                 if chunk:
-                    yield f"data: {chunk}\n\n"
+                    full_response += chunk  # Debug: build full response
+                    # JSON-encode the chunk to properly escape special characters
+                    json_chunk = json.dumps({"content": chunk})
+                    yield f"data: {json_chunk}\n\n"
+            
+            # Debug: Print final response
+            print("=== DEBUG LLM RESPONSE ===")
+            print("FINAL ML OUTPUT:", repr(full_response[:1000]))  # First 1000 chars
+            print("==========================")
+            
 
         if model_name.startswith("gemini"):
             client = GeminiClient(
@@ -307,13 +317,50 @@ def enhance_prompt_with_rag_context(original_prompt: str, rag_result: Optional[D
             document_context += f"Document {i} (relevance: {score_float:.3f}):\n{content}\n\n"
     
     # Create enhanced prompt with actual document content
-    enhanced_prompt = f"""You have access to relevant information from uploaded documents. Use this context to answer the user's question.
+    enhanced_prompt = f"""You are an educational assistant helping students understand course materials. You have access to relevant information from course documents.
 
+RETRIEVED CONTEXT:
 {document_context}
 
-User question: {original_prompt}
+USER QUESTION: {original_prompt}
 
-Please provide a comprehensive answer based on the document content above. Reference specific information from the documents when relevant."""
+RENDERING SYSTEM: You are outputting to a Markdown renderer with KaTeX math support. DO NOT use Mermaid diagrams, HTML, or other unsupported formats.
+
+SUPPORTED FORMATS:
+✅ LaTeX math: $f(x) = x^2$ and $$f(x) = x^2$$
+✅ Regular markdown: **bold**, *italic*, lists, headers
+✅ Code blocks: ```python ... ```
+
+❌ NOT SUPPORTED: Mermaid diagrams, HTML tags, custom graphics
+
+EXAMPLES - FIX THESE EXACT PROBLEMS:
+❌ "f(x) = x^" → ✅ "$f(x) = x^2$" (complete the broken formula)
+❌ Lone "π" on separate line → ✅ "The $\pi$-periodic extension"
+❌ "[-π, π]" → ✅ "$[-\pi, \pi]$" (use LaTeX)
+❌ "x = ±π, ±π" → ✅ "$x = \pm\pi, \pm 2\pi$" (fix repetition)
+
+GOOD OUTPUT EXAMPLES:
+✅ "The lesson covered the Fourier series of the $\pi$-periodic extension of $f(x) = x^2$."
+✅ "Key intervals: $[-\pi, \pi]$ and $[0, 2\pi]$"
+
+CRITICAL LaTeX RULES:
+✅ Always use backslash: $\pi$ NOT $π$ 
+✅ Intervals: $[\pi, 3\pi]$ NOT $[π, 3π]$
+✅ Plus-minus: $\pm\pi$ NOT $±π$
+
+COMMON MISTAKES TO AVOID:
+❌ "$π$" or "$[π, 3π]$" (literal Greek letters cause red errors)
+❌ "$ \pi $" (spaces inside math delimiters)  
+❌ "$\\pi$" (double backslashes in output)
+✅ "$\pi$" (single backslash, no spaces)
+✅ "$[\pi, 3\pi]$" (proper LaTeX syntax)
+
+TASK: Transform the retrieved content into clean markdown with proper LaTeX math formatting. NO diagrams, NO Mermaid, NO HTML."""
+    
+    print("=== DEBUG RAG PROMPT ===")
+    print("ORIGINAL PROMPT:", original_prompt)
+    print("ENHANCED PROMPT:", enhanced_prompt[-500:])  # Last 500 chars to see instructions
+    print("======================")
     
     return enhanced_prompt
 
@@ -401,6 +448,11 @@ async def generate_response(data: ChatRequest) -> StreamingResponse:
                         error_msg = chunk.get('error', {}).get('message', "An unexpected error occurred.")
                         yield b"data: " + json.dumps({"success": False, "error": {"type": "agent_error", "message": f"The Agent System encountered an error while processing your request.\n\nDetails: {error_msg}"}}).encode('utf-8') + b"\n\n"
                         return
+                    
+                    # DEBUG: Log what the agents system sends to frontend
+                    print("=== DEBUG AGENT CHUNK TO FRONTEND ===")
+                    print("CHUNK CONTENT:", repr(str(chunk)[:500]))
+                    print("======================================")
                     
                     # For simplicity, just yield string representation for now
                     # Further refinement needed to format different stages

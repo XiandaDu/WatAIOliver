@@ -25,7 +25,7 @@ export default function ChatPage() {
   const [isSendingMessage, setIsSendingMessage] = useState(false)
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
-  const [selectedModel, setSelectedModel] = useState("rag")
+  const [selectedModel, setSelectedModel] = useState("daily")
   const [selectedBaseModel, setSelectedBaseModel] = useState("qwen-3-235b-a22b-instruct-2507")
   const [selectedRagModel, setSelectedRagModel] = useState("text-embedding-004")
   const [selectedHeavyModel, setSelectedHeavyModel] = useState("")
@@ -36,6 +36,7 @@ export default function ChatPage() {
   const [allBaseModelOptions, setAllBaseModelOptions] = useState([])
   const [lastAssistantMessageId, setLastAssistantMessageId] = useState(null)
   const [agentProgress, setAgentProgress] = useState({ stage: "", message: "", visible: false });
+  const [ragProgress, setRagProgress] = useState({ stage: "", message: "", visible: false });
   
   const modelOptions = [
     { label: "Daily", value: "daily", description: "RAG-enhanced response with course-specific prompt" },
@@ -212,6 +213,16 @@ export default function ChatPage() {
         // Transform backend message format to frontend format
         const transformedMessages = data.map(msg => {
           const maybeHtml = msg.sender === "assistant" ? extractHtml(msg.content) : null;
+          
+          // DEBUG: Log each message transformation during loading
+          if (msg.sender === "assistant") {
+            console.log("=== LOADING MESSAGE TRANSFORMATION ===");
+            console.log("Original msg.content:", msg.content.substring(0, 300));
+            console.log("Extracted HTML:", maybeHtml ? maybeHtml.substring(0, 300) : "None");
+            console.log("Will use:", maybeHtml ? "HTML renderer" : "Markdown renderer");
+            console.log("======================================");
+          }
+          
           return {
             id: msg.message_id,
             role: msg.sender,
@@ -394,6 +405,15 @@ export default function ChatPage() {
       let aiResponseContent = ""; // Start with empty content
       let assistantMessageId = null; 
       
+      // Show RAG progress for daily mode
+      if (selectedModel === "daily") {
+        setRagProgress({
+          stage: "retrieval",
+          message: "🔍 Searching through course materials...",
+          visible: true
+        });
+      }
+      
       try {
         const chatRequestData = {
           prompt: input.trim() || (experimental_attachments?.length ? 'Please help me analyze the uploaded file.' : ''),
@@ -445,16 +465,32 @@ export default function ChatPage() {
             createdAt: new Date()
           }]);
           setLastAssistantMessageId(assistantMessageId); // Store this ID for updates
+          
+          // Keep typing indicator visible until we actually start receiving content
 
           let receivedContent = ""; // Initialize receivedContent for streaming
           let json_buffer = ""; // Buffer for incomplete JSON objects
+          let hasHiddenTyping = false; // Flag to hide typing indicator only once
           
           const reader = chatResponse.body.getReader();
           const decoder = new TextDecoder();
+          
+          // Set RAG progress for daily mode
+          if (chatRequestData.mode === "daily") {
+            setRagProgress({
+              stage: "retrieval",
+              message: "🔍 Searching through course materials...",
+              visible: true
+            });
+          }
 
           while (true) {
             const { done, value } = await reader.read();
             if (done) {
+              // Hide RAG progress when streaming completes
+              if (chatRequestData.mode === "daily") {
+                setRagProgress({ stage: "", message: "", visible: false });
+              }
               break;
             }
             json_buffer += decoder.decode(value, { stream: true });
@@ -466,6 +502,12 @@ export default function ChatPage() {
             for (const line of lines) {
               if (line.startsWith('data: ')) {
                 const content_from_line = line.substring(6); // Remove 'data: '
+                
+                // DEBUG: Log raw SSE line processing
+                console.log("=== DEBUG SSE LINE ===");
+                console.log("Full line:", JSON.stringify(line));
+                console.log("Extracted content:", JSON.stringify(content_from_line));
+                console.log("=====================");
                 try {
                   // Try to parse as JSON first (for agent streaming)
                   const agent_chunk = JSON.parse(content_from_line);
@@ -473,16 +515,17 @@ export default function ChatPage() {
                   // Handle agent streaming specifically
                   if (chatRequestData.mode === "rag" && chatRequestData.use_agents) {
                     if (agent_chunk.status === "in_progress") {
-                      // Update progress bar
+                      // Update progress bar only - don't update message content for progress
                       setAgentProgress({
                         stage: agent_chunk.stage || "processing",
                         message: agent_chunk.message || "Agent system is working...",
                         visible: true
                       });
-                      receivedContent = `Agent System: ${agent_chunk.message || agent_chunk.stage}...`;
+                      // Don't update message content for progress updates
                     } else if (agent_chunk.status === "complete") {
                       // Hide progress bar when complete
                       setAgentProgress({ stage: "", message: "", visible: false });
+                      // Set the final response content
                       receivedContent = agent_chunk.final_response?.answer?.step_by_step_solution || agent_chunk.final_response?.answer?.introduction || "Agent response complete.";
                     } else if (agent_chunk.error) {
                       // Hide progress bar on error
@@ -497,10 +540,31 @@ export default function ChatPage() {
                   // If JSON parsing fails, treat as plain text streaming (for daily mode LLMs)
                   receivedContent += content_from_line;
                 }
-                setMessages(prev => prev.map(msg => 
-                  msg.id === assistantMessageId ? { ...msg, content: receivedContent } : msg
-                ));
-                scrollToBottom();
+                // Only update message if we have content or if it's an error/completion
+                if (receivedContent) {
+                  // DEBUG: Log received content
+                  console.log("=== FRONTEND RECEIVED CONTENT ===");
+                  console.log("Raw receivedContent:", receivedContent.substring(0, 500));
+                  console.log("================================");
+                  
+                  // Hide typing indicator when we first receive content (only once)
+                  if (!hasHiddenTyping) {
+                    hasHiddenTyping = true;
+                    if (currentConversationId) {
+                      setConversationLoadingStates(prev => ({
+                        ...prev,
+                        [currentConversationId]: { isLoading: true, isTyping: false }
+                      }))
+                    } else {
+                      setIsTyping(false)
+                    }
+                  }
+                  
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === assistantMessageId ? { ...msg, content: receivedContent } : msg
+                  ));
+                  scrollToBottom();
+                }
               }
             }
           }
@@ -535,8 +599,8 @@ export default function ChatPage() {
         }
       }
 
-      // Save AI response (only if it's not an error message and an ID was successfully generated)
-      if (newConversationId && assistantMessageId && !aiResponseContent.startsWith("I'm sorry, I encountered an error")) {
+      // Save AI response (only if it's not an error message and has actual content)
+      if (newConversationId && assistantMessageId && aiResponseContent && aiResponseContent.trim() && !aiResponseContent.startsWith("I'm sorry, I encountered an error")) {
         try {
           await fetch('http://localhost:8000/chat/create_message', {
             method: 'POST',
@@ -580,6 +644,8 @@ export default function ChatPage() {
         setIsLoading(false)
         setIsTyping(false)
       }
+      // Clear RAG progress
+      setRagProgress({ stage: "", message: "", visible: false })
       setIsSendingMessage(false)
     }
   }
@@ -594,6 +660,15 @@ export default function ChatPage() {
       createdAt: new Date()
     };
     setMessages(prev => [...prev, userMessage]);
+    
+    // Show RAG progress for daily mode
+    if (selectedModel === "daily") {
+      setRagProgress({
+        stage: "retrieval",
+        message: "🔍 Searching through course materials...",
+        visible: true
+      });
+    }
     
     const currentConversationId = selectedConversation?.conversation_id;
     let newConversationId = currentConversationId;
@@ -702,9 +777,21 @@ export default function ChatPage() {
           createdAt: new Date()
         }]);
         setLastAssistantMessageId(assistantMessageId);
+        
+        // Keep typing indicator visible until we actually start receiving content
+        
+        // Set RAG progress for daily mode
+        if (selectedModel === "daily") {
+          setRagProgress({
+            stage: "retrieval",
+            message: "🔍 Searching through course materials...",
+            visible: true
+          });
+        }
 
         let receivedContent = "";
         let json_buffer = "";
+        let hasHiddenTyping = false; // Flag to hide typing indicator only once
         
         const reader = chatResponse.body.getReader();
         const decoder = new TextDecoder();
@@ -712,6 +799,10 @@ export default function ChatPage() {
         while (true) {
           const { done, value } = await reader.read();
           if (done) {
+            // Hide RAG progress when streaming completes
+            if (selectedModel === "daily") {
+              setRagProgress({ stage: "", message: "", visible: false });
+            }
             break;
           }
           json_buffer += decoder.decode(value, { stream: true });
@@ -725,18 +816,19 @@ export default function ChatPage() {
               try {
                 const agent_chunk = JSON.parse(json_str_from_line);
                 
-                if (chatRequestData.mode === "rag" && chatRequestData.use_agents) {
+                if (selectedModel === "rag" && useAgents) {
                   if (agent_chunk.status === "in_progress") {
-                    // Update progress bar
+                    // Update progress bar only - don't update message content for progress
                     setAgentProgress({
                       stage: agent_chunk.stage || "processing",
                       message: agent_chunk.message || "Agent system is working...",
                       visible: true
                     });
-                    receivedContent = `Agent System: ${agent_chunk.message || agent_chunk.stage}...`;
+                    // Don't update message content for progress updates
                   } else if (agent_chunk.status === "complete") {
                     // Hide progress bar when complete
                     setAgentProgress({ stage: "", message: "", visible: false });
+                    // Set the final response content
                     receivedContent = agent_chunk.final_response?.answer?.step_by_step_solution || agent_chunk.final_response?.answer?.introduction || "Agent response complete.";
                   } else if (agent_chunk.error) {
                     // Hide progress bar on error
@@ -744,19 +836,42 @@ export default function ChatPage() {
                     receivedContent = `Agent System Error: ${agent_chunk.error.message || "Unknown error"}`;
                   }
                 } else {
+                  // For daily mode, the chunk should have a 'content' field
                   receivedContent += agent_chunk.content || "";
                 }
-                setMessages(prev => prev.map(msg => 
-                  msg.id === assistantMessageId ? { ...msg, content: receivedContent } : msg
-                ));
-                scrollToBottom();
+                // Only update message if we have content
+                if (receivedContent) {
+                  // DEBUG: Log received content in append function
+                  console.log("=== APPEND RECEIVED CONTENT ===");
+                  console.log("Raw receivedContent:", receivedContent.substring(0, 500));
+                  console.log("===============================");
+                  
+                  // Hide typing indicator when we first receive content (only once)
+                  if (!hasHiddenTyping) {
+                    hasHiddenTyping = true;
+                    if (newConversationId) {
+                      setConversationLoadingStates(prev => ({
+                        ...prev,
+                        [newConversationId]: { isLoading: true, isTyping: false }
+                      }));
+                    } else if (currentConversationId) {
+                      setConversationLoadingStates(prev => ({
+                        ...prev,
+                        [currentConversationId]: { isLoading: true, isTyping: false }
+                      }));
+                    } else {
+                      setIsTyping(false);
+                    }
+                  }
+                  
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === assistantMessageId ? { ...msg, content: receivedContent } : msg
+                  ));
+                  scrollToBottom();
+                }
               } catch (jsonError) {
-                // If JSON parsing fails, treat as plain text streaming (for daily mode LLMs)
-                receivedContent += json_str_from_line;
-                setMessages(prev => prev.map(msg => 
-                  msg.id === assistantMessageId ? { ...msg, content: receivedContent } : msg
-                ));
-                scrollToBottom();
+                // Log parsing error but don't append corrupted data
+                console.error("Failed to parse SSE chunk as JSON:", jsonError, "Raw data:", json_str_from_line);
               }
             }
           }
@@ -775,8 +890,8 @@ export default function ChatPage() {
         scrollToBottom();
       }
       
-      // Save AI response (only if it's not an error message)
-      if (newConversationId && assistantMessageId && !aiResponseContent.startsWith("I'm sorry, I encountered an error")) {
+      // Save AI response (only if it's not an error message and has actual content)
+      if (newConversationId && assistantMessageId && aiResponseContent && aiResponseContent.trim() && !aiResponseContent.startsWith("I'm sorry, I encountered an error")) {
         await fetch('http://localhost:8000/chat/create_message', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -820,6 +935,8 @@ export default function ChatPage() {
         setIsLoading(false);
         setIsTyping(false);
       }
+      // Clear RAG progress
+      setRagProgress({ stage: "", message: "", visible: false })
       setIsSendingMessage(false);
     }
   }
@@ -1025,6 +1142,7 @@ export default function ChatPage() {
                 stop={stop}
                 messagesContainerRef={messagesContainerRef}
                 agentProgress={agentProgress}
+                ragProgress={ragProgress}
               />
             )}
           </ChatContainer>
