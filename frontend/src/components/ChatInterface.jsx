@@ -33,8 +33,7 @@ export function ChatInterface({
   isLoading,
   stop,
   messagesContainerRef,
-  agentProgress,
-  ragProgress
+  agentProgress
 }) {
   return (
     <>
@@ -66,7 +65,7 @@ export function ChatInterface({
                   <div className="w-64 p-2 bg-blue-50 border border-blue-200 rounded-lg">
                     <label className="block text-xs font-medium text-gray-700 mb-1">Course</label>
                     <p className="text-sm text-blue-700 font-medium">{selectedCourse.title}</p>
-                    <p className="text-xs text-blue-600">{selectedCourse.term}</p>
+                    {selectedCourse.term && <p className="text-xs text-blue-600">{selectedCourse.term}</p>}
                   </div>
                 )}
               </>
@@ -92,7 +91,7 @@ export function ChatInterface({
                   <div className="w-64 p-2 bg-blue-50 border border-blue-200 rounded-lg">
                     <label className="block text-xs font-medium text-gray-700 mb-1">Course</label>
                     <p className="text-sm text-blue-700 font-medium">{selectedCourse.title}</p>
-                    <p className="text-xs text-blue-600">{selectedCourse.term}</p>
+                    {selectedCourse.term && <p className="text-xs text-blue-600">{selectedCourse.term}</p>}
                   </div>
                 )}
                 <label className="flex items-center space-x-2">
@@ -115,51 +114,8 @@ export function ChatInterface({
         style={{ minHeight: 0 }}
       >
         <ChatMessages className="py-8">
-          {/* Agent Progress Bar */}
-          {agentProgress?.visible && (
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-                <div>
-                  <div className="text-sm font-medium text-blue-900">
-                    {agentProgress.stage === "initialization" && "🚀 Initializing"}
-                    {agentProgress.stage === "retrieval" && "🔍 Retrieving Context"}
-                    {agentProgress.stage === "retrieval_complete" && "✅ Context Retrieved"}
-                    {agentProgress.stage === "debate" && "💭 Multi-Agent Debate"}
-                    {agentProgress.stage === "debate_complete" && "✅ Debate Complete"}
-                    {agentProgress.stage === "synthesis" && "🧠 Synthesizing Answer"}
-                    {agentProgress.stage === "synthesis_complete" && "✅ Answer Synthesized"}
-                    {agentProgress.stage === "tutor_interaction" && "👨‍🏫 Tutor Review"}
-                    {!["initialization", "retrieval", "retrieval_complete", "debate", "debate_complete", "synthesis", "synthesis_complete", "tutor_interaction"].includes(agentProgress.stage) && "⚙️ Processing"}
-                  </div>
-                  <div className="text-xs text-blue-700 mt-1">
-                    {agentProgress.message}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* RAG Progress Bar for Daily Mode */}
-          {ragProgress?.visible && (
-            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-green-600"></div>
-                <div>
-                  <div className="text-sm font-medium text-green-900">
-                    {ragProgress.stage === "initialization" && "🚀 Initializing Knowledge Search"}
-                    {ragProgress.stage === "retrieval" && "🔍 Searching Knowledge Base"}
-                    {ragProgress.stage === "processing" && "📚 Processing Course Materials"}
-                    {ragProgress.stage === "generating" && "✨ Generating Response"}
-                    {!["initialization", "retrieval", "processing", "generating"].includes(ragProgress.stage) && "⚙️ Processing"}
-                  </div>
-                  <div className="text-xs text-green-700 mt-1">
-                    {ragProgress.message}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+
+
           <div className="space-y-8">
             {messages.filter((message, index) => {
               // Show user messages always
@@ -231,10 +187,12 @@ export function ChatInterface({
                       </div>
                       <span className="text-sm font-medium text-gray-600">Oliver Assistant</span>
                     </div>
-                    <div className="flex space-x-1">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                    <div className="flex items-center space-x-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-500"></div>
+                      <span className="text-sm text-gray-600">
+                        {selectedModel === "daily" && "Searching through course materials..."}
+                        {selectedModel === "rag" && "Agents are solving the problem..."}
+                      </span>
                     </div>
                   </div>
                 </div>
