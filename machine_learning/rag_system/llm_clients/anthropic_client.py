@@ -33,7 +33,9 @@ class AnthropicClient:
         return content
 
     async def generate_stream(self, prompt: str):
-        """Generate streaming response from prompt using Anthropic Claude."""
+        """
+        Generate streaming response from prompt using Anthropic Claude.
+        """
         response = self.client.messages.create(
             model=self.model,
             max_tokens=1024,
@@ -44,6 +46,7 @@ class AnthropicClient:
             stream=True,
         )
         
+        # Stream chunks as they arrive from Anthropic API
         for chunk in response:
             if chunk.delta and chunk.delta.text:
                 yield chunk.delta.text
