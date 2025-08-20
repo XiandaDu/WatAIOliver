@@ -422,10 +422,14 @@ async def generate_response(data: ChatRequest) -> StreamingResponse:
     """Generate response using daily (RAG) or rag (Multi-agent) systems"""
     
     mode = data.mode or "daily"
-    print(f"\n=== GENERATE_RESPONSE CALLED ===")
-    print(f"Mode: {mode}")
-    print(f"Course ID: {data.course_id}")
-    print(f"Prompt: {data.prompt[:100]}")  # First 100 chars
+    # Log to ai_agents for Problem-Solving mode
+    if mode == "rag":
+        import logging
+        ai_agents_logger = logging.getLogger("ai_agents.streaming") 
+        ai_agents_logger.info(f"\n=== GENERATE_RESPONSE CALLED ===")
+        ai_agents_logger.info(f"Mode: {mode}")
+        ai_agents_logger.info(f"Course ID: {data.course_id}")
+        ai_agents_logger.info(f"Prompt: {data.prompt[:100]}")  # First 100 chars
     
     async def generate_chunks():
         if mode == "daily":
@@ -448,9 +452,11 @@ async def generate_response(data: ChatRequest) -> StreamingResponse:
                 
                 # Collect the full response from agents system
                 full_response = ""
-                print("\n=== AGENT SYSTEM START ===")
+                import logging
+                ai_agents_logger = logging.getLogger("ai_agents.streaming")
+                ai_agents_logger.info("\n=== AGENT SYSTEM START ===")
                 chunk_count = 0
-                async for chunk in query_agents_system(
+                async for chunk in query_agents_system_streaming(
                     data.conversation_id or "",
                     data.prompt,
                     data.course_id,
@@ -460,77 +466,54 @@ async def generate_response(data: ChatRequest) -> StreamingResponse:
                     course_prompt,
                 ):
                     chunk_count += 1
-                    print(f"=== AGENT CHUNK {chunk_count} RECEIVED ===")
-                    print(f"Chunk type: {chunk.get('status', 'unknown')}")
-                    print(f"Chunk keys: {chunk.keys()}")
-                    print(f"Raw chunk: {str(chunk)[:200]}")
+                    ai_agents_logger.info(f"=== AGENT CHUNK {chunk_count} RECEIVED ===")
+                    ai_agents_logger.info(f"Chunk type: {chunk.get('status', 'unknown')}")
+                    ai_agents_logger.info(f"Chunk keys: {chunk.keys()}")
+                    ai_agents_logger.info(f"Raw chunk: {str(chunk)[:200]}")
                     
                     # If it's an error, yield and stop
                     if not chunk.get('success', True):
                         error_msg = chunk.get('error', {}).get('message', "An unexpected error occurred.")
-                        print(f"ERROR: {error_msg}")
+                        ai_agents_logger.error(f"ERROR: {error_msg}")
                         yield f"data: {json.dumps({'content': f'Error: {error_msg}'})}\n\n".encode('utf-8')
                         return
                     
-                    # Handle the agent response format (no status field, just success + answer)
-                    if chunk.get('success') and chunk.get('answer'):
-                        print("=== SUCCESSFUL AGENT RESPONSE RECEIVED ===")
+                    # Handle streaming content chunks
+                    if chunk.get('success') and chunk.get('answer') and chunk.get('is_streaming'):
+                        ai_agents_logger.info("=== STREAMING CHUNK RECEIVED ===")
                         answer = chunk.get('answer', {})
-                        print(f"Answer keys: {answer.keys() if answer else 'No answer'}")
                         
-                        # Build the full response text
-                        content_parts = []
-                        if answer.get('introduction'):
-                            content_parts.append(answer['introduction'])
-                            print(f"Added introduction: {len(answer['introduction'])} chars")
-                        if answer.get('step_by_step_solution'):
-                            content_parts.append('\n\n' + answer['step_by_step_solution'])
-                            print(f"Added solution: {len(answer['step_by_step_solution'])} chars")
-                        if answer.get('key_takeaways'):
-                            content_parts.append('\n\n## Key Takeaways\n' + answer['key_takeaways'])
-                            print(f"Added takeaways: {len(answer['key_takeaways'])} chars")
-                        if answer.get('important_notes'):
-                            content_parts.append('\n\n## Important Notes\n' + answer['important_notes'])
-                            print(f"Added notes: {len(answer['important_notes'])} chars")
-                        
-                        full_response = ''.join(content_parts)
-                        print(f"=== FULL RESPONSE COLLECTED: {len(full_response)} chars ===")
-                        print(f"First 200 chars: {full_response[:200]}")
+                        # Get the streaming content and send it directly to frontend
+                        streaming_content = answer.get('step_by_step_solution', '')
+                        if streaming_content:
+                            ai_agents_logger.debug(f"Sending streaming content: {repr(streaming_content[:50])}...")
+                            chunk_json = json.dumps({'content': streaming_content})
+                            yield f"data: {chunk_json}\n\n".encode('utf-8')
+                    
+                    # Handle final completion signal (no additional content)
+                    elif chunk.get('status') == 'complete':
+                        ai_agents_logger.info("=== STREAMING COMPLETE ===")
                         break
                     elif chunk.get('status') == 'in_progress':
                         # Just log progress, don't send to frontend
-                        print(f"Agent progress: {chunk.get('stage')} - {chunk.get('message')}")
+                        ai_agents_logger.debug(f"Agent progress: {chunk.get('stage')} - {chunk.get('message')}")
                     else:
-                        print(f"=== UNHANDLED CHUNK TYPE ===")
-                        print(f"Chunk success: {chunk.get('success')}")
-                        print(f"Has answer: {'answer' in chunk}")
-                        print(f"Has status: {'status' in chunk}")
+                        ai_agents_logger.warning(f"=== UNHANDLED CHUNK TYPE ===")
+                        ai_agents_logger.warning(f"Chunk success: {chunk.get('success')}")
+                        ai_agents_logger.warning(f"Has answer: {'answer' in chunk}")
+                        ai_agents_logger.warning(f"Has status: {'status' in chunk}")
                 
-                print(f"=== AGENT LOOP FINISHED: {chunk_count} chunks processed ===")
+                ai_agents_logger.info(f"=== AGENT LOOP FINISHED: {chunk_count} chunks processed ===")
                 
-                # Now stream the response EXACTLY like daily mode does
-                if full_response:
-                    print(f"\n=== STARTING STREAMING: {len(full_response)} chars ===")
-                    # Stream in small chunks just like daily mode
-                    chunk_size = 20  # Small chunks for smooth streaming
-                    chunks_sent = 0
-                    for i in range(0, len(full_response), chunk_size):
-                        content_chunk = full_response[i:i+chunk_size]
-                        chunk_json = json.dumps({'content': content_chunk})
-                        chunks_sent += 1
-                        print(f"Sending chunk {chunks_sent}: {repr(content_chunk)}")
-                        yield f"data: {chunk_json}\n\n".encode('utf-8')
-                    print(f"=== STREAMING COMPLETE: {chunks_sent} chunks sent ===")
-                else:
-                    print("=== WARNING: No response to stream ===")
+                # Streaming implementation complete - content streamed in real-time above
             
             except Exception as e:
                 # Send error as content chunk like daily mode
-                print(f"=== EXCEPTION IN AGENT SYSTEM ===")
-                print(f"Exception: {str(e)}")
-                print(f"Exception type: {type(e)}")
+                ai_agents_logger.error(f"=== EXCEPTION IN AGENT SYSTEM ===")
+                ai_agents_logger.error(f"Exception: {str(e)}")
+                ai_agents_logger.error(f"Exception type: {type(e)}")
                 import traceback
-                print(f"Traceback: {traceback.format_exc()}")
+                ai_agents_logger.error(f"Traceback: {traceback.format_exc()}")
                 error_msg = f"The Agent System is currently unavailable. Please try again later.\n\nTechnical details: {str(e)}"
                 yield f"data: {json.dumps({'content': error_msg})}\n\n".encode('utf-8')
         
@@ -539,8 +522,10 @@ async def generate_response(data: ChatRequest) -> StreamingResponse:
             error_msg = f"Unknown mode '{mode}'. Please select 'daily' for Daily mode or 'rag' for Problem Solving mode."
             yield f"data: {json.dumps({'content': error_msg})}\n\n".encode('utf-8')
             
-    print(f"=== RETURNING STREAMING RESPONSE ===")
-    print(f"Mode: {mode}")
+    # Log to ai_agents for Problem-Solving mode  
+    if mode == "rag":
+        ai_agents_logger.info(f"=== RETURNING STREAMING RESPONSE ===")
+        ai_agents_logger.info(f"Mode: {mode}")
     return StreamingResponse(generate_chunks(), media_type="text/event-stream")
 
 def _format_agents_response_with_debug(result: Dict[str, Any]) -> str:
@@ -635,6 +620,236 @@ async def query_agents_system(
             'error': {
                 'type': 'connection_error',
                 'message': f'Failed to connect to Agents service: {str(e)}'
+            }
+        }
+
+
+async def query_agents_system_streaming(
+    conversation_id: str,
+    query: str,
+    course_id: str,
+    rag_model: Optional[str] = None,
+    heavy_model: Optional[str] = None,
+    base_model: Optional[str] = None,
+    course_prompt: Optional[str] = None,
+) -> AsyncGenerator[Dict[str, Any], None]:
+    """Query the multi-agent system with Cerebras streaming for Problem-Solving mode"""
+
+    # Create ai_agents logger for proper logging location
+    import logging
+    ai_agents_logger = logging.getLogger("ai_agents.streaming")
+    ai_agents_logger.setLevel(logging.INFO)
+    
+    ai_agents_logger.info(f"=== CEREBRAS STREAMING QUERY_AGENTS_SYSTEM CALLED ===")
+    ai_agents_logger.info(f"Course ID: {course_id}")
+    ai_agents_logger.info(f"Query: {query[:100]}")
+    
+    try:
+        # Import here to avoid circular imports
+        import sys
+        sys.path.append('/home/chloe_wei/WatAIOliver/machine_learning')
+        
+        from ai_agents.orchestrator import MultiAgentOrchestrator
+        from ai_agents.config import SpeculativeAIConfig
+        from rag_system.llm_clients.cerebras_client import CerebrasClient
+        from rag_system.llm_clients.gemini_client import GeminiClient
+        from rag_system.llm_clients.openai_client import OpenAIClient
+        from rag_system.llm_clients.anthropic_client import AnthropicClient
+        from rag_system.app.config import get_settings
+        
+        # Initialize orchestrator with legitimate RAG service
+        config = SpeculativeAIConfig()
+        
+        # Get RAG settings first
+        rag_settings = get_settings()
+        
+        # Create appropriate LLM client based on model (same logic as daily mode)
+        model_name = base_model or "qwen-3-235b-a22b-instruct-2507"
+        custom_api_key = None
+        if model_name.startswith("custom-") and course_id:
+            custom_api_key = get_custom_model_api_key(course_id, model_name)
+        
+        # Initialize LLM client using same logic as daily mode
+        if model_name.startswith("gemini"):
+            llm_client = GeminiClient(
+                api_key=rag_settings.google_api_key,
+                model=model_name,
+                temperature=0.6,
+            )
+        elif model_name.startswith("gpt") or (model_name.startswith("custom-") and custom_api_key):
+            api_key = custom_api_key if custom_api_key else rag_settings.openai_api_key
+            actual_model = "gpt-4o-mini" if model_name.startswith("custom-") else model_name
+            llm_client = OpenAIClient(
+                api_key=api_key,
+                model=actual_model,
+                temperature=0.6,
+                top_p=0.95,
+            )
+        elif model_name.startswith("claude"):
+            llm_client = AnthropicClient(
+                api_key=rag_settings.anthropic_api_key,
+                model=model_name,
+                temperature=0.6,
+                top_p=0.95,
+            )
+        elif model_name.startswith("qwen") or model_name.startswith("cerebras"):
+            llm_client = CerebrasClient(
+                api_key=rag_settings.cerebras_api_key,
+                model=model_name,
+                temperature=0.6,
+                top_p=0.95,
+            )
+        else:
+            # Default to Gemini
+            llm_client = GeminiClient(
+                api_key=rag_settings.google_api_key,
+                model=model_name,
+                temperature=0.6,
+            )
+        
+        
+        # Create a proper RAG service wrapper with required methods
+        class RAGServiceWrapper:
+            def __init__(self, settings):
+                self.settings = settings
+            
+            def answer_question(self, course_id: str, question: str, **kwargs):
+                """Answer question using the RAG system via HTTP call (synchronous wrapper)"""
+                import asyncio
+                import concurrent.futures
+                try:
+                    # Use thread pool to run async code when event loop is already running
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(asyncio.run, self._async_answer_question(course_id, question, **kwargs))
+                        return future.result(timeout=60)  # 60 second timeout
+                except Exception as e:
+                    ai_agents_logger.error(f"Error in synchronous RAG wrapper: {e}")
+                    return {"success": False, "error": str(e)}
+            
+            async def _async_answer_question(self, course_id: str, question: str, **kwargs):
+                """Async implementation of answer_question"""
+                try:
+                    async with httpx.AsyncClient(timeout=TimeoutConfig.RAG_QUERY_TIMEOUT) as client:
+                        rag_payload = {
+                            'course_id': course_id,
+                            'question': question,
+                        }
+                        
+                        response = await client.post(
+                            f'http://{ServiceConfig.LOCALHOST}:{ServiceConfig.RAG_SYSTEM_PORT}/ask',
+                            json=rag_payload
+                        )
+                        
+                        if response.status_code == 200:
+                            return response.json()
+                        else:
+                            ai_agents_logger.error(f"RAG system returned {response.status_code}: {response.text}")
+                            return {"success": False, "error": f"RAG system error: {response.status_code}"}
+                
+                except Exception as e:
+                    ai_agents_logger.error(f"Error querying RAG system: {e}")
+                    return {"success": False, "error": str(e)}
+        
+        rag_service = RAGServiceWrapper(rag_settings)
+        
+        orchestrator = MultiAgentOrchestrator(
+            config=config,
+            rag_service=rag_service,
+            llm_client=llm_client,
+            logger=ai_agents_logger.getChild("orchestrator")
+        )
+        
+        metadata = {
+            "source": "chat_interface",
+            "base_model": base_model,
+            "streaming_mode": True
+        }
+        
+        ai_agents_logger.info("=== STARTING CEREBRAS STREAMING ORCHESTRATOR ===")
+        
+        # Track streaming chunks for conversion to agent system format
+        is_streaming_content = False
+        accumulated_content = ""
+        
+        async for chunk in orchestrator.process_query_streaming(
+            query=query,
+            course_id=course_id,
+            session_id=conversation_id,
+            metadata=metadata,
+            heavy_model=heavy_model,
+            course_prompt=course_prompt
+        ):
+            ai_agents_logger.debug(f"=== ORCHESTRATOR CHUNK: {chunk.get('status', 'unknown')} ===")
+            
+            if chunk.get("status") == "streaming" and chunk.get("content"):
+                # This is actual Cerebras streaming content
+                if not is_streaming_content:
+                    is_streaming_content = True
+                    ai_agents_logger.info("=== CEREBRAS CONTENT STREAMING STARTED ===")
+                
+                content = chunk["content"]
+                accumulated_content += content
+                ai_agents_logger.debug(f"Streaming chunk: {repr(content[:50])}...")
+                
+                # Create a structured answer format that frontend expects (matching non-streaming format)
+                streaming_answer = {
+                    "introduction": "",
+                    "step_by_step_solution": content,  # Stream the actual content
+                    "key_takeaways": "",
+                    "important_notes": ""
+                }
+                
+                # Yield the streaming content in the same format as the final response
+                yield {
+                    "success": True,
+                    "answer": streaming_answer,
+                    "is_streaming": True  # Flag to indicate this is streaming content
+                }
+                
+            elif chunk.get("status") == "complete":
+                # Final completion - format as successful agent response
+                ai_agents_logger.info(f"=== STREAMING COMPLETE: {len(accumulated_content)} chars ===")
+                
+                # Format the accumulated content as a structured agent response
+                final_answer = {
+                    "introduction": "Here's the solution to your problem:",
+                    "step_by_step_solution": accumulated_content,
+                    "key_takeaways": "This response was generated using Cerebras streaming.",
+                    "important_notes": "Response streamed directly from the agent system."
+                }
+                
+                yield {
+                    "success": True,
+                    "answer": final_answer,
+                    "metadata": chunk.get("metadata", {}),
+                    "processing_time": chunk.get("metadata", {}).get("processing_time", 0)
+                }
+                break
+                
+            elif chunk.get("status") == "in_progress":
+                # Forward progress updates
+                yield chunk
+                
+            elif chunk.get("success") == False:
+                # Handle errors
+                yield chunk
+                break
+    
+    except Exception as e:
+        # Create ai_agents logger for error logging
+        import logging
+        ai_agents_logger = logging.getLogger("ai_agents.streaming")
+        
+        ai_agents_logger.error(f"=== STREAMING ORCHESTRATOR ERROR ===")
+        ai_agents_logger.error(f"Exception: {str(e)}")
+        import traceback
+        ai_agents_logger.error(f"Traceback: {traceback.format_exc()}")
+        
+        yield {
+            'success': False,
+            'error': {
+                'type': 'streaming_error',
+                'message': f'Failed to query streaming orchestrator: {str(e)}'
             }
         }
 

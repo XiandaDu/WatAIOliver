@@ -53,37 +53,45 @@ class CerebrasClient:
 
     def generate(self, prompt: str) -> str:
         """
-        Generate response from prompt using Cerebras LLM.
+        Generate response from prompt using Cerebras LLM (non-streaming).
         """
-        # Delegate to the underlying LangChain LLM instance
-        return self.llm(prompt)
-       
-
-    async def generate_stream(self, prompt: str):
-        """Generate streaming response from prompt using Cerebras LLM."""
-        response_generator = self.llm._client.chat.completions.create(
-            messages=[{"role": "user", "content": prompt + " /no_think"}],
-            model=self.llm._model_name,
-            temperature=self.llm._temperature,
-            top_p=self.llm._top_p,
-            stream=True  # Ensure streaming is enabled for this method
-        )
-        
-        for chunk in response_generator:
-            if chunk.choices and chunk.choices[0].delta.content:
-                yield chunk.choices[0].delta.content
-
-    def generate(self, prompt: str) -> str:
-        """
-        Generate response from prompt using Cerebras LLM.
-        """
-        # Ensure non-streaming for agent usage
+        # Use direct API for consistent behavior
         response = self.llm._client.chat.completions.create(
             messages=[{"role": "user", "content": prompt + " /no_think"}],
             model=self.llm._model_name,
             temperature=self.llm._temperature,
             top_p=self.llm._top_p,
-            stream=False  # Explicitly disable streaming for the non-streaming generate method
+            stream=False
         )
         return response.choices[0].message.content
+
+    async def generate_stream(self, prompt: str, temperature: float = None):
+        """
+        Generate streaming response from prompt using Cerebras LLM.
+        
+        Added for streaming support in Problem-Solving mode.
+        
+        Args:
+            prompt: Input prompt text
+            temperature: Override temperature setting
+        """
+        actual_temperature = temperature if temperature is not None else self.llm._temperature
+        
+        response_generator = self.llm._client.chat.completions.create(
+            messages=[{"role": "user", "content": prompt + " /no_think"}],
+            model=self.llm._model_name,
+            temperature=actual_temperature,
+            top_p=self.llm._top_p,
+            stream=True
+        )
+        
+        import asyncio
+        chunk_count = 0
+        for chunk in response_generator:
+            if chunk.choices and chunk.choices[0].delta.content:
+                chunk_count += 1
+                yield chunk.choices[0].delta.content
+                # Only yield control periodically for maximum speed
+                if chunk_count % 5 == 0:  # Every 5th chunk
+                    await asyncio.sleep(0)
        

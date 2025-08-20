@@ -32,14 +32,20 @@ class AnthropicClient:
                 content += chunk.delta.text
         return content
 
-    async def generate_stream(self, prompt: str):
+    async def generate_stream(self, prompt: str, temperature: float = None):
         """
         Generate streaming response from prompt using Anthropic Claude.
+        
+        Args:
+            prompt: Input prompt text
+            temperature: Override temperature setting
         """
+        actual_temperature = temperature if temperature is not None else self.temperature
+        
         response = self.client.messages.create(
             model=self.model,
             max_tokens=1024,
-            temperature=self.temperature,
+            temperature=actual_temperature,
             top_p=self.top_p,
             system=None,
             messages=[{"role": "user", "content": prompt}],
@@ -47,9 +53,15 @@ class AnthropicClient:
         )
         
         # Stream chunks as they arrive from Anthropic API
+        import asyncio
+        chunk_count = 0
         for chunk in response:
             if chunk.delta and chunk.delta.text:
+                chunk_count += 1
                 yield chunk.delta.text
+                # Only yield control periodically for maximum speed
+                if chunk_count % 5 == 0:  # Every 5th chunk
+                    await asyncio.sleep(0)
 
     def get_llm_client(self):
         return self.client

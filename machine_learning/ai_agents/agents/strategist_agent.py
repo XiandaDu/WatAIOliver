@@ -330,16 +330,39 @@ class StrategistAgent(BaseAgent):
         return min(score / max_score, 1.0)
     
     async def _call_llm(self, prompt: str, temperature: float) -> str:
-        """Call LLM with error handling"""
+        """
+        Call LLM with error handling and proper async interface support.
+        
+        Handles different LLM client types:
+        - LangChain clients with ainvoke method (Cerebras, Gemini)
+        - OpenAI client with generate_async method
+        - Other clients with synchronous generate method
+        """
         try:
             if hasattr(self.llm_client, 'get_llm_client'):
                 llm = self.llm_client.get_llm_client()
-                response = await llm.ainvoke(prompt, temperature=temperature)
-                return response.content if hasattr(response, 'content') else str(response)
+                # Check if the underlying client has ainvoke (LangChain compatibility)
+                if hasattr(llm, 'ainvoke'):
+                    response = await llm.ainvoke(prompt, temperature=temperature)
+                    return response.content if hasattr(response, 'content') else str(response)
+                else:
+                    # For raw clients (like OpenAI), use the wrapper's async method
+                    if hasattr(self.llm_client, 'generate_async'):
+                        response = await self.llm_client.generate_async(prompt, temperature=temperature)
+                        return str(response)
+                    else:
+                        # Last resort: synchronous generate
+                        response = self.llm_client.generate(prompt, temperature=temperature)
+                        return str(response)
             else:
-                # Fallback for different LLM client interfaces
-                response = await self.llm_client.generate(prompt, temperature=temperature)
-                return str(response)
+                # Direct client interface - check for async support first
+                if hasattr(self.llm_client, 'generate_async'):
+                    response = await self.llm_client.generate_async(prompt, temperature=temperature)
+                    return str(response)
+                else:
+                    # Fallback to synchronous generate (should not be called with await, but handle gracefully)
+                    response = self.llm_client.generate(prompt, temperature=temperature)
+                    return str(response)
         except Exception as e:
             self.logger.error(f"LLM call failed: {str(e)}")
             raise e 
