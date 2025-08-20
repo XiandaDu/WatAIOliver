@@ -2,7 +2,7 @@
 
 Simple RAG system using `gemini-embedding-001` with 512D vectors.
 
-## 🚀 Quick Setup
+##Quick Setup
 
 ### Step 1: Google Cloud Setup
 1. **Go to [Google Cloud Console](https://console.cloud.google.com/)**
@@ -13,13 +13,13 @@ Simple RAG system using `gemini-embedding-001` with 512D vectors.
 
 3. **Enable Billing:**
    - Go to **Billing** → Link a billing account
-   - ⚠️ **Required** - won't work without billing
+   -️ **Required** - won't work without billing
 
 4. **Enable APIs:**
    - Go to **APIs & Services** → **Library**
    - Search and enable:
-     - ✅ **Vertex AI API** 
-     - ✅ **Generative Language API**
+     -**Vertex AI API** 
+     -**Generative Language API**
 
 5. **Create Service Account:**
    - Go to **IAM & Admin** → **Service Accounts**
@@ -116,36 +116,36 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 - **API Documentation:** http://localhost:8000/docs
 - **Health Check:** http://localhost:8000/health
 
-## ✅ Success Output
+##Success Output
 You should see:
 ```
-📋 Model Configuration:
+Model Configuration:
    Model: gemini-embedding-001
    Expected Dimensions: 512
 
-🔍 Testing Query Embedding:
-✅ Query: 'What is machine learning?'
+Testing Query Embedding:
+Query: 'What is machine learning?'
    Embedding Dimensions: 512
    Vector Preview: [0.123456, -0.789012, ...]
 
-✅ ALL TESTS PASSED!
+ALL TESTS PASSED!
 ```
 
-## 🐛 Common Issues
+##Common Issues
 
 **401 UNAUTHENTICATED:**
-- ❌ Billing not enabled → Enable billing
-- ❌ APIs not enabled → Enable Vertex AI API
-- ❌ Wrong file path → Check your JSON file path in `.env`
+-Billing not enabled → Enable billing
+-APIs not enabled → Enable Vertex AI API
+-Wrong file path → Check your JSON file path in `.env`
 
 **File not found:**
-- ❌ JSON file in wrong location → Move to `machine_learning/` folder
-- ❌ Wrong filename in `.env` → Update `GOOGLE_APPLICATION_CREDENTIALS`
+-JSON file in wrong location → Move to `machine_learning/` folder
+-Wrong filename in `.env` → Update `GOOGLE_APPLICATION_CREDENTIALS`
 
 **404 Model not found:**
-- ❌ Using wrong project → Check `GOOGLE_CLOUD_PROJECT` matches your actual project ID
+-Using wrong project → Check `GOOGLE_CLOUD_PROJECT` matches your actual project ID
 
-## 💡 Usage
+##Usage
 
 ```python
 from services.rag_service import RAGService
@@ -161,4 +161,4 @@ result = rag.process_document("course_id", "content")
 answer = rag.answer_question("course_id", "What is this about?")
 ```
 
-That's it! 🎉 
+That's it!

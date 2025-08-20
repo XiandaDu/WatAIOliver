@@ -40,10 +40,10 @@ class RAGService:
         #     output_dimensionality=ModelConfig.DEFAULT_OUTPUT_DIMENSIONALITY
         # )
         
-        # Initialize Gemini LLM client for question answering
+        # Initialize Gemini LLM client for question answering (default to Flash)
         self.llm_client = GeminiClient(
             api_key=settings.google_api_key,
-            model="gemini-2.5-pro",
+            model="gemini-2.5-flash",  # Changed from Pro to Flash as default
             temperature=ModelConfig.DEFAULT_TEMPERATURE
         )
         
@@ -78,7 +78,8 @@ class RAGService:
             A dictionary with document processing results, including document ID and chunk count
         """
         try:
-            doc_id = doc_id or f"doc_{hash(content) % 10**10}"
+            import time
+            doc_id = doc_id or f"doc_{hash(content) % 10**10}_{int(time.time() * 1000)}"
             
             document = Document(
                 page_content=content,

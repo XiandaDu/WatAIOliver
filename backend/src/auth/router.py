@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from .models import GoogleTokenRequest, AuthResponse, RoleUpdateRequest, AccountStatusRequest
 from .service import AuthService
-from .middleware import auth_required, admin_required
+from .middleware import auth_required, admin_required, instructor_required
 import logging
 
 logger = logging.getLogger(__name__)
@@ -102,3 +102,7 @@ async def update_account_status(
 @router.get("/health")
 async def health_check():
     return {"status": "healthy", "service": "authentication"}
+
+@router.get("/verify-instructor")
+async def verify_instructor(current_user = Depends(instructor_required)):
+    return {"success": True, "user": current_user}

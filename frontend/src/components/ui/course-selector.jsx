@@ -66,6 +66,8 @@ export function CourseSelector({ value, onChange, className = "" }) {
     value: course.course_id
   }))
 
+
+
   return (
     <div className={`space-y-4 ${className}`}>
       <div className="space-y-2">

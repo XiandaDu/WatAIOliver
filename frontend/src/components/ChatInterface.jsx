@@ -1,12 +1,10 @@
 import { ChatForm, ChatMessages } from "@/components/ui/chat"
 import { MessageInput } from "@/components/ui/message-input"
 import { CustomSelect } from "@/components/ui/custom-select"
-import { CourseSelector } from "@/components/ui/course-selector"
 import { ChatFileAttachment } from "@/components/ui/chat-file-attachment"
 import { transcribeAudio } from "@/lib/utils/audio"
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer"
-import { useNavigate } from "react-router-dom"
-import { Button } from "@/components/ui/button"
+import { HtmlPreview } from "@/components/HtmlPreview"
 
 export function ChatInterface({ 
   selectedConversation,
@@ -24,6 +22,7 @@ export function ChatInterface({
   heavyModelOptions,
   selectedCourseId,
   setSelectedCourseId,
+  selectedCourse,
   useAgents,
   setUseAgents,
   messages,
@@ -33,7 +32,8 @@ export function ChatInterface({
   handleInputChange,
   isLoading,
   stop,
-  messagesContainerRef
+  messagesContainerRef,
+  agentProgress
 }) {
   const navigate = useNavigate()
   
@@ -50,14 +50,6 @@ export function ChatInterface({
             <h1 className="text-xl font-semibold text-gray-900">
               {selectedConversation ? selectedConversation.title : 'Oliver Chat'}
             </h1>
-            <Button
-              onClick={handleLogout}
-              variant="outline"
-              size="sm"
-              className="text-red-600 border-red-300 hover:bg-red-50"
-            >
-              Logout
-            </Button>
           </div>
           <div className="mt-2 space-y-3">
             <CustomSelect
@@ -74,6 +66,18 @@ export function ChatInterface({
               placeholder="Foundation model"
               className="w-48"
             />
+            {selectedModel === "daily" && (
+              <>
+                {selectedCourse && (
+                  <div className="w-64 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Course</label>
+                    <p className="text-sm text-blue-700 font-medium">{selectedCourse.title}</p>
+                    {/* Only show term if it exists to avoid empty elements */}
+                    {selectedCourse.term && <p className="text-xs text-blue-600">{selectedCourse.term}</p>}
+                  </div>
+                )}
+              </>
+            )}
             {selectedModel === "rag" && (
               <>
                 <CustomSelect
@@ -90,10 +94,13 @@ export function ChatInterface({
                   placeholder="Heavy reasoning model"
                   className="w-48"
                 />
-                {selectedCourseId && (
+
+                {selectedCourse && (
                   <div className="w-64 p-2 bg-blue-50 border border-blue-200 rounded-lg">
                     <label className="block text-xs font-medium text-gray-700 mb-1">Course</label>
-                    <p className="text-sm text-blue-700 font-medium">{selectedCourseId}</p>
+                    <p className="text-sm text-blue-700 font-medium">{selectedCourse.title}</p>
+                    {/* Only show term if it exists to avoid empty elements */}
+                    {selectedCourse.term && <p className="text-xs text-blue-600">{selectedCourse.term}</p>}
                   </div>
                 )}
                 <label className="flex items-center space-x-2">
@@ -116,8 +123,25 @@ export function ChatInterface({
         style={{ minHeight: 0 }}
       >
         <ChatMessages className="py-8">
+
+
           <div className="space-y-8">
-            {messages.map((message) => (
+            {messages.filter((message, index) => {
+              // Show user messages always
+              if (message.role === "user") return true;
+              
+              // For assistant messages, show if they have content
+              if (message.content.trim()) return true;
+              
+              // For empty assistant messages, only show if we're loading but NOT typing
+              // (when typing=true, we show the separate typing indicator instead)
+              if (isLoading && !isTyping) {
+                const laterAssistantMessages = messages.slice(index + 1).filter(m => m.role === "assistant");
+                return laterAssistantMessages.length === 0; // This is the latest assistant message
+              }
+              
+              return false;
+            }).map((message) => (
               <div
                 key={message.id}
                 className={`${
@@ -149,9 +173,13 @@ export function ChatInterface({
                         </div>
                         <span className="text-sm font-medium text-gray-600">Oliver Assistant</span>
                       </div>
-                      <div className="prose prose-lg max-w-none">
-                        <MarkdownRenderer>{message.content}</MarkdownRenderer>
-                      </div>
+                      {message?.meta?.type === "html" ? (
+                        <HtmlPreview html={message.meta.html} />
+                      ) : (
+                        <div className="prose prose-lg max-w-none">
+                          <MarkdownRenderer>{message.content}</MarkdownRenderer>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -168,10 +196,12 @@ export function ChatInterface({
                       </div>
                       <span className="text-sm font-medium text-gray-600">Oliver Assistant</span>
                     </div>
-                    <div className="flex space-x-1">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                    <div className="flex items-center space-x-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-500"></div>
+                      <span className="text-sm text-gray-600">
+                        {selectedModel === "daily" && "Searching through course materials..."}
+                        {selectedModel === "rag" && "Agents are solving the problem..."}
+                      </span>
                     </div>
                   </div>
                 </div>

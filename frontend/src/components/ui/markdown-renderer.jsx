@@ -17,6 +17,11 @@ import { CopyButton } from "@/components/ui/copy-button"
 export function MarkdownRenderer({
   children
 }) {
+  // DEBUG: Log what MarkdownRenderer receives
+  console.log("=== MARKDOWN RENDERER INPUT ===");
+  console.log("Children content:", typeof children === 'string' ? children.substring(0, 500) : children);
+  console.log("===============================");
+  
   return (
     (<div className="space-y-3">
       <Markdown

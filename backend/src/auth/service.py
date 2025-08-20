@@ -14,29 +14,87 @@ class AuthService:
         return any(email.lower().endswith(domain) for domain in allowed_domains)
     
     @staticmethod
+    async def _get_google_user_info(access_token: str) -> Dict[str, Any]:
+        """Get user info from Google API"""
+        google_response = requests.get(
+            'https://www.googleapis.com/oauth2/v3/userinfo',
+            headers={'Authorization': f'Bearer {access_token}'},
+            timeout=10
+        )
+        
+        if google_response.status_code != 200:
+            raise Exception("Invalid Google access token")
+        
+        google_user = google_response.json()
+        email = google_user.get('email')
+        
+        if not email:
+            raise Exception("Could not retrieve email from Google")
+        
+        return google_user
+    
+    @staticmethod
+    async def _find_existing_user(email: str):
+        """Find existing user by email"""
+        users_response = supabase.auth.admin.list_users()
+        for user in users_response:
+            if user.email == email:
+                return user
+        return None
+    
+    @staticmethod
+    async def _handle_existing_user(existing_user, google_user: Dict[str, Any], token_request: GoogleTokenRequest) -> AuthResponse:
+        """Handle login for existing user"""
+        logger.info(f"Processing existing user login: {existing_user.id}")
+        
+        # Get or create user profile
+        profile_response = supabase.table("users").select("*").eq("user_id", existing_user.id).execute()
+        
+        if not profile_response.data:
+            await AuthService._create_user_profile(existing_user, google_user, token_request.account_type)
+            profile_response = supabase.table("users").select("*").eq("user_id", existing_user.id).execute()
+        else:
+            # Update role based on login request
+            await AuthService._update_user_role_on_login(existing_user.id, profile_response.data[0], token_request.account_type)
+            profile_response = supabase.table("users").select("*").eq("user_id", existing_user.id).execute()
+        
+        profile = profile_response.data[0] if profile_response.data else None
+        login_role = token_request.account_type if token_request.account_type in ["student", "instructor"] else "student"
+        
+        auth_user = AuthUser(
+            id=existing_user.id,
+            email=existing_user.email,
+            username=profile.get("username", google_user.get("name", existing_user.email.split("@")[0])) if profile else google_user.get("name", existing_user.email.split("@")[0]),
+            full_name=profile.get("full_name", google_user.get("name")) if profile else google_user.get("name"),
+            role=login_role,
+            email_confirmed=existing_user.email_confirmed_at is not None,
+            created_at=existing_user.created_at,
+            last_sign_in=existing_user.last_sign_in_at
+        )
+        
+        return AuthResponse(
+            success=True,
+            message="Welcome back! Authentication successful",
+            user=auth_user,
+            access_token=token_request.access_token
+        )
+    
+    @staticmethod
+    async def _update_user_role_on_login(user_id: str, profile: Dict[str, Any], requested_role: str):
+        """Update user role if different from current"""
+        normalized_role = requested_role if requested_role in ["student", "instructor"] else "student"
+        current_role = profile.get('role', 'student')
+        
+        if normalized_role != current_role:
+            logger.info(f"Updating user role from {current_role} to {normalized_role}")
+            supabase.table("users").update({"role": normalized_role}).eq("user_id", user_id).execute()
+    
+    @staticmethod
     async def authenticate_with_google(token_request: GoogleTokenRequest) -> AuthResponse:
         try:
-            # Get user info from Google using the access token
-            google_response = requests.get(
-                'https://www.googleapis.com/oauth2/v3/userinfo',
-                headers={'Authorization': f'Bearer {token_request.access_token}'},
-                timeout=10
-            )
-            
-            if google_response.status_code != 200:
-                return AuthResponse(
-                    success=False,
-                    message="Invalid Google access token"
-                )
-            
-            google_user = google_response.json()
+            # Get user info from Google
+            google_user = await AuthService._get_google_user_info(token_request.access_token)
             email = google_user.get('email')
-            
-            if not email:
-                return AuthResponse(
-                    success=False,
-                    message="Could not retrieve email from Google"
-                )
             
             # Validate email domain
             if not AuthService.validate_email_domain(email):
@@ -45,86 +103,23 @@ class AuthService:
                     message="Please use a valid @gmail.com or @uwaterloo.ca email address"
                 )
             
-            # Check if user exists in Supabase Auth
-            try:
-                logger.info(f"Looking up existing user for email: {email}")
-                # Try to get existing user by searching through users
-                users_response = supabase.auth.admin.list_users()
-                logger.info(f"Retrieved {len(users_response)} users from Supabase Auth")
-                existing_user = None
-                for user in users_response:
-                    if user.email == email:
-                        existing_user = user
-                        logger.info(f"Found existing user: {user.id} ({user.email})")
-                        break
-                
-                if not existing_user:
-                    logger.info(f"No existing user found for email: {email}")
-                
-                if existing_user:
-                    # User exists, just get their profile and return auth data
-                    logger.info(f"Processing existing user login: {existing_user.id}")
-                    
-                    # Get user profile from database
-                    logger.info(f"Looking up user profile for user_id: {existing_user.id}")
-                    profile_response = supabase.table("users").select("*").eq("user_id", existing_user.id).execute()
-                    
-                    if not profile_response.data:
-                        logger.info(f"No profile found for user {existing_user.id}, creating new profile")
-                        # Create user profile if it doesn't exist
-                        await AuthService._create_user_profile(existing_user, google_user, token_request.account_type)
-                        # Refetch the profile
-                        profile_response = supabase.table("users").select("*").eq("user_id", existing_user.id).execute()
-                        logger.info(f"Profile created and retrieved for user {existing_user.id}")
-                    else:
-                        logger.info(f"Found existing profile for user {existing_user.id}: {profile_response.data[0].get('username')}")
-                    
-                    profile = profile_response.data[0] if profile_response.data else None
-                    
-                    auth_user = AuthUser(
-                        id=existing_user.id,
-                        email=existing_user.email,
-                        username=profile.get("username", google_user.get("name", email.split("@")[0])) if profile else google_user.get("name", email.split("@")[0]),
-                        full_name=profile.get("full_name", google_user.get("name")) if profile else google_user.get("name"),
-                        role=profile.get("role", "student") if profile else "student",
-                        email_confirmed=existing_user.email_confirmed_at is not None,
-                        created_at=existing_user.created_at,
-                        last_sign_in=existing_user.last_sign_in_at
-                    )
-                    
-                    logger.info(f"Successful authentication for existing user: {existing_user.email}")
-                    return AuthResponse(
-                        success=True,
-                        message="Welcome back! Authentication successful",
-                        user=auth_user,
-                        access_token=token_request.access_token  # Use the Google access token
-                    )
-                
-                else:
-                    # User doesn't exist, create new user
-                    logger.info(f"Creating new user for email: {email}")
-                    return await AuthService._create_new_google_user(google_user, token_request.account_type)
-                    
-            except Exception as supabase_error:
-                logger.error(f"Supabase auth error: {supabase_error}")
-                # If user doesn't exist in Supabase Auth, create them
-                return await AuthService._create_new_google_user(google_user, token_request.account_type)
+            # Check if user exists
+            existing_user = await AuthService._find_existing_user(email)
             
-        except requests.RequestException as e:
-            logger.error(f"Google API request failed: {e}")
-            return AuthResponse(
-                success=False,
-                message="Failed to authenticate with Google"
-            )
+            if existing_user:
+                return await AuthService._handle_existing_user(existing_user, google_user, token_request)
+            else:
+                return await AuthService._create_new_google_user(google_user, token_request.account_type, token_request.access_token)
+                    
         except Exception as e:
             logger.error(f"Authentication error: {e}")
             return AuthResponse(
                 success=False,
-                message="Authentication failed"
+                message=str(e) if "Invalid Google" in str(e) or "Could not retrieve" in str(e) else "Authentication failed"
             )
     
     @staticmethod
-    async def _create_new_google_user(google_user: Dict[str, Any], account_type: str) -> AuthResponse:
+    async def _create_new_google_user(google_user: Dict[str, Any], account_type: str, access_token: str) -> AuthResponse:
         try:
             email = google_user.get('email')
             name = google_user.get('name', email.split('@')[0])
@@ -167,7 +162,8 @@ class AuthService:
             return AuthResponse(
                 success=True,
                 message="Account created successfully",
-                user=auth_user
+                user=auth_user,
+                access_token=access_token
             )
             
         except Exception as e:
@@ -238,65 +234,58 @@ class AuthService:
     
     @staticmethod
     async def update_user_role(role_request: RoleUpdateRequest) -> AuthResponse:
-        try:
-            logger.info(f"Updating role for user {role_request.user_id} to {role_request.new_role}")
-            # Update role in users table
-            update_response = supabase.table("users").update({
-                "role": role_request.new_role
-            }).eq("user_id", role_request.user_id).execute()
-            
-            if not update_response.data:
-                logger.error(f"Failed to update role for user {role_request.user_id}: no data returned")
-                return AuthResponse(
-                    success=False,
-                    message="User not found or update failed"
-                )
-            
-            logger.info(f"Successfully updated role for user {role_request.user_id} to {role_request.new_role}")
-            return AuthResponse(
-                success=True,
-                message=f"User role updated to {role_request.new_role}"
-            )
-            
-        except Exception as e:
-            logger.error(f"Error updating user role: {e}")
-            return AuthResponse(
-                success=False,
-                message="Failed to update user role"
-            )
+        return await AuthService._update_user_field(
+            user_id=role_request.user_id,
+            field_name="role",
+            field_value=role_request.new_role,
+            success_message=f"User role updated to {role_request.new_role}",
+            operation_name="updating user role"
+        )
     
     @staticmethod
     async def update_account_status(user_id: str, status: str) -> AuthResponse:
+        if status not in ["active", "blocked"]:
+            return AuthResponse(
+                success=False,
+                message="Invalid status. Must be 'active' or 'blocked'"
+            )
+        
+        return await AuthService._update_user_field(
+            user_id=user_id,
+            field_name="account_type",
+            field_value=status,
+            success_message=f"Account {status}",
+            operation_name="updating account status"
+        )
+    
+    @staticmethod
+    async def _update_user_field(user_id: str, field_name: str, field_value: str, success_message: str, operation_name: str) -> AuthResponse:
+        """Helper method for updating user fields"""
         try:
-            if status not in ["active", "blocked"]:
-                return AuthResponse(
-                    success=False,
-                    message="Invalid status. Must be 'active' or 'blocked'"
-                )
+            logger.info(f"Updating {field_name} for user {user_id} to {field_value}")
             
-            logger.info(f"Updating account status for user {user_id} to {status}")
             update_response = supabase.table("users").update({
-                "account_type": status
+                field_name: field_value
             }).eq("user_id", user_id).execute()
             
             if not update_response.data:
-                logger.error(f"Failed to update account status for user {user_id}: no data returned")
+                logger.error(f"Failed to update {field_name} for user {user_id}: no data returned")
                 return AuthResponse(
                     success=False,
                     message="User not found or update failed"
                 )
             
-            logger.info(f"Successfully updated account status for user {user_id} to {status}")
+            logger.info(f"Successfully updated {field_name} for user {user_id} to {field_value}")
             return AuthResponse(
                 success=True,
-                message=f"Account {status}"
+                message=success_message
             )
             
         except Exception as e:
-            logger.error(f"Error updating account status: {e}")
+            logger.error(f"Error {operation_name}: {e}")
             return AuthResponse(
                 success=False,
-                message="Failed to update account status"
+                message=f"Failed to update {field_name}"
             )
     
     @staticmethod

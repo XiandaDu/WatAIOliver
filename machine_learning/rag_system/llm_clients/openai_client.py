@@ -14,7 +14,7 @@ class OpenAIClient:
         self.temperature = temperature
         self.top_p = top_p
 
-    def generate(self, prompt: str, stream: bool = True) -> str:
+    def generate(self, prompt: str, stream: bool = False) -> str:
         response = self.client.chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
@@ -29,6 +29,23 @@ class OpenAIClient:
             if chunk.choices and chunk.choices[0].delta.content:
                 content += chunk.choices[0].delta.content
         return content
+
+    async def generate_stream(self, prompt: str):
+        """
+        Generate streaming response from prompt using OpenAI.
+        """
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=self.temperature,
+            top_p=self.top_p,
+            stream=True
+        )
+        
+        # Stream chunks as they arrive from OpenAI API
+        for chunk in response:
+            if chunk.choices and chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
 
     def get_llm_client(self):
         return self.client

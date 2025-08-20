@@ -14,7 +14,7 @@ class LLMService:
         if settings.llm_provider == "cerebras":
             self.llm_client = CerebrasClient(
                 api_key=settings.cerebras_api_key,
-                model="qwen-3-235b-a22b",
+                model="qwen-3-235b-a22b-instruct-2507",
                 temperature=0.6,
                 top_p=0.95,
             )
@@ -35,7 +35,7 @@ class LLMService:
         else:
             self.llm_client = GeminiClient(
                 api_key=settings.google_api_key,
-                model="gemini-2.5-pro",
+                model="gemini-2.5-flash",  # Changed from Pro to Flash as default
                 temperature=ModelConfig.DEFAULT_TEMPERATURE,
             )
 

@@ -36,14 +36,24 @@ class ReporterAgent(BaseAgent):
         3. INTEGRATE remaining minor issues seamlessly
         4. ATTRIBUTE sources clearly and transparently
         5. MAINTAIN academic rigor while ensuring accessibility
+        6. **CLEAN AND FIX** all retrieved content formatting issues
 
         Key principles:
         - Write in the tone of a seasoned, knowledgeable teacher
         - Organize content logically: introduction, steps, key takeaways
+        - **Fix all document parsing artifacts**: broken sentences, missing punctuation, fragmented text
+        - **Transform raw retrieval text** into coherent, well-structured explanations
+        - **Ensure proper grammar and flow** - don't copy-paste raw retrieved content
+        - **Present information naturally** - don't mention "Document 1", "sources", or "retrieved materials"
         - Be transparent about knowledge boundaries and limitations
         - Provide clear, actionable insights
         - Ensure content is suitable for educational contexts
         - Reflect carefully on the debate outcome before finalizing
+
+        CRITICAL: The retrieved content may have formatting issues, incomplete sentences, broken mathematical expressions, or parsing errors. 
+        Your job is to understand the meaning and rewrite it as clear, professional educational content that flows naturally without referencing sources.
+        
+        **SPECIAL ATTENTION TO MATH**: Fix incomplete formulas (e.g., "f(x) = x^" → "f(x) = x^n"), integrate scattered mathematical symbols, and ensure all equations are properly formatted and complete.
 
         Your output should be the definitive, high-quality answer to the user's question.
         """
@@ -172,6 +182,18 @@ class ReporterAgent(BaseAgent):
             [Any limitations, assumptions, or areas requiring caution - address minor issues transparently]
             
             Requirements:
+            - **CLEAN UP FORMATTING ISSUES**: Fix broken sentences, missing punctuation, fragmented text from document parsing
+            - **FORMAT MATH FOR KATEX**: Use proper LaTeX syntax - inline math: $f(x) = x^2$, display math: $$f(x) = x^2$$
+            - **FIX MATHEMATICAL EXPRESSIONS ONLY**: Complete broken formulas (e.g., "f(x) = x^" → "$f(x) = x^2$"), integrate scattered math symbols with $ delimiters
+            - **NO LONE MATH SYMBOLS**: Never leave symbols like π on separate lines - integrate them into complete sentences or expressions
+            - **COMPLETE ALL BROKEN FORMULAS**: Fix incomplete expressions and fragmented mathematical content
+            - **FIX SENTENCE FRAGMENTS**: Combine broken text pieces into complete, flowing sentences, remove trailing "and" or incomplete endings
+            - **SYNTHESIZE CONCISELY**: Transform raw retrieved content into coherent explanations without unnecessary expansion
+            - **FIX DOCUMENT PARSING ARTIFACTS**: Remove formatting errors, incomplete sentences, and garbled text
+            - **CREATE PROPER FLOW**: Ensure logical transitions between concepts and ideas
+            - **USE ACADEMIC WRITING STYLE**: Clear, professional, and educational tone
+            - **NO DOCUMENT REFERENCES**: Don't mention "Document 1", "according to sources", or "based on provided materials" - present information naturally
+            - **KEEP ORIGINAL SCOPE**: Don't expand beyond the original content's scope unless necessary for clarity
             - Integrate minor issues seamlessly (don't ignore them, but address them naturally)
             - Maintain educational value and clear explanations
             - Use a confident but honest tone
@@ -454,11 +476,25 @@ class ReporterAgent(BaseAgent):
             if hasattr(self.llm_client, 'get_llm_client'):
                 llm = self.llm_client.get_llm_client()
                 response = await llm.ainvoke(prompt, temperature=temperature)
-                return response.content if hasattr(response, 'content') else str(response)
+                content = response.content if hasattr(response, 'content') else str(response)
+                
+                # DEBUG: Log what the agents system generates
+                print("=== DEBUG AGENT SYSTEM OUTPUT ===")
+                print("AGENT LLM RESPONSE:", repr(content[:1000]))  # First 1000 chars
+                print("================================")
+                
+                return content
             else:
                 # Fallback for different LLM client interfaces
                 response = await self.llm_client.generate(prompt, temperature=temperature)
-                return str(response)
+                content_str = str(response)
+                
+                # DEBUG: Log what the agents system generates
+                print("=== DEBUG AGENT SYSTEM OUTPUT ===")
+                print("AGENT LLM RESPONSE:", repr(content_str[:1000]))  # First 1000 chars
+                print("================================")
+                
+                return content_str
         except Exception as e:
             self.logger.error(f"LLM call failed: {str(e)}")
             return "" 

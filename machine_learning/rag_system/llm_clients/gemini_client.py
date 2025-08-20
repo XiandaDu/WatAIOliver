@@ -18,6 +18,9 @@ class GeminiClient:
             google_api_key=api_key,
             temperature=temperature
         )
+        self.api_key = api_key
+        self.model = model
+        self.temperature = temperature
     
     def generate(self, prompt: str) -> str:
         """
@@ -31,6 +34,17 @@ class GeminiClient:
         """
         response = self.llm.invoke(prompt)
         return response.content
+    
+    async def generate_stream(self, prompt: str):
+        """
+        Generate streaming response from prompt using Gemini via LangChain.
+        
+        Uses LangChain's astream method for async streaming.
+        """
+        # Use LangChain's astream method for streaming
+        async for chunk in self.llm.astream(prompt):
+            if chunk.content:
+                yield chunk.content
     
     def get_llm_client(self):
         """Get the underlying LangChain LLM client."""

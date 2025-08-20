@@ -2,13 +2,15 @@ from src.supabaseClient import supabase
 from datetime import datetime, timezone
 
 # CREATE
-async def create_message(message_id, user_id, content, sender, conversation_id):
+async def create_message(message_id, user_id, content, sender, conversation_id, course_id=None, model=None):
     data = {
         "message_id": message_id,
         "user_id": user_id,
         "content": content,
         "sender": sender,
         "conversation_id": conversation_id,
+        "course_id": course_id,
+        "model": model,
         "created_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc),
     }

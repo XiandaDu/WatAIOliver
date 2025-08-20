@@ -1,9 +1,11 @@
 from fastapi import HTTPException, Request, status
 from .CRUD import (
-    create_course, update_course, delete_course, get_courses, get_course, get_all_courses
+    create_course, update_course, delete_course, get_courses, get_course, get_all_courses, get_course_by_invite_code,
+    find_course_by_title_ilike
 )
-from .models import CourseCreate, CourseUpdate, CourseResponse
+from .models import CourseCreate, CourseUpdate, CourseResponse, CustomModel
 from typing import List, Optional, Dict, Any
+import random
 from ..user.service import get_user_courses
 from ..supabaseClient import supabase
 
@@ -16,20 +18,55 @@ def get_current_user(request: Request):
 
 # Business logic functions using Supabase CRUD
 
+def _generate_invite_code() -> str:
+    # 6-digit numeric code as string, leading zeros allowed
+    return f"{random.randint(0, 999999):06d}"
+
+
 def create_course_service(created_by: str, course_data: CourseCreate) -> CourseResponse:
     """Create a new course with business logic validation"""
     try:
+        # Generate a unique 6-digit invite code (retry a few times to avoid collisions)
+        invite_code = _generate_invite_code()
+        for _ in range(5):
+            existing = supabase.table("courses").select("course_id").eq("invite_code", invite_code).execute()
+            if not existing.data:
+                break
+            invite_code = _generate_invite_code()
+
         course = create_course(
             created_by=created_by,
             title=course_data.title,
             description=course_data.description,
-            term=course_data.term
+            term=course_data.term,
+            prompt=course_data.prompt,
+            invite_code=invite_code
         )
         if not course:
             raise HTTPException(status_code=400, detail="Failed to create course")
         return CourseResponse(**course)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating course: {str(e)}")
+
+
+def join_course_by_invite_code_service(user_id: str, invite_code: str) -> Dict[str, Any]:
+    """Allow a user to join a course using a 6-digit invite code"""
+    try:
+        course = get_course_by_invite_code(invite_code)
+        if not course:
+            raise HTTPException(status_code=404, detail="Invalid invite code")
+
+        # Add course to user via RPC
+        supabase.rpc('add_course_to_user', {
+            'user_uuid': str(user_id),
+            'course_id': str(course['course_id'])
+        }).execute()
+
+        return {"success": True, "course_id": course["course_id"], "title": course.get("title")}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to join course: {str(e)}")
 
 def get_course_service(course_id: str, user_id: str) -> CourseResponse:
     """Get a course with access validation"""
@@ -84,6 +121,24 @@ def list_courses_service(user_id: str, limit: Optional[int] = None,
         return [CourseResponse(**course) for course in courses]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching courses: {str(e)}")
+
+def join_course_by_title_service(user_id: str, title: str) -> dict:
+    """Join a course by title with course lookup and validation"""
+    try:
+        course = find_course_by_title_ilike(title)
+        if not course:
+            raise HTTPException(status_code=404, detail="Course not found")
+        
+        from src.user.service import add_course_to_user
+        added = add_course_to_user(user_id, course["course_id"])
+        if not added:
+            raise HTTPException(status_code=400, detail="Failed to join course")
+        
+        return {"success": True, "course": course}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error joining course: {str(e)}")
 
 def update_course_service(course_id: str, user_id: str, course_data: CourseUpdate) -> CourseResponse:
     """Update a course with ownership validation"""
@@ -150,3 +205,129 @@ def get_courses_by_user_service(user_id: str) -> List[CourseResponse]:
         return [CourseResponse(**course) for course in courses]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching user courses: {str(e)}")
+
+def list_my_courses_service(user_id: str, limit: Optional[int] = None, 
+                           offset: Optional[int] = None, search: Optional[str] = None) -> List[CourseResponse]:
+    """Get courses created by the current instructor with optional filtering"""
+    try:
+        courses = get_courses(user_id)
+        
+        # Apply search filter if provided
+        if search:
+            courses = [course for course in courses if search.lower() in (course.get('title') or '').lower()]
+        
+        # Apply pagination if provided
+        if offset:
+            courses = courses[offset:]
+        if limit:
+            courses = courses[:limit]
+        
+        return [CourseResponse(**course) for course in courses]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching courses: {str(e)}")
+
+def add_custom_model_service(course_id: str, user_id: str, custom_model: CustomModel) -> Dict[str, Any]:
+    """Add a custom model to a course"""
+    try:
+        # Check if course exists and user has access
+        existing_course = get_course(course_id)
+        if not existing_course:
+            raise HTTPException(status_code=404, detail="Course not found")
+        
+        if existing_course['created_by'] != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Get current custom models
+        current_models = existing_course.get('custom_models', []) or []
+        
+        # Check if model name already exists
+        for model in current_models:
+            if model.get('name') == custom_model.name:
+                raise HTTPException(status_code=400, detail="Model name already exists")
+        
+        # Add timestamp
+        from datetime import datetime
+        model_data = custom_model.dict()
+        model_data['created_at'] = datetime.utcnow().isoformat()
+        
+        # Add new model
+        current_models.append(model_data)
+        
+        # Update course
+        updated_course = update_course(course_id, custom_models=current_models)
+        if not updated_course:
+            raise HTTPException(status_code=400, detail="Failed to add custom model")
+        
+        return {"success": True, "message": f"Custom model '{custom_model.name}' added successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error adding custom model: {str(e)}")
+
+def get_custom_models_service(course_id: str, user_id: str) -> Dict[str, Any]:
+    """Get custom models for a course"""
+    try:
+        # Check if course exists and user has access
+        existing_course = get_course(course_id)
+        if not existing_course:
+            raise HTTPException(status_code=404, detail="Course not found")
+        
+        # Check access (either creator or enrolled student)
+        try:
+            user_courses = get_user_courses(user_id)
+        except Exception:
+            user_courses = []
+        
+        if course_id not in user_courses and existing_course['created_by'] != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        custom_models = existing_course.get('custom_models', []) or []
+        
+        # Remove API keys from response for security (only show to course creator)
+        if existing_course['created_by'] != user_id:
+            # For students, only return model names and types
+            safe_models = []
+            for model in custom_models:
+                safe_models.append({
+                    'name': model.get('name'),
+                    'model_type': model.get('model_type'),
+                    'created_at': model.get('created_at')
+                })
+            return {"custom_models": safe_models}
+        
+        return {"custom_models": custom_models}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching custom models: {str(e)}")
+
+def delete_custom_model_service(course_id: str, user_id: str, model_name: str) -> Dict[str, Any]:
+    """Delete a custom model from a course"""
+    try:
+        # Check if course exists and user has access
+        existing_course = get_course(course_id)
+        if not existing_course:
+            raise HTTPException(status_code=404, detail="Course not found")
+        
+        if existing_course['created_by'] != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Get current custom models
+        current_models = existing_course.get('custom_models', []) or []
+        
+        # Find and remove the model
+        updated_models = [model for model in current_models if model.get('name') != model_name]
+        
+        if len(updated_models) == len(current_models):
+            raise HTTPException(status_code=404, detail="Model not found")
+        
+        # Update course
+        updated_course = update_course(course_id, custom_models=updated_models)
+        if not updated_course:
+            raise HTTPException(status_code=400, detail="Failed to delete custom model")
+        
+        return {"success": True, "message": f"Custom model '{model_name}' deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting custom model: {str(e)}")

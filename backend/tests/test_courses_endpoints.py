@@ -47,7 +47,7 @@ class CoursesEndpointTester:
     def log_test(self, result: TestResult):
         """Log test result with detailed failure information"""
         self.test_results.append(result)
-        status = "✅ PASS" if result.success else "❌ FAIL"
+        status = "PASS" if result.success else "FAIL"
         
         print(f"{status} {result.method} {result.endpoint}")
         print(f"    Expected: {result.expected_status}, Got: {result.status_code}")
@@ -57,17 +57,17 @@ class CoursesEndpointTester:
             # Show success details
             if result.response and isinstance(result.response, dict):
                 if 'user_id' in result.response:
-                    print(f"    ✅ User ID: {result.response['user_id']}")
+                    print(f"User ID: {result.response['user_id']}")
                 if 'username' in result.response:
-                    print(f"    ✅ Username: {result.response['username']}")
+                    print(f"Username: {result.response['username']}")
                 if 'course_id' in result.response:
-                    print(f"    ✅ Course ID: {result.response['course_id']}")
+                    print(f"Course ID: {result.response['course_id']}")
                 if 'courses' in result.response:
-                    print(f"    ✅ Courses: {result.response['courses']}")
+                    print(f"Courses: {result.response['courses']}")
                 if 'message' in result.response:
-                    print(f"    ✅ Message: {result.response['message']}")
+                    print(f"Message: {result.response['message']}")
                 if 'count' in result.response:
-                    print(f"    ✅ Count: {result.response['count']}")
+                    print(f"Count: {result.response['count']}")
         else:
             # Show detailed failure information
             print(f"    FAILURE DETAILS:")
@@ -106,7 +106,7 @@ class CoursesEndpointTester:
         url = f"{self.base_url}{endpoint}"
         start_time = time.time()
         
-        print(f"🔄 Testing: {method} {endpoint}")
+        print(f"Testing: {method} {endpoint}")
         if description:
             print(f"    {description}")
         
@@ -367,11 +367,11 @@ class CoursesEndpointTester:
         if result.success and result.response:
             courses = result.response if isinstance(result.response, list) else []
             if self.created_course_id in courses:
-                print("    ✅ Course successfully added to user")
+                print("Course successfully added to user")
             else:
-                print("    ❌ Course not found in user's courses after addition")
-                print(f"    🔍 Expected: {self.created_course_id}")
-                print(f"    🔍 Found: {courses}")
+                print("Course not found in user's courses after addition")
+                print(f"Expected: {self.created_course_id}")
+                print(f"Found: {courses}")
         
         # 3. Get user info to see courses in profile
         result = self.make_request("GET", "/user/",
@@ -401,11 +401,11 @@ class CoursesEndpointTester:
         if result.success and result.response:
             courses = result.response if isinstance(result.response, list) else []
             if self.created_course_id not in courses:
-                print("    ✅ Course successfully removed from user")
+                print("Course successfully removed from user")
             else:
-                print("    ❌ Course still found in user's courses after removal")
-                print(f"    🔍 Unexpected: {self.created_course_id}")
-                print(f"    🔍 Found: {courses}")
+                print("Course still found in user's courses after removal")
+                print(f"Unexpected: {self.created_course_id}")
+                print(f"Found: {courses}")
         
         # 8. Test access after removal (creators still have access)
         result = self.make_request("GET", f"/course/{self.created_course_id}", expected_status=200,
@@ -507,7 +507,7 @@ class CoursesEndpointTester:
         print("=" * 80)
         print(f"Started at: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"Base URL: {self.base_url}")
-        print(f"Auth Token: {'✅ Provided' if self.auth_token else '❌ Not provided'}")
+        print(f"Auth Token: {'Provided' if self.auth_token else 'Not provided'}")
         if self.auth_token:
             print(f"Token Preview: {self.auth_token[:30]}...")
         print()
@@ -553,13 +553,13 @@ class CoursesEndpointTester:
         passed_tests = sum(1 for result in self.test_results if result.success)
         failed_tests = total_tests - passed_tests
         
-        print(f"⏱️  Duration: {duration.total_seconds():.2f} seconds")
-        print(f"📊 Total Tests: {total_tests}")
-        print(f"✅ Passed: {passed_tests}")
-        print(f"❌ Failed: {failed_tests}")
+        print(f"️Duration: {duration.total_seconds():.2f} seconds")
+        print(f"Total Tests: {total_tests}")
+        print(f"Passed: {passed_tests}")
+        print(f"Failed: {failed_tests}")
         
         if failed_tests > 0:
-            print(f"\n❌ FAILED TESTS SUMMARY:")
+            print(f"\nFAILED TESTS SUMMARY:")
             print("-" * 40)
             for i, result in enumerate([r for r in self.test_results if not r.success], 1):
                 print(f"{i}. {result.name}")
@@ -583,8 +583,7 @@ class CoursesEndpointTester:
                 endpoints[key]['failed'] += 1
         
         for endpoint, stats in sorted(endpoints.items()):
-            status = "✅" if stats['failed'] == 0 else "❌"
-            print(f"  {status} {endpoint} (P:{stats['passed']} F:{stats['failed']})")
+            print(f"{endpoint} (P:{stats['passed']} F:{stats['failed']})")
         
         # Performance summary
         if self.test_results:

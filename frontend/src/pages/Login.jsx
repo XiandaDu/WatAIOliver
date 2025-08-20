@@ -1,11 +1,12 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useGoogleLogin } from '@react-oauth/google';
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 
 export default function Login() {
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState("student");
   const [formData, setFormData] = useState({
     email: "",
@@ -14,6 +15,16 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  // Check for suggested login type from URL parameters
+  useEffect(() => {
+    const suggested = searchParams.get('suggested');
+    if (suggested === 'student') {
+      setActiveTab('student');
+    } else if (suggested === 'instructor') {
+      setActiveTab('instructor');
+    }
+  }, [searchParams]);
 
   const validateEmail = (email) => {
     const allowedDomains = ["@gmail.com", "@uwaterloo.ca"];
@@ -150,6 +161,11 @@ export default function Login() {
           </Button>
         </div>
 
+        {/* 
+         * Email login temporarily disabled for cleaner UI. Email/password login can be re-enabled
+         * when needed by uncommenting this section.
+         */}
+        {/*
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-gray-300"></div>
@@ -214,6 +230,7 @@ export default function Login() {
             Forgot your password?
           </a>
         </div>
+        */}
       </div>
     </div>
   );

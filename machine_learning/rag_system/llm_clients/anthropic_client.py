@@ -14,7 +14,7 @@ class AnthropicClient:
         self.temperature = temperature
         self.top_p = top_p
 
-    def generate(self, prompt: str, stream: bool = True) -> str:
+    def generate(self, prompt: str, stream: bool = False) -> str:
         response = self.client.messages.create(
             model=self.model,
             max_tokens=1024,
@@ -31,6 +31,25 @@ class AnthropicClient:
             if chunk.delta and chunk.delta.text:
                 content += chunk.delta.text
         return content
+
+    async def generate_stream(self, prompt: str):
+        """
+        Generate streaming response from prompt using Anthropic Claude.
+        """
+        response = self.client.messages.create(
+            model=self.model,
+            max_tokens=1024,
+            temperature=self.temperature,
+            top_p=self.top_p,
+            system=None,
+            messages=[{"role": "user", "content": prompt}],
+            stream=True,
+        )
+        
+        # Stream chunks as they arrive from Anthropic API
+        for chunk in response:
+            if chunk.delta and chunk.delta.text:
+                yield chunk.delta.text
 
     def get_llm_client(self):
         return self.client

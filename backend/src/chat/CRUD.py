@@ -10,7 +10,8 @@ def create_conversation(data: ConversationCreate):
         conversation_data = {
             "conversation_id": str(uuid.uuid4()),
             "user_id": data.user_id,
-            "title": data.title,
+            "title": data.title, 
+            "course_id": getattr(data, "course_id", None),
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat(),
         }
@@ -64,7 +65,9 @@ def create_message(data: MessageCreate):
             "conversation_id": data.conversation_id,
             "user_id": data.user_id,
             "sender": data.sender,
-            "content": data.content,
+            "content": data.content, 
+            "course_id": getattr(data, "course_id", None),
+            "model": getattr(data, "model", None),
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat(),
         }

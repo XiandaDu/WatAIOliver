@@ -16,6 +16,10 @@ google-auth>=2.40.0
 google-cloud-core>=2.4.0
 googleapis-common-protos>=1.70.0
 
+# Async streaming support
+asyncio
+typing-extensions>=4.0.0
+
 # Database and vector storage
 supabase>=2.0.0
 sqlalchemy>=2.0.0
