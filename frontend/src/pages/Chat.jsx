@@ -25,6 +25,7 @@ export default function ChatPage() {
   const [isSendingMessage, setIsSendingMessage] = useState(false)
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
+  // Default to daily mode with Cerebras model
   const [selectedModel, setSelectedModel] = useState("daily")
   const [selectedBaseModel, setSelectedBaseModel] = useState("qwen-3-235b-a22b-instruct-2507")
   const [selectedRagModel, setSelectedRagModel] = useState("text-embedding-004")
@@ -35,6 +36,7 @@ export default function ChatPage() {
   const [customModels, setCustomModels] = useState([])
   const [allBaseModelOptions, setAllBaseModelOptions] = useState([])
   const [lastAssistantMessageId, setLastAssistantMessageId] = useState(null)
+  // Track agent system progress for user feedback during multi-agent processing
   const [agentProgress, setAgentProgress] = useState({ stage: "", message: "", visible: false });
   
   const modelOptions = [
@@ -153,6 +155,7 @@ export default function ChatPage() {
       })
         .then(async response => {
           const course = await response.json()
+          // Handle authentication errors or course not found gracefully to prevent crashes when course data unavailable
           if (!response.ok || course?.detail) {
             console.warn('Course fetch failed or unauthorized; using course ID only.', course)
             // Set a minimal course object with just the ID for display
@@ -473,7 +476,9 @@ export default function ChatPage() {
 
           let receivedContent = ""; // Initialize receivedContent for streaming
           let json_buffer = ""; // Buffer for incomplete JSON objects
-          let hasHiddenTyping = false; // Flag to hide typing indicator only once
+          // Flag to hide typing indicator only once
+          // Prevents flickering of typing indicator during streaming
+          let hasHiddenTyping = false;
           
           const reader = chatResponse.body.getReader();
           const decoder = new TextDecoder();
@@ -495,13 +500,13 @@ export default function ChatPage() {
               if (line.startsWith('data: ')) {
                 const content_from_line = line.substring(6); // Remove 'data: '
                 
-                // DEBUG: Log raw SSE line processing
+                // DEBUG: Log raw SSE line processing for streaming troubleshooting
                 console.log("=== DEBUG SSE LINE ===");
                 console.log("Full line:", JSON.stringify(line));
                 console.log("Extracted content:", JSON.stringify(content_from_line));
                 console.log("=====================");
                 try {
-                  // Parse JSON chunk (both daily and agent modes use the same format)
+                  // Parse JSON chunk (unified format for daily and agent modes)
                   const chunk = JSON.parse(content_from_line);
                   receivedContent += chunk.content || "";
                 } catch (jsonError) {

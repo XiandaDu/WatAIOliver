@@ -65,6 +65,7 @@ export function ChatInterface({
                   <div className="w-64 p-2 bg-blue-50 border border-blue-200 rounded-lg">
                     <label className="block text-xs font-medium text-gray-700 mb-1">Course</label>
                     <p className="text-sm text-blue-700 font-medium">{selectedCourse.title}</p>
+                    {/* Only show term if it exists to avoid empty elements */}
                     {selectedCourse.term && <p className="text-xs text-blue-600">{selectedCourse.term}</p>}
                   </div>
                 )}
@@ -91,6 +92,7 @@ export function ChatInterface({
                   <div className="w-64 p-2 bg-blue-50 border border-blue-200 rounded-lg">
                     <label className="block text-xs font-medium text-gray-700 mb-1">Course</label>
                     <p className="text-sm text-blue-700 font-medium">{selectedCourse.title}</p>
+                    {/* Only show term if it exists to avoid empty elements */}
                     {selectedCourse.term && <p className="text-xs text-blue-600">{selectedCourse.term}</p>}
                   </div>
                 )}

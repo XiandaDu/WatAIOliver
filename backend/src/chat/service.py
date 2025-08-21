@@ -167,19 +167,27 @@ async def llm_text_endpoint(data: ChatRequest) -> StreamingResponse:
     
     try:
         async def format_stream_for_sse(stream_generator):
-            """Format plain text stream as Server-Sent Events."""
-            full_response = ""  # Debug: accumulate response
-            async for chunk in stream_generator:
-                if chunk:
-                    full_response += chunk  # Debug: build full response
-                    # JSON-encode the chunk to properly escape special characters
-                    json_chunk = json.dumps({"content": chunk})
-                    yield f"data: {json_chunk}\n\n"
+            """
+            Convert LLM streaming responses to Server-Sent Events format.
             
-            # Debug: Print final response
-            print("=== DEBUG LLM RESPONSE ===")
-            print("FINAL ML OUTPUT:", repr(full_response[:1000]))  # First 1000 chars
-            print("==========================")
+            Ensures consistent JSON-encoded chunks and proper error handling.
+            """
+            full_response = ""
+            try:
+                async for chunk in stream_generator:
+                    if chunk:
+                        full_response += chunk
+                        # JSON-encode prevents client-side parsing issues with quotes/newlines
+                        json_chunk = json.dumps({"content": chunk})
+                        yield f"data: {json_chunk}\n\n"
+            except Exception as e:
+                # Error recovery: send error as properly formatted SSE
+                logger.error(f"Streaming error: {e}")
+                error_chunk = json.dumps({"content": f"[Streaming Error: {str(e)}]"})
+                yield f"data: {error_chunk}\n\n"
+            finally:
+                # Debug output for monitoring response quality
+                logger.debug(f"LLM Response completed: {len(full_response)} chars")
             
 
         if model_name.startswith("gemini"):
