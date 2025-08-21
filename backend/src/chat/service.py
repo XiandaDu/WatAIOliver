@@ -779,7 +779,8 @@ async def _process_pdf_for_rag(file_content: bytes, filename: str, course_id: st
         
         if rag_result.get('success'):
             document_id = rag_result.get('document_id', filename)
-            _store_document_metadata(document_id, course_id, filename, 'pdf')
+            markdown_content = pdf_result.get('markdown_content', '')
+            _store_document_metadata(document_id, course_id, filename, 'pdf', markdown_content)
             return {
                 'filename': filename,
                 'type': 'pdf',
@@ -811,7 +812,7 @@ async def _process_text_for_rag(file_content: bytes, filename: str, course_id: s
     
     if rag_result.get('success'):
         document_id = rag_result.get('document_id', filename)
-        _store_document_metadata(document_id, course_id, filename, 'text')
+        _store_document_metadata(document_id, course_id, filename, 'text', text_content)
     
     return {
         'filename': filename,
@@ -892,15 +893,19 @@ async def _process_document_with_rag(course_id: str, content: str, filename: str
             'error': f'RAG processing failed: {str(e)}'
         }
 
-def _store_document_metadata(document_id: str, course_id: str, filename: str, file_type: str):
-    """Store document metadata in the documents table"""
+def _store_document_metadata(document_id: str, course_id: str, filename: str, file_type: str, markdown_content: str = None):
+    """Store document metadata in the documents table with full markdown content"""
     try:
         from src.supabaseClient import supabase
+        
+        # Use the full markdown content instead of placeholder text
+        content = markdown_content if markdown_content else f"Uploaded {file_type} file: {filename}"
+        
         supabase.table("documents").insert({
             "document_id": document_id,
             "course_id": course_id,
             "title": filename,
-            "content": f"Uploaded {file_type} file: {filename}",
+            "content": content,
             "term": None
         }).execute()
     except Exception as e:

@@ -4,8 +4,10 @@ uvicorn[standard]>=0.30.0
 pydantic>=2.8.0
 python-multipart>=0.0.12
 
-# PDF Processing - Official Marker
-marker-pdf>=1.7.0
+# Document Processing - Universal Converter
+google-generativeai>=0.8.0
+PyMuPDF>=1.23.0
+Pillow>=10.0.0
 
 # For async file operations
 aiofiles>=23.0.0

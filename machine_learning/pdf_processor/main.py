@@ -1,7 +1,7 @@
 """
-Simple PDF to Markdown API
+Universal Document to Markdown API
 
-Minimal FastAPI service for converting PDFs to Markdown using Marker.
+FastAPI service for converting any document format (PDF, images, etc.) to Markdown using Gemini.
 """
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
@@ -11,7 +11,7 @@ from typing import Optional, Dict, Any
 import logging
 
 from machine_learning.pdf_processor.config import get_settings
-from machine_learning.pdf_processor.service.pdf_conversion_service import PDFConversionService
+from machine_learning.pdf_processor.service.universal_document_converter import UniversalDocumentConverter
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -22,9 +22,9 @@ settings = get_settings()
 
 # Create FastAPI app with metadata
 app = FastAPI(
-    title="PDF to Markdown Converter",
-    description="Convert PDF documents to Markdown with high-quality formula preservation using Marker",
-    version="1.0.0",
+    title="Universal Document to Markdown Converter",
+    description="Convert any document format (PDF, images, etc.) to Markdown using Gemini AI",
+    version="2.0.0",
     docs_url="/docs"
 )
 
@@ -38,27 +38,28 @@ app.add_middleware(
 )
 
 # Global service instance
-_pdf_service: Optional[PDFConversionService] = None
+_converter_service: Optional[UniversalDocumentConverter] = None
 
 
-def get_pdf_service() -> PDFConversionService:
+def get_converter_service() -> UniversalDocumentConverter:
     """
-    Get or create PDF conversion service instance.
+    Get or create document conversion service instance.
     Ensures only one instance is used throughout the app.
     """
-    global _pdf_service
-    if _pdf_service is None:
-        _pdf_service = PDFConversionService(settings)
-    return _pdf_service
+    global _converter_service
+    if _converter_service is None:
+        _converter_service = UniversalDocumentConverter()
+    return _converter_service
 
 
 # Response Model
 class ConversionResponse(BaseModel):
-    """Response model for PDF conversion."""
+    """Response model for document conversion."""
     success: bool
     markdown_content: str
     metadata: Dict[str, Any]
     processing_time: float
+    total_pages: int
     error_message: Optional[str] = None
     filename: Optional[str] = None
 
@@ -68,9 +69,10 @@ class ConversionResponse(BaseModel):
 async def root():
     """Root endpoint with service info."""
     return {
-        "service": "PDF to Markdown Converter",
-        "version": "1.0.0",
+        "service": "Universal Document to Markdown Converter",
+        "version": "2.0.0",
         "status": "running",
+        "supported_formats": ["PDF", "PNG", "JPG", "JPEG", "GIF", "BMP", "TIFF", "WEBP", "TXT", "MD", "MDX"],
         "docs": "/docs"
     }
 
@@ -79,30 +81,39 @@ async def root():
 @app.get("/health")
 async def health():
     """Health check endpoint."""
-    return {"status": "healthy", "service": "PDF to Markdown Converter"}
+    return {"status": "healthy", "service": "Universal Document to Markdown Converter"}
 
 
-# PDF conversion endpoint
+# Document conversion endpoint
 @app.post("/convert", response_model=ConversionResponse)
-async def convert_pdf_upload(file: UploadFile = File(...)):
+async def convert_document_upload(file: UploadFile = File(...)):
     """
-    Convert an uploaded PDF file to markdown format.
+    Convert an uploaded document (PDF, image, etc.) to markdown format.
     Automatically saves the result to output/ directory.
     """
     try:
-        # Validate file type
-        if not file.filename or not file.filename.lower().endswith('.pdf'):
-            raise HTTPException(status_code=400, detail="Only PDF files are supported")
+        # Validate file exists and has content
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No filename provided")
         
         # Read file content
-        pdf_bytes = await file.read()
-        if len(pdf_bytes) == 0:
+        file_bytes = await file.read()
+        if len(file_bytes) == 0:
             raise HTTPException(status_code=400, detail="Empty file uploaded")
         
-        logger.info(f"Converting PDF: {file.filename} ({len(pdf_bytes)/1024/1024:.1f}MB)")
+        logger.info(f"Converting document: {file.filename} ({len(file_bytes)/1024/1024:.1f}MB)")
         
-        # Convert PDF (automatically saves to file)
-        result = await get_pdf_service().convert_pdf_bytes(pdf_bytes, file.filename)
+        # Convert document using universal converter
+        result = await get_converter_service().convert_bytes(file_bytes, file.filename)
+        
+        # Save markdown to file if conversion succeeded
+        if result.success and result.markdown_content:
+            saved_path = await get_converter_service().save_markdown(
+                result.markdown_content, 
+                file.filename
+            )
+            result.metadata["saved_to"] = saved_path
+            logger.info(f"Automatically saved to: {saved_path}")
         
         # Prepare and return API response
         return ConversionResponse(
@@ -110,6 +121,7 @@ async def convert_pdf_upload(file: UploadFile = File(...)):
             markdown_content=result.markdown_content,
             metadata=result.metadata,
             processing_time=result.processing_time,
+            total_pages=result.total_pages,
             error_message=result.error_message,
             filename=file.filename
         )
@@ -117,7 +129,7 @@ async def convert_pdf_upload(file: UploadFile = File(...)):
     except HTTPException:
         raise
     except Exception as exc:
-        logger.error(f"PDF conversion failed: {exc}")
+        logger.error(f"Document conversion failed: {exc}")
         raise HTTPException(status_code=500, detail=f"Conversion failed: {str(exc)}")
 
 
