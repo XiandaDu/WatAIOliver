@@ -54,6 +54,13 @@ class UniversalDocumentConverter:
     SUPPORTED_DOCUMENT_FORMATS = {'.pdf'}
     SUPPORTED_TEXT_FORMATS = {'.txt', '.md', '.mdx'}
     
+    @classmethod
+    def get_supported_formats_message(cls) -> str:
+        """Get a user-friendly message listing all supported formats."""
+        all_formats = cls.SUPPORTED_IMAGE_FORMATS | cls.SUPPORTED_DOCUMENT_FORMATS | cls.SUPPORTED_TEXT_FORMATS
+        formats_list = sorted(list(all_formats))
+        return f"Supported formats: {', '.join(formats_list)}"
+    
     def __init__(self):
         """Initialize the converter with Gemini API."""
         self.api_key = os.getenv("GEMINI_API_KEY")
@@ -62,7 +69,7 @@ class UniversalDocumentConverter:
             
         # Configure Gemini
         genai.configure(api_key=self.api_key)
-        self.model = genai.GenerativeModel('gemini-2.5-flash-lite')
+        self.model = genai.GenerativeModel('models/gemini-2.5-flash-lite')
         
         # Configure generation settings for thinking and quality
         self.generation_config = genai.types.GenerationConfig(
@@ -175,11 +182,15 @@ class UniversalDocumentConverter:
         """Process multiple images to markdown and combine them."""
         markdown_parts = []
         
-        # Process images concurrently with a reasonable limit
-        semaphore = asyncio.Semaphore(2)  # Limit concurrent requests to avoid rate limits
+        # Process images with strict rate limiting for Gemini 2.5 Flash Lite (30 requests/min)
+        # Use 1 concurrent request to stay well under rate limit
+        semaphore = asyncio.Semaphore(1)  # Very conservative to avoid rate limits
         
         async def process_single_image(img: Image.Image, page_num: int) -> Tuple[int, str]:
             async with semaphore:
+                # Add delay to respect rate limit: 30 requests/min = 1 request every 2 seconds
+                if page_num > 0:  # Skip delay for first image
+                    await asyncio.sleep(2.1)  # Slightly over 2 seconds to be safe
                 result = await self._convert_image_to_markdown(img, page_num + 1)
                 return page_num, result
         
@@ -270,12 +281,14 @@ class UniversalDocumentConverter:
                     total_pages=1
                 )
             else:
+                file_ext = self._get_file_extension(filename)
+                error_msg = f"Sorry, unsupported file format '{file_ext}'. {self.get_supported_formats_message()}"
                 return ConversionResult(
                     markdown_content="",
-                    metadata={"error": f"Unsupported file format: {self._get_file_extension(filename)}"},
+                    metadata={"error": error_msg, "unsupported_format": file_ext},
                     success=False,
                     processing_time=time.time() - start_time,
-                    error_message=f"Unsupported file format: {self._get_file_extension(filename)}"
+                    error_message=error_msg
                 )
 
             if not images:
