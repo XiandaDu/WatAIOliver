@@ -1,0 +1,28 @@
+name: Deploy Backends to Azure
+on:
+  push:
+    branches: [main]
+jobs:
+  build-push-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }} # Add this secret in GitHub Settings
+      - name: Build and Push Public API
+        run: |
+          az acr login --name acroliver  # Update ACR name
+          cd backend
+          docker build -t acroliver.azurecr.io/oliver-backend-api:${{ github.sha }} .
+          docker push acroliver.azurecr.io/oliver-backend-api:${{ github.sha }}
+      - name: Deploy Public API
+        run: az containerapp update -g rg-oliver-prod -n oliver-backend-api --image acroliver.azurecr.io/oliver-backend-api:${{ github.sha }}
+      - name: Build and Push RAG
+        run: |
+          cd rag_service
+          docker build -t acroliver.azurecr.io/oliver-rag-service:${{ github.sha }} .
+          docker push acroliver.azurecr.io/oliver-rag-service:${{ github.sha }}
+      - name: Deploy RAG
+        run: az containerapp update -g rg-oliver-prod -n oliver-rag-service --image acroliver.azurecr.io/oliver-rag-service:${{ github.sha }}
