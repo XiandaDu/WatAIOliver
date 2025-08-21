@@ -48,7 +48,7 @@ class UniversalDocumentConverter:
     
     SYSTEM_PROMPT = """You are a professional document extractor. Your work is extract all the content of the inputted file. You are going to extract all the word in a nice formatting and make this file to be fully translated in to .md file. you will always output the file directly and only output the file without adding any comment of explanation.
 
-# Very important: Whenever you detected the file is with diagrams, figures, or any other scenarios that the page is not completely structured with pure text, you will then have to manage to describe the content of this diagram or figure, to be displayed in a format [Diagram: xxx explanation]; No matter the position it is in the page, as detailed as possible."""
+# Very important: Whenever you detected the file is with diagrams, figures, or any other scenarios that the page is not completely structured with pure text, you will then have to manage to describe the content of this diagram or figure, to be displayed in a format [Diagram: xxx explaination]; No matter the position it is in the page, as detailed as possible."""
 
     SUPPORTED_IMAGE_FORMATS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp'}
     SUPPORTED_DOCUMENT_FORMATS = {'.pdf'}
@@ -62,7 +62,7 @@ class UniversalDocumentConverter:
             
         # Configure Gemini
         genai.configure(api_key=self.api_key)
-        self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        self.model = genai.GenerativeModel('gemini-2.5-flash-lite')
         
         # Configure generation settings for thinking and quality
         self.generation_config = genai.types.GenerationConfig(
@@ -72,7 +72,7 @@ class UniversalDocumentConverter:
             max_output_tokens=8192,
         )
         
-        logger.info("UniversalDocumentConverter initialized with Gemini 2.0 Flash")
+        logger.info("UniversalDocumentConverter initialized with Gemini 2.5 Flash Lite")
 
     def _get_file_extension(self, filename: str) -> str:
         """Get file extension in lowercase."""
@@ -165,14 +165,18 @@ class UniversalDocumentConverter:
                 
         except Exception as e:
             logger.error(f"Error converting image to markdown: {e}")
-            return f"[Error processing page {page_number or 'unknown'}: {str(e)}]"
+            # Don't include full error details in markdown output
+            if "quota" in str(e).lower() or "rate limit" in str(e).lower():
+                return f"[Rate limit exceeded - page {page_number or 'unknown'} skipped]"
+            else:
+                return f"[Error processing page {page_number or 'unknown'}]"
 
     async def _process_images_to_markdown(self, images: List[Image.Image]) -> str:
         """Process multiple images to markdown and combine them."""
         markdown_parts = []
         
         # Process images concurrently with a reasonable limit
-        semaphore = asyncio.Semaphore(3)  # Limit concurrent requests to avoid rate limits
+        semaphore = asyncio.Semaphore(2)  # Limit concurrent requests to avoid rate limits
         
         async def process_single_image(img: Image.Image, page_num: int) -> Tuple[int, str]:
             async with semaphore:
@@ -294,7 +298,7 @@ class UniversalDocumentConverter:
                 "file_type": self._get_file_extension(filename),
                 "total_pages": len(images),
                 "processing_time": processing_time,
-                "model_used": "gemini-2.0-flash-exp"
+                "model_used": "gemini-2.5-flash-lite"
             }
             
             logger.info(f"Conversion completed in {processing_time:.2f}s")
