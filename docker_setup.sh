@@ -10,9 +10,11 @@ az acr login --name $ACR
 
 echo "Building backend image"
 cd backend && docker build -t ${ACR}.azurecr.io/oliver-backend-api:latest . && cd ..
-cd rag_service && docker build -t ${ACR}.azurecr.io/oliver-rag-service:latest . && cd ..
+cd machine_learning && docker build -t ${ACR}.azurecr.io/oliver-rag-service:latest . && cd ..
 
+echo "Pushing images to ACR"
 docker push ${ACR}.azurecr.io/oliver-backend-api:latest
+docker push ${ACR}.azurecr.io/oliver-rag-service:latest
 
 az containerapp update -g "$RG" -n "oliver-backend-api" --image "${ACR}.azurecr.io/oliver-backend-api:latest"
 az containerapp update -g "$RG" -n "oliver-rag-service" --image "${ACR}.azurecr.io/oliver-rag-service:latest"
