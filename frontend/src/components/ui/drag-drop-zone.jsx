@@ -4,20 +4,28 @@ import { cn } from "@/lib/utils"
 export function DragDropZone({ onFilesDrop, acceptedFileTypes = "*", multiple = true, className }) {
   const [isDragOver, setIsDragOver] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState("")
   const fileInputRef = useRef(null)
 
   const handleDragOver = (e) => {
     e.preventDefault()
+    e.stopPropagation()
     setIsDragOver(true)
+    setErrorMessage("") // Clear error when user drags again
   }
 
   const handleDragLeave = (e) => {
     e.preventDefault()
-    setIsDragOver(false)
+    e.stopPropagation()
+    // Only set to false if we're actually leaving this element
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setIsDragOver(false)
+    }
   }
 
   const handleDrop = (e) => {
     e.preventDefault()
+    e.stopPropagation()
     setIsDragOver(false)
     setIsUploading(true)
 
@@ -32,6 +40,8 @@ export function DragDropZone({ onFilesDrop, acceptedFileTypes = "*", multiple = 
 
   const handleFiles = async (files) => {
     try {
+      setErrorMessage("") // Clear any previous errors
+      
       // Filter files by accepted types if specified
       const filteredFiles = acceptedFileTypes === "*" 
         ? files 
@@ -41,7 +51,18 @@ export function DragDropZone({ onFilesDrop, acceptedFileTypes = "*", multiple = 
           })
 
       if (filteredFiles.length === 0) {
-        console.log("No valid files found")
+        const rejectedFiles = files.filter(file => {
+          const extension = file.name.split('.').pop().toLowerCase()
+          return !acceptedFileTypes.includes(extension)
+        })
+        
+        if (rejectedFiles.length > 0) {
+          const rejectedNames = rejectedFiles.map(f => f.name).join(", ")
+          const supportedFormats = acceptedFileTypes === "*" 
+            ? "All file types" 
+            : acceptedFileTypes.join(", ").toUpperCase()
+          setErrorMessage(`Unsupported file format(s): ${rejectedNames}. Supported formats: ${supportedFormats}`)
+        }
         setIsUploading(false)
         return
       }
@@ -50,6 +71,7 @@ export function DragDropZone({ onFilesDrop, acceptedFileTypes = "*", multiple = 
       await onFilesDrop(filteredFiles)
     } catch (error) {
       console.error("Error handling files:", error)
+      setErrorMessage(`Error processing files: ${error.message}`)
     } finally {
       setIsUploading(false)
     }
@@ -73,8 +95,8 @@ export function DragDropZone({ onFilesDrop, acceptedFileTypes = "*", multiple = 
         onDrop={handleDrop}
         onClick={handleClick}
       >
-        {/* Upload Icon */}
-        <div className="mb-4">
+        {/* Upload Icon - Hidden when dragging */}
+        <div className={cn("mb-4 transition-opacity", isDragOver && "opacity-0")}>
           <div className={cn(
             "mx-auto w-16 h-16 rounded-full flex items-center justify-center transition-colors",
             isDragOver ? "bg-blue-100" : "bg-gray-100"
@@ -102,8 +124,8 @@ export function DragDropZone({ onFilesDrop, acceptedFileTypes = "*", multiple = 
           </div>
         </div>
 
-        {/* Text Content */}
-        <div className="space-y-1">
+        {/* Text Content - Hidden when dragging */}
+        <div className={cn("space-y-1 transition-opacity", isDragOver && "opacity-0")}>
           <p className={cn(
             "text-lg font-medium transition-colors",
             isDragOver ? "text-blue-600" : "text-gray-700"
@@ -116,11 +138,20 @@ export function DragDropZone({ onFilesDrop, acceptedFileTypes = "*", multiple = 
               : `Supports: ${acceptedFileTypes.join(", ").toUpperCase()}`
             }
           </p>
+          
+          {/* Error Message */}
+          {errorMessage && (
+            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-700 font-medium">
+                ❌ {errorMessage}
+              </p>
+            </div>
+          )}
         </div>
 
-        {/* Drag Overlay */}
+        {/* Drag Overlay - Only show when actively dragging */}
         {isDragOver && (
-          <div className="absolute inset-0 bg-blue-500/10 rounded-lg border-2 border-blue-500 border-dashed flex items-center justify-center">
+          <div className="absolute inset-0 bg-blue-500/10 rounded-lg border-2 border-blue-500 border-dashed flex items-center justify-center z-10">
             <div className="text-blue-600 font-medium text-lg">
               Drop files here!
             </div>

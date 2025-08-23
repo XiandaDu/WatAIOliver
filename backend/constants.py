@@ -40,9 +40,9 @@ class TimeoutConfig:
     # HTTP Request Timeouts (seconds)
     CHAT_REQUEST_TIMEOUT = 600  # 10 minutes to match agent system needs
     RAG_QUERY_TIMEOUT = 600  # 10 minutes for agent system with multiple LLM calls
-    PDF_PROCESSING_TIMEOUT = 300  # 5 minutes
-    RAG_PROCESSING_TIMEOUT = 120  # 2 minutes
-    FILE_UPLOAD_TIMEOUT = 300     # 5 minutes
+    PDF_PROCESSING_TIMEOUT = 1200  # 20 minutes for large PDFs with rate limiting
+    RAG_PROCESSING_TIMEOUT = 300   # 5 minutes 
+    FILE_UPLOAD_TIMEOUT = 1200     # 20 minutes for large file processing
     
     # Database Operation Timeouts
     DB_QUERY_TIMEOUT = 30
