@@ -472,14 +472,16 @@ class ReporterAgent(BaseAgent):
     
     async def _call_llm(self, prompt: str, temperature: float) -> str:
         """
-        Call LLM with error handling and proper async interface support.
+        Call LLM with error handling, retry logic, and proper async interface support.
         
         Handles different LLM client types:
         - LangChain clients with ainvoke method (Cerebras, Gemini)
         - OpenAI client with generate_async method
         - Other clients with synchronous generate method
+        
+        Includes retry logic for server-side errors (up to 3 attempts).
         """
-        try:
+        async def _llm_operation():
             if hasattr(self.llm_client, 'get_llm_client'):
                 llm = self.llm_client.get_llm_client()
                 # Check if the underlying client has ainvoke (LangChain compatibility)
@@ -525,8 +527,12 @@ class ReporterAgent(BaseAgent):
                     # Fallback to synchronous generate (should not be called with await, but handle gracefully)
                     response = self.llm_client.generate(prompt, temperature=temperature)
                     return str(response)
+        
+        try:
+            # Use retry mechanism for server-side errors
+            return await self._retry_with_backoff(_llm_operation, max_retries=3, base_delay=1.0)
         except Exception as e:
-            self.logger.error(f"LLM call failed: {str(e)}")
+            self.logger.error(f"LLM call failed after all retries: {str(e)}")
             return ""
 
     async def _call_llm_stream(self, prompt: str, temperature: float):
@@ -534,9 +540,11 @@ class ReporterAgent(BaseAgent):
         Call LLM with streaming support for all model types.
         
         Supports Cerebras, OpenAI GPT, and Gemini models with faster streaming.
+        Includes retry logic for server-side errors.
         """
         import asyncio
-        try:
+        
+        async def _stream_operation():
             if hasattr(self.llm_client, 'generate_stream'):
                 print("=== STARTING CEREBRAS STREAMING ===")
                 chunk_count = 0
@@ -559,9 +567,35 @@ class ReporterAgent(BaseAgent):
                     yield response[i:i+chunk_size]
                     # Faster simulated streaming
                     await asyncio.sleep(0.02)  # 20ms delay per chunk
-        except Exception as e:
-            self.logger.error(f"LLM streaming call failed: {str(e)}")
-            yield f"Error: {str(e)}"
+        
+        retry_count = 0
+        max_retries = 3
+        
+        while retry_count < max_retries:
+            try:
+                async for chunk in _stream_operation():
+                    yield chunk
+                return  # Success, exit retry loop
+            except Exception as e:
+                retry_count += 1
+                
+                # Only retry for server-side errors
+                if not self._is_server_side_error(e):
+                    self.logger.error(f"Non-retryable streaming error: {str(e)}")
+                    yield f"Error: {str(e)}"
+                    return
+                
+                if retry_count < max_retries:
+                    delay = 1.0 * (2 ** (retry_count - 1))  # Exponential backoff
+                    self.logger.warning(
+                        f"Streaming error (attempt {retry_count}/{max_retries}): {str(e)}. "
+                        f"Retrying in {delay:.1f}s..."
+                    )
+                    yield f"[Connection error, retrying in {delay:.0f}s...]\n"
+                    await asyncio.sleep(delay)
+                else:
+                    self.logger.error(f"All {max_retries} streaming retry attempts failed: {str(e)}")
+                    yield f"Error after {max_retries} attempts: {str(e)}"
 
     async def process_streaming(self, agent_input: AgentInput):
         """

@@ -6,6 +6,7 @@ Simplified base class without over-engineered registry system.
 
 import time
 import logging
+import asyncio
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
@@ -118,4 +119,70 @@ class BaseAgent(ABC):
             "average_time": avg_time,
             "error_count": self.error_count,
             "success_rate": (self.execution_count - self.error_count) / max(self.execution_count, 1)
-        } 
+        }
+    
+    def _is_server_side_error(self, error: Exception) -> bool:
+        """Determine if an error is server-side and should be retried"""
+        error_str = str(error).lower()
+        
+        # Rate limits and quota errors should NOT be retried - they're billing/quota issues
+        rate_limit_errors = ["rate limit", "quota", "quota exceeded", "billing"]
+        if any(err_type in error_str for err_type in rate_limit_errors):
+            return False
+            
+        # Server errors that should be retried
+        retryable_errors = [
+            # Network and connection errors
+            "connection", "timeout", "network", "socket", "dns",
+            # Server errors
+            "500", "502", "503", "504", "internal server error", "bad gateway", 
+            "service unavailable", "gateway timeout", "server error",
+            # Temporary server issues
+            "overloaded", "temporarily unavailable", "service temporarily unavailable", 
+            "try again later",
+            # LLM provider specific server errors
+            "model overloaded", "inference timeout", "model unavailable"
+        ]
+        
+        # Check error message
+        if any(err_type in error_str for err_type in retryable_errors):
+            return True
+            
+        # Check specific exception types
+        return isinstance(error, (
+            ConnectionError, TimeoutError, OSError
+        ))
+    
+    async def _retry_with_backoff(self, operation, max_retries: int = 3, base_delay: float = 1.0):
+        """Retry an operation with exponential backoff for server-side errors"""
+        last_error = None
+        
+        for attempt in range(max_retries):
+            try:
+                if asyncio.iscoroutinefunction(operation):
+                    return await operation()
+                else:
+                    return operation()
+            except Exception as e:
+                last_error = e
+                
+                # Only retry for server-side errors
+                if not self._is_server_side_error(e):
+                    self.logger.warning(f"Non-retryable error in {self.agent_role.value}: {str(e)}")
+                    raise e
+                
+                # Log retry attempt
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt)  # Exponential backoff
+                    self.logger.warning(
+                        f"Server error in {self.agent_role.value} (attempt {attempt + 1}/{max_retries}): {str(e)}. "
+                        f"Retrying in {delay:.1f}s..."
+                    )
+                    await asyncio.sleep(delay)
+                else:
+                    self.logger.error(
+                        f"All {max_retries} retry attempts failed for {self.agent_role.value}: {str(e)}"
+                    )
+        
+        # If we get here, all retries failed
+        raise last_error 

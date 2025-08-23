@@ -331,14 +331,16 @@ class StrategistAgent(BaseAgent):
     
     async def _call_llm(self, prompt: str, temperature: float) -> str:
         """
-        Call LLM with error handling and proper async interface support.
+        Call LLM with error handling, retry logic, and proper async interface support.
         
         Handles different LLM client types:
         - LangChain clients with ainvoke method (Cerebras, Gemini)
         - OpenAI client with generate_async method
         - Other clients with synchronous generate method
+        
+        Includes retry logic for server-side errors (up to 3 attempts).
         """
-        try:
+        async def _llm_operation():
             if hasattr(self.llm_client, 'get_llm_client'):
                 llm = self.llm_client.get_llm_client()
                 # Check if the underlying client has ainvoke (LangChain compatibility)
@@ -363,6 +365,10 @@ class StrategistAgent(BaseAgent):
                     # Fallback to synchronous generate (should not be called with await, but handle gracefully)
                     response = self.llm_client.generate(prompt, temperature=temperature)
                     return str(response)
+        
+        try:
+            # Use retry mechanism for server-side errors
+            return await self._retry_with_backoff(_llm_operation, max_retries=3, base_delay=1.0)
         except Exception as e:
-            self.logger.error(f"LLM call failed: {str(e)}")
+            self.logger.error(f"LLM call failed in strategist agent after all retries: {str(e)}")
             raise e 

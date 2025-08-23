@@ -90,6 +90,9 @@ class OpenAIClient:
             if "quota" in error_msg.lower() or "rate limit" in error_msg.lower():
                 # For quota/rate limit errors, return a clean helpful message without exposing request details
                 return "OpenAI API quota exceeded. This is a temporary limitation. Please check your OpenAI billing or try a different model."
+            # Handle other server-side errors that should be retried
+            elif any(term in error_msg.lower() for term in ['500', '502', '503', '504', 'overloaded', 'connection', 'timeout']):
+                raise ConnectionError(f"OpenAI server error: {str(e)}")
             else:
                 # Re-raise other errors that might indicate code issues
                 raise e
@@ -145,6 +148,9 @@ class OpenAIClient:
                 if "quota" in error_msg.lower() or "rate limit" in error_msg.lower():
                     # For quota/rate limit errors, return a clean helpful message without exposing request details
                     return "OpenAI API quota exceeded. This is a temporary limitation. Please check your OpenAI billing or try a different model."
+                # Handle other server-side errors that should be retried
+                elif any(term in error_msg.lower() for term in ['500', '502', '503', '504', 'overloaded', 'connection', 'timeout']):
+                    raise ConnectionError(f"OpenAI server error: {str(e)}")
                 else:
                     # Re-raise other errors that might be code-related
                     raise e
@@ -212,6 +218,9 @@ class OpenAIClient:
             if "quota" in error_msg.lower() or "rate limit" in error_msg.lower():
                 # For quota/rate limit errors, yield a clean helpful message without exposing request details
                 yield "OpenAI API quota exceeded. This is a temporary limitation. Please check your OpenAI billing or try a different model."
+            # Handle other server-side errors that should be retried
+            elif any(term in error_msg.lower() for term in ['500', '502', '503', '504', 'overloaded', 'connection', 'timeout']):
+                raise ConnectionError(f"OpenAI streaming error: {str(e)}")
             else:
                 # For other errors, yield generic error message and stop streaming
                 yield f"OpenAI API Error: {str(e)}"
