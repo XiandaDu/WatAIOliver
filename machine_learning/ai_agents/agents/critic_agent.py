@@ -75,34 +75,65 @@ class CriticAgent(BaseAgent):
             chain_of_thought = agent_input.metadata.get('chain_of_thought', [])
             context = agent_input.context
             
-            self.logger.info(f"Critic analyzing draft solution...")
-            self.logger.info(f"CoT steps: {len(chain_of_thought)}, Context items: {len(context)}")
+            self.logger.info("\n" + "="*250)
+            self.logger.info("CRITIC AGENT - DRAFT ANALYSIS")
+            self.logger.info("="*250)
+            self.logger.info(f"CoT steps: {len(chain_of_thought)}")
+            self.logger.info(f"Context items: {len(context)}")
+            self.logger.info(f"Draft length: {len(draft_content)} characters")
+            
+            # ULTRA VERBOSE: Show the actual content being analyzed
+            self.logger.info(f"\n--- DRAFT CONTENT TO ANALYZE ---")
+            self.logger.info(f"'{draft_content}'")
+            
+            self.logger.info(f"\n--- CONTEXT ITEMS FOR VERIFICATION ---")
+            for i, ctx_item in enumerate(context[:3]):
+                content = ctx_item.get('content', ctx_item.get('text', str(ctx_item)))
+                self.logger.info(f"Context {i+1}: '{content}'")
+            if len(context) > 3:
+                self.logger.info(f"... and {len(context) - 3} more context items")
+                
+            self.logger.info(f"\n--- CHAIN OF THOUGHT STEPS ---")
+            for i, step in enumerate(chain_of_thought[:3]):
+                step_text = step.get('thought', str(step))
+                self.logger.info(f"CoT Step {i+1}: '{step_text}...'")
+            if len(chain_of_thought) > 3:
+                self.logger.info(f"... and {len(chain_of_thought) - 3} more CoT steps")
             
             # Perform three core verification tasks in parallel
             critiques = []
             
             # Task 1: Logical Verification
-            self.logger.info("Starting logical verification...")
+            self.logger.info("\n" + "-"*250)
+            self.logger.info("PHASE 1: LOGICAL CONSISTENCY VERIFICATION")
+            self.logger.info("-"*250)
             logic_start = time.time()
             logic_critiques = await self._verify_logical_consistency(chain_of_thought, draft_content)
             logic_time = time.time() - logic_start
             self.logger.info(f"Logical verification completed in {logic_time:.2f}s")
             
             # Task 2: Factual Verification
-            self.logger.info("Starting factual verification...")
+            self.logger.info("\n" + "-"*250)
+            self.logger.info("PHASE 2: FACTUAL ACCURACY VERIFICATION")
+            self.logger.info("-"*250)
             fact_start = time.time()
             factual_issues = await self._verify_factual_accuracy(draft_content, context)
             fact_time = time.time() - fact_start
             self.logger.info(f"Factual verification completed in {fact_time:.2f}s")
             
             # Task 3: Hallucination Detection
-            self.logger.info("Starting hallucination detection...")
+            self.logger.info("\n" + "-"*250)
+            self.logger.info("PHASE 3: HALLUCINATION DETECTION")
+            self.logger.info("-"*250)
             halluc_start = time.time()
             hallucination_issues = await self._detect_hallucinations(draft_content, context)
             halluc_time = time.time() - halluc_start
             self.logger.info(f"Hallucination detection completed in {halluc_time:.2f}s")
             
             # Combine all critiques
+            self.logger.info("\n" + "-"*250)
+            self.logger.info("COMBINING ALL CRITIQUES")
+            self.logger.info("-"*250)
             critiques.extend(logic_critiques)
             critiques.extend(factual_issues)
             critiques.extend(hallucination_issues)
@@ -110,7 +141,47 @@ class CriticAgent(BaseAgent):
             # Assess overall critique severity
             overall_assessment = self._assess_overall_quality(critiques)
             
-            self.logger.info(f"Found {len(critiques)} issues - Assessment: {overall_assessment}")
+            # ULTRA VERBOSE: Log final assessment details
+            self.logger.info("\n" + "="*250)
+            self.logger.info("FINAL CRITIC ASSESSMENT")
+            self.logger.info("="*250)
+            self.logger.info(f"TOTAL ISSUES FOUND: {len(critiques)}")
+            
+            # Break down by severity
+            critical_count = len([c for c in critiques if c.get('severity') == 'critical'])
+            high_count = len([c for c in critiques if c.get('severity') == 'high'])
+            medium_count = len([c for c in critiques if c.get('severity') == 'medium'])
+            low_count = len([c for c in critiques if c.get('severity') == 'low'])
+            
+            self.logger.info(f"CRITICAL: {critical_count}")
+            self.logger.info(f"HIGH: {high_count}")
+            self.logger.info(f"MEDIUM: {medium_count}")
+            self.logger.info(f"LOW: {low_count}")
+            
+            # Break down by type
+            logic_count = len([c for c in critiques if c.get('type') == 'logic_flaw'])
+            fact_count = len([c for c in critiques if c.get('type') == 'fact_contradiction'])
+            halluc_count = len([c for c in critiques if c.get('type') == 'hallucination'])
+            
+            self.logger.info(f"LOGICAL ISSUES: {logic_count}")
+            self.logger.info(f"FACTUAL ISSUES: {fact_count}")
+            self.logger.info(f"HALLUCINATION ISSUES: {halluc_count}")
+            
+            self.logger.info(f"OVERALL ASSESSMENT: {overall_assessment.upper()}")
+            
+            if critiques:
+                self.logger.info(f"ISSUE DETAILS:")
+                for i, issue in enumerate(critiques, 1):
+                    severity = issue.get('severity', 'unknown').upper()
+                    issue_type = issue.get('type', 'unknown').upper()
+                    desc = issue.get('description', 'no description')
+                    self.logger.info(f"   {i}. [{severity}] {issue_type}: {desc}...")
+            else:
+                self.logger.info(f"NO ISSUES DETECTED - DRAFT IS CLEAN!")
+            
+            self.logger.info("\n" + "="*250)
+            self.logger.info("CRITIC ANALYSIS COMPLETE")
+            self.logger.info("="*250)
             
             return AgentOutput(
                 success=True,
@@ -240,10 +311,18 @@ class CriticAgent(BaseAgent):
                 
                 response = await self._call_llm(prompt, temperature=0.1)
                 
+                # ULTRA VERBOSE: Log evaluation decision
+                self.logger.info(f"LOGICAL STEP {step_num} EVALUATION:")
                 if response and "NO_ISSUES" not in response.upper():
+                    self.logger.info(f"ISSUES DETECTED in step {step_num}")
                     # Parse LLM response for issues
                     parsed_issues = self._parse_llm_critique(response, step_num, "logic_flaw")
+                    self.logger.info(f"PARSED {len(parsed_issues)} logical issues from response")
+                    for issue in parsed_issues:
+                        self.logger.info(f"   • {issue.get('severity', 'unknown').upper()}: {issue.get('description', 'no description')}")
                     issues.extend(parsed_issues)
+                else:
+                    self.logger.info(f"NO LOGICAL ISSUES found in step {step_num}")
                     
             except Exception as e:
                 self.logger.warning(f"️ LLM-based step analysis failed: {str(e)}")
@@ -272,11 +351,13 @@ class CriticAgent(BaseAgent):
             prompt = f"""
             Analyze the logical flow from reasoning steps to final draft:
 
-            REASONING CHAIN:
-            {cot_summary}
+======= REASONING CHAIN START =======
+{cot_summary}
+======= REASONING CHAIN END =======
 
-            FINAL DRAFT:
-            {draft_content[:1000]}...
+======= FINAL DRAFT START =======
+{draft_content}
+======= FINAL DRAFT END =======
 
             Check for:
             1. Does the draft logically follow from the reasoning chain?
@@ -292,11 +373,31 @@ class CriticAgent(BaseAgent):
             If the flow is generally sound, respond: "NO_MAJOR_ISSUES"
             """
             
+            # ULTRA VERBOSE: Log the full prompt being sent to LLM
+            self.logger.info(f"\n" + "="*250)
+            self.logger.info(f"LOGICAL FLOW ANALYSIS - FULL PROMPT TO LLM")
+            self.logger.info(f"="*250)
+            self.logger.info(f"PROMPT CONTENT:")
+            self.logger.info(f"{prompt}")
+            self.logger.info(f"="*250)
+            
             response = await self._call_llm(prompt, temperature=0.1)
             
+            self.logger.info(f"\nLLM RESPONSE FOR LOGICAL FLOW:")
+            self.logger.info(f"{response}")
+            self.logger.info(f"="*250)
+            
+            # ULTRA VERBOSE: Log flow evaluation decision
+            self.logger.info(f"LOGICAL FLOW EVALUATION:")
             if response and "NO_MAJOR_ISSUES" not in response.upper():
+                self.logger.info(f"LOGICAL FLOW ISSUES DETECTED")
                 parsed_issues = self._parse_llm_critique(response, None, "logic_flaw")
+                self.logger.info(f"PARSED {len(parsed_issues)} flow issues from response")
+                for issue in parsed_issues:
+                    self.logger.info(f"   • {issue.get('severity', 'unknown').upper()}: {issue.get('description', 'no description')}")
                 issues.extend(parsed_issues)
+            else:
+                self.logger.info(f"LOGICAL FLOW IS SOUND")
                 
         except Exception as e:
             self.logger.warning(f"️ Logical flow analysis failed: {str(e)}")
@@ -320,8 +421,14 @@ class CriticAgent(BaseAgent):
             # Extract key factual claims from draft
             claims = self._extract_factual_claims(draft_content)
             
+            # ULTRA VERBOSE: Log extracted claims
+            self.logger.info(f"FACTUAL CLAIMS EXTRACTION:")
+            self.logger.info(f"EXTRACTED {len(claims)} factual claims from draft:")
+            for i, claim in enumerate(claims, 1):
+                self.logger.info(f"   {i}. '{claim}'")
+            
             if not claims:
-                self.logger.debug("No explicit factual claims found for verification")
+                self.logger.info("️ NO EXPLICIT FACTUAL CLAIMS FOUND for verification")
                 return factual_issues
             
             # Verify each claim against context
@@ -391,17 +498,26 @@ class CriticAgent(BaseAgent):
         try:
             # Create context summary for verification
             context_text = "\n".join([
-                f"Source {i+1}: {item.get('text', item.get('content', ''))[:500]}"
+                f"Source {i+1}: {item.get('text', item.get('content', ''))}"
                 for i, item in enumerate(context[:5])  # Limit context to prevent overflow
             ])
+            
+            # ULTRA VERBOSE: Show exactly what context is being used for verification
+            self.logger.info(f"\n--- FACT-CHECKING CLAIM AGAINST CONTEXT ---")
+            self.logger.info(f"Claim: '{claim}'")
+            self.logger.info(f"Context sources ({len(context)} total, showing first 5):")
+            self.logger.info(f"'{context_text}'")
             
             prompt = f"""
             Verify the following claim against the provided context:
 
-            CLAIM TO VERIFY: {claim}
+======= CLAIM TO VERIFY START =======
+{claim}
+======= CLAIM TO VERIFY END =======
 
-            CONTEXT SOURCES:
-            {context_text}
+======= CONTEXT SOURCES START =======
+{context_text}
+======= CONTEXT SOURCES END =======
 
             Determine:
             1. Is this claim explicitly supported by the context?
@@ -417,9 +533,25 @@ class CriticAgent(BaseAgent):
             SEVERITY: [critical/high/medium/low]
             """
             
+            # ULTRA VERBOSE: Log the full fact-check prompt
+            self.logger.info(f"\n" + "="*250)
+            self.logger.info(f"FACT-CHECK ANALYSIS - FULL PROMPT TO LLM")
+            self.logger.info(f"="*250)
+            self.logger.info(f"CLAIM: '{claim}'")
+            self.logger.info(f"PROMPT CONTENT:")
+            self.logger.info(f"{prompt}")
+            self.logger.info(f"="*250)
+            
             response = await self._call_llm(prompt, temperature=0.1)
             
+            self.logger.info(f"\nLLM RESPONSE FOR FACT-CHECK:")
+            self.logger.info(f"{response}")
+            self.logger.info(f"="*250)
+            
+            # ULTRA VERBOSE: Log fact-check evaluation
+            self.logger.info(f"FACT-CHECK EVALUATION for claim: '{claim}'")
             if response and "CONTRADICTED" in response.upper():
+                self.logger.info(f"FACTUAL CONTRADICTION DETECTED")
                 # Parse the contradiction details
                 severity = "high"  # Default
                 evidence = ""
@@ -431,12 +563,15 @@ class CriticAgent(BaseAgent):
                     elif line.startswith('SEVERITY:'):
                         severity = line[9:].strip().lower()
                 
+                self.logger.info(f"CONTRADICTION: Severity={severity.upper()}, Evidence='{evidence}'")
                 return {
                     "type": "fact_contradiction",
                     "severity": severity,
                     "claim": claim,
                     "description": f"Claim contradicted by provided context: {evidence}"
                 }
+            else:
+                self.logger.info(f"FACT-CHECK PASSED for claim")
             
         except Exception as e:
             self.logger.warning(f"️ Single claim verification failed: {str(e)}")
@@ -459,11 +594,16 @@ class CriticAgent(BaseAgent):
             # Create comprehensive context summary
             context_summary = self._create_context_summary(context)
             
+            # ULTRA VERBOSE: Show exactly what's being checked for hallucinations
+            self.logger.info(f"\n--- HALLUCINATION DETECTION INPUT ---")
+            self.logger.info(f"Draft content ({len(draft_content)} chars): '{draft_content}'")
+            self.logger.info(f"Context summary ({len(context_summary)} chars): '{context_summary}'")
+            
             prompt = f"""
             Analyze the draft for potential hallucinations - information that appears to be made up or not supported by the provided context.
 
             DRAFT CONTENT:
-            {draft_content[:1500]}...
+            {draft_content}
 
             AVAILABLE CONTEXT:
             {context_summary}
@@ -485,9 +625,21 @@ class CriticAgent(BaseAgent):
             
             response = await self._call_llm(prompt, temperature=0.1)
             
-            if response and "NO_HALLUCINATIONS_DETECTED" not in response.upper():
+            # ULTRA VERBOSE: Log hallucination evaluation
+            self.logger.info(f"HALLUCINATION DETECTION EVALUATION:")
+            # Check if response contains actual hallucination reports (not just the "no hallucinations" phrase)
+            has_severity = "SEVERITY:" in response.upper() if response else False
+            has_hallucination_tag = "HALLUCINATION:" in response.upper() if response else False
+            
+            if response and (has_severity or has_hallucination_tag):
+                self.logger.info(f"HALLUCINATIONS DETECTED")
                 parsed_issues = self._parse_llm_critique(response, None, "hallucination")
+                self.logger.info(f"PARSED {len(parsed_issues)} hallucination issues from response")
+                for issue in parsed_issues:
+                    self.logger.info(f"   • {issue.get('severity', 'unknown').upper()}: {issue.get('description', 'no description')}")
                 hallucination_issues.extend(parsed_issues)
+            else:
+                self.logger.info(f"NO HALLUCINATIONS DETECTED")
             
             self.logger.debug(f"Hallucination detection found {len(hallucination_issues)} issues")
             
@@ -506,7 +658,7 @@ class CriticAgent(BaseAgent):
             text = item.get('text', item.get('content', ''))
             score = item.get('score', 'N/A')
             
-            summary = f"Context {i+1} (Relevance: {score}):\n{text[:400]}..."
+            summary = f"Context {i+1} (Relevance: {score}):\n{text}"
             summaries.append(summary)
         
         return "\n\n".join(summaries)
@@ -522,40 +674,89 @@ class CriticAgent(BaseAgent):
         issues = []
         
         try:
-            # Split response into individual issues
-            issue_blocks = re.split(r'\n(?=ISSUE:|HALLUCINATION:)', response)
+            # ULTRA VERBOSE: Log what we're trying to parse
+            self.logger.info(f"PARSING LLM RESPONSE:")
+            self.logger.info(f"Response length: {len(response)} chars")
+            self.logger.info(f"Looking for SEVERITY: {('SEVERITY:' in response.upper())}")
+            self.logger.info(f"Looking for HALLUCINATION: {('HALLUCINATION:' in response.upper())}")
             
-            for block in issue_blocks:
-                if not block.strip():
-                    continue
-                
+            # Handle different response formats
+            if "SEVERITY:" in response.upper():
+                # Format: explanatory text with SEVERITY: embedded
                 issue = {"type": issue_type}
                 
                 if step_ref is not None:
                     issue["step_ref"] = step_ref
                 
-                lines = block.strip().split('\n')
+                lines = response.strip().split('\n')
+                description_parts = []
+                
                 for line in lines:
                     line = line.strip()
                     
                     if line.startswith('ISSUE:') or line.startswith('HALLUCINATION:'):
-                        issue["description"] = line.split(':', 1)[1].strip()
+                        description_parts.append(line.split(':', 1)[1].strip())
                     elif line.startswith('SEVERITY:'):
                         severity = line[9:].strip().lower()
                         if severity in self.severity_levels:
                             issue["severity"] = severity
                         else:
-                            issue["severity"] = "medium"  # Default
+                            issue["severity"] = "medium"
+                        self.logger.info(f"Found severity: {severity}")
                     elif line.startswith('EXPLANATION:'):
                         explanation = line[12:].strip()
-                        if "description" in issue:
-                            issue["description"] += f" - {explanation}"
-                        else:
-                            issue["description"] = explanation
+                        description_parts.append(explanation)
+                    elif line and not line.startswith('CONFIDENCE:') and len(line) > 20:
+                        # Include substantial descriptive lines
+                        description_parts.append(line)
                 
-                # Only add issues with valid descriptions
-                if "description" in issue:
-                    issues.append(issue)
+                # Combine description parts
+                if description_parts:
+                    issue["description"] = " - ".join(description_parts[:2])  # Limit to first 2 parts
+                else:
+                    issue["description"] = "Issue detected but description unclear"
+                
+                if not issue.get("severity"):
+                    issue["severity"] = "medium"  # Default
+                    
+                issues.append(issue)
+                self.logger.info(f"Created issue: {issue.get('severity', 'unknown').upper()} - {issue.get('description', '')}")
+            
+            else:
+                # Original format: Split response into individual issues
+                issue_blocks = re.split(r'\n(?=ISSUE:|HALLUCINATION:)', response)
+                
+                for block in issue_blocks:
+                    if not block.strip():
+                        continue
+                    
+                    issue = {"type": issue_type}
+                    
+                    if step_ref is not None:
+                        issue["step_ref"] = step_ref
+                    
+                    lines = block.strip().split('\n')
+                    for line in lines:
+                        line = line.strip()
+                        
+                        if line.startswith('ISSUE:') or line.startswith('HALLUCINATION:'):
+                            issue["description"] = line.split(':', 1)[1].strip()
+                        elif line.startswith('SEVERITY:'):
+                            severity = line[9:].strip().lower()
+                            if severity in self.severity_levels:
+                                issue["severity"] = severity
+                            else:
+                                issue["severity"] = "medium"  # Default
+                        elif line.startswith('EXPLANATION:'):
+                            explanation = line[12:].strip()
+                            if "description" in issue:
+                                issue["description"] += f" - {explanation}"
+                            else:
+                                issue["description"] = explanation
+                    
+                    # Only add issues with valid descriptions
+                    if "description" in issue:
+                        issues.append(issue)
             
         except Exception as e:
             self.logger.warning(f"️ Failed to parse LLM critique: {str(e)}")
@@ -565,7 +766,7 @@ class CriticAgent(BaseAgent):
                 issues.append({
                     "type": issue_type,
                     "severity": "medium",
-                    "description": response[:200] + "..." if len(response) > 200 else response,
+                    "description": response,
                     "step_ref": step_ref
                 })
         
@@ -591,16 +792,40 @@ class CriticAgent(BaseAgent):
             return "acceptable_with_minor_issues"
     
     async def _call_llm(self, prompt: str, temperature: float) -> str:
-        """Call LLM with error handling"""
+        """Call LLM with error handling and ultra-verbose debugging"""
+        
+        # ULTRA VERBOSE: Log the exact prompt being sent
+        self.logger.info("\n" + "="*250)
+        self.logger.info("CRITIC LLM CALL START")
+        self.logger.info("="*250)
+        self.logger.info(f"Temperature: {temperature}")
+        self.logger.info(f"\nPROMPT:")
+        self.logger.info("-"*250)
+        self.logger.info(prompt)
+        self.logger.info("-"*250)
+        
         try:
             if hasattr(self.llm_client, 'get_llm_client'):
                 llm = self.llm_client.get_llm_client()
                 response = await llm.ainvoke(prompt, temperature=temperature)
-                return response.content if hasattr(response, 'content') else str(response)
+                response_text = response.content if hasattr(response, 'content') else str(response)
             else:
                 # Fallback for different LLM client interfaces
                 response = await self.llm_client.generate(prompt, temperature=temperature)
-                return str(response)
+                response_text = str(response)
+            
+            # ULTRA VERBOSE: Log the exact response received
+            self.logger.info(f"\nLLM RESPONSE:")
+            self.logger.info("-"*250)
+            self.logger.info(response_text)
+            self.logger.info("-"*250)
+            self.logger.info("\n" + "="*250)
+            self.logger.info("CRITIC LLM CALL COMPLETE")
+            self.logger.info("="*250)
+            
+            return response_text
+            
         except Exception as e:
-            self.logger.error(f"LLM call failed: {str(e)}")
+            self.logger.error(f"LLM call FAILED: {str(e)}")
+            self.logger.info("=== CRITIC LLM CALL FAILED ===")
             return "" 

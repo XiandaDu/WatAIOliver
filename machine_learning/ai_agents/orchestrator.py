@@ -171,11 +171,11 @@ class MultiAgentOrchestrator:
                 answer = str(output_data.content['final_answer'])
                 if isinstance(output_data.content['final_answer'], dict):
                     # Extract key parts of structured answer
-                    intro = output_data.content['final_answer'].get('introduction', '')[:100]
-                    solution = output_data.content['final_answer'].get('step_by_step_solution', '')[:200]
-                    answer_preview = f"Introduction: {intro}...\nSolution: {solution}..."
+                    intro = output_data.content['final_answer'].get('introduction', '')
+                    solution = output_data.content['final_answer'].get('step_by_step_solution', '')
+                    answer_preview = f"Introduction: {intro}\nSolution: {solution}"
                 else:
-                    answer_preview = answer[:300] + "..." if len(answer) > 300 else answer
+                    answer_preview = answer
                 output_preview = f"Final answer:\n{answer_preview}"
                 
             elif 'retrieval_results' in output_data.content:
@@ -184,17 +184,17 @@ class MultiAgentOrchestrator:
                 output_preview = f"Retrieved {len(results)} chunks (quality: {quality:.3f})"
                 if results:
                     for i, result in enumerate(results[:2], 1):
-                        content = result.get('content', '')[:60]
+                        content = result.get('content', '')
                         score = result.get('score', 'N/A')
-                        output_preview += f"\n  • Chunk {i}: {content}... (score: {score})"
+                        output_preview += f"\n  • Chunk {i}: {content} (score: {score})"
                     if len(results) > 2:
                         output_preview += f"\n  • (+{len(results)-2} more chunks)"
                         
             else:
                 content_str = str(output_data.content)
-                output_preview = content_str[:200] + "..." if len(content_str) > 200 else content_str
+                output_preview = content_str
         else:
-            output_preview = str(output_data)[:200] + "..." if len(str(output_data)) > 200 else str(output_data)
+            output_preview = str(output_data)
         
         # Add to conversation history
         conversation_entry = {
@@ -520,7 +520,7 @@ class MultiAgentOrchestrator:
                 
                 decision = moderator_result.content["decision"]
                 
-                if decision not in ["converged", "iterate", "abort_deadlock"]:
+                if decision not in ["converged", "iterate", "abort_deadlock", "escalate_with_warning"]:
                     self.logger.warning(f"Unknown decision: {decision}")
                 
                 # Act on moderator decision
@@ -559,6 +559,27 @@ class MultiAgentOrchestrator:
                             "remaining_critiques": critiques or [],
                             "debate_rounds": current_round,
                             "convergence_score": moderator_result.content["decision_metadata"]["convergence_score"]
+                        }
+                    }
+                
+                elif decision == "escalate_with_warning":
+                    self.logger.info(f"️ Quality issues escalated after {current_round} rounds")
+                    return {
+                        "success": True,
+                        "result": {
+                            "status": "escalated",
+                            "final_draft": {
+                                "content": current_draft,
+                                "cot": current_cot,
+                                "draft_id": draft_id,
+                                "status": "escalated",
+                                "quality_score": moderator_result.content["decision_metadata"]["convergence_score"],
+                                "quality_warning": moderator_result.content.get("warning_message", "Quality issues detected")
+                            },
+                            "remaining_critiques": critiques or [],
+                            "debate_rounds": current_round,
+                            "convergence_score": moderator_result.content["decision_metadata"]["convergence_score"],
+                            "escalation_warning": moderator_result.content.get("warning_message")
                         }
                     }
                 

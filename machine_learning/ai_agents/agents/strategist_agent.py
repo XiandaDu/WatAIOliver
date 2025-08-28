@@ -115,11 +115,32 @@ class StrategistAgent(BaseAgent):
         course_prompt = metadata.get('course_prompt') if metadata else None
         system_guidance = course_prompt or "You are a helpful educational assistant."
         
+        # Check for previous feedback from Critic (for revision rounds)
+        previous_feedback = metadata.get('previous_feedback') if metadata else None
+        round_num = metadata.get('round', 1) if metadata else 1
+        
+        # Build revision instructions if this is a follow-up round
+        revision_section = ""
+        if previous_feedback and round_num > 1:
+            revision_section = f"""
+        
+️  CRITICAL: REVISION ROUND {round_num}
+        Your previous draft had issues that need correction. The Critic found:
+        
+        FEEDBACK FROM PREVIOUS ROUND:
+        {previous_feedback}
+        
+REQUIRED ACTION: 
+        You MUST address these specific issues in your new draft. Don't just repeat the same content - 
+        actively fix the logical flaws, factual errors, and missing details identified above.
+        """
+        
         prompt = f"""
         {self.system_prompt}
         
         COURSE-SPECIFIC GUIDANCE:
         {system_guidance}
+        {revision_section}
         
         CONTEXT INFORMATION:
         {context_text}
@@ -167,9 +188,10 @@ class StrategistAgent(BaseAgent):
             source = ctx_item.get('source', {})
             
             formatted_context = f"""
-            Context {i+1} (Relevance: {score}):
-            {text[:800]}{"..." if len(text) > 800 else ""}
-            Source: {source}
+=== CONTEXT SOURCE {i+1} (Relevance: {score}) ===
+{text}
+=== END CONTEXT SOURCE {i+1} ===
+Source: {source}
             """
             
             formatted_contexts.append(formatted_context)
@@ -183,10 +205,21 @@ class StrategistAgent(BaseAgent):
                 raise Exception("No LLM client available")
             
             temperature = self.get_temperature()
-            self.logger.debug(f"Generating draft with temperature {temperature}")
+            self.logger.info("=" * 250)
+            self.logger.info("STRATEGIST LLM GENERATION")
+            self.logger.info("=" * 250)
+            self.logger.info(f"Temperature: {temperature}")
+            self.logger.info("-" * 250)
+            self.logger.info("PROMPT:")
+            self.logger.info(prompt)
+            self.logger.info("-" * 250)
             
             # Call LLM with creative temperature for exploration
             response = await self._call_llm(prompt, temperature)
+            
+            self.logger.info("LLM RESPONSE:")
+            self.logger.info(response)
+            self.logger.info("=" * 250)
             
             if len(response) < 100:  # Sanity check for reasonable response length
                 raise Exception(f"Response too short ({len(response)} chars), likely generation failure")
@@ -205,6 +238,10 @@ class StrategistAgent(BaseAgent):
             "chain_of_thought": [],
             "context_references": 0
         }
+        
+        self.logger.info("=" * 250)
+        self.logger.info("STRATEGIST RESPONSE PARSING")
+        self.logger.info("=" * 250)
         
         try:
             # Split response into sections
@@ -231,9 +268,21 @@ class StrategistAgent(BaseAgent):
             if current_section:
                 sections[current_section] = '\n'.join(current_content)
             
+            self.logger.info(f"PARSED SECTIONS: {list(sections.keys())}")
+            
             # Extract Chain of Thought
             cot_text = sections.get('chain of thought', '')
+            self.logger.info("-" * 250)
+            self.logger.info("CHAIN OF THOUGHT RAW TEXT:")
+            self.logger.info(f"'{cot_text}'")
+            self.logger.info("-" * 250)
+            
             result["chain_of_thought"] = self._parse_chain_of_thought(cot_text)
+            
+            self.logger.info("PARSED COT STEPS:")
+            for i, step in enumerate(result["chain_of_thought"]):
+                self.logger.info(f"  Step {i+1}: {step}")
+            self.logger.info("-" * 250)
             
             # Extract Draft Solution
             result["draft_content"] = sections.get('draft solution', response)  # Fallback to full response
@@ -249,6 +298,7 @@ class StrategistAgent(BaseAgent):
             result["draft_content"] = response
             result["chain_of_thought"] = [{"step": 1, "thought": "Raw response provided due to parsing issues"}]
         
+        self.logger.info("=" * 250)
         return result
     
     def _parse_chain_of_thought(self, cot_text: str) -> List[Dict[str, Any]]:
