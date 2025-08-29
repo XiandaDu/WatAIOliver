@@ -191,7 +191,7 @@ export default function ChatPage() {
 
   // Get loading state for current conversation
   const getCurrentConversationLoadingState = () => {
-    if (!selectedConversation) return { isLoading: false, isTyping: false }
+    if (!selectedConversation) return { isLoading, isTyping }
     return conversationLoadingStates[selectedConversation.conversation_id] || { isLoading: false, isTyping: false }
   }
 
@@ -333,11 +333,15 @@ export default function ChatPage() {
             setSelectedConversation(newConversation)
             setConversations(prev => [newConversation, ...prev])
             
-            // Removed: Set loading state for the new conversation (will be handled by main loading states)
-            // setConversationLoadingStates(prev => ({
-            //   ...prev,
-            //   [newConversationId]: { isLoading: true, isTyping: true }
-            // }))
+            // Set loading state for the new conversation
+            setConversationLoadingStates(prev => ({
+              ...prev,
+              [newConversationId]: { isLoading: true, isTyping: true }
+            }))
+            
+            // Clear global loading states since we now have a conversation
+            setIsLoading(false)
+            setIsTyping(false)
           }
         }
       }
@@ -472,13 +476,23 @@ export default function ChatPage() {
           }]);
           setLastAssistantMessageId(assistantMessageId); // Store this ID for updates
           
-          // Keep typing indicator visible until we actually start receiving content
+          // Hide typing indicator immediately when streaming starts
+          if (newConversationId) {
+            setConversationLoadingStates(prev => ({
+              ...prev,
+              [newConversationId]: { isLoading: true, isTyping: false }
+            }))
+          } else if (currentConversationId) {
+            setConversationLoadingStates(prev => ({
+              ...prev,
+              [currentConversationId]: { isLoading: true, isTyping: false }
+            }))
+          } else {
+            setIsTyping(false)
+          }
 
           let receivedContent = ""; // Initialize receivedContent for streaming
           let json_buffer = ""; // Buffer for incomplete JSON objects
-          // Flag to hide typing indicator only once
-          // Prevents flickering of typing indicator during streaming
-          let hasHiddenTyping = false;
           
           const reader = chatResponse.body.getReader();
           const decoder = new TextDecoder();
@@ -519,19 +533,6 @@ export default function ChatPage() {
                   console.log("=== FRONTEND RECEIVED CONTENT ===");
                   console.log("Raw receivedContent:", receivedContent.substring(0, 500));
                   console.log("================================");
-                  
-                  // Hide typing indicator when we first receive content (only once)
-                  if (!hasHiddenTyping) {
-                    hasHiddenTyping = true;
-                    if (currentConversationId) {
-                      setConversationLoadingStates(prev => ({
-                        ...prev,
-                        [currentConversationId]: { isLoading: true, isTyping: false }
-                      }))
-                    } else {
-                      setIsTyping(false)
-                    }
-                  }
                   
                   setMessages(prev => prev.map(msg => 
                     msg.id === assistantMessageId ? { ...msg, content: receivedContent } : msg
@@ -702,6 +703,10 @@ export default function ChatPage() {
               ...prev,
               [newConversationId]: { isLoading: true, isTyping: true }
             }));
+            
+            // Clear global loading states since we now have a conversation
+            setIsLoading(false);
+            setIsTyping(false);
           }
         }
       }
@@ -764,13 +769,23 @@ export default function ChatPage() {
         }]);
         setLastAssistantMessageId(assistantMessageId);
         
-        // Keep typing indicator visible until we actually start receiving content
-        
-
+        // Hide typing indicator immediately when streaming starts
+        if (newConversationId) {
+          setConversationLoadingStates(prev => ({
+            ...prev,
+            [newConversationId]: { isLoading: true, isTyping: false }
+          }));
+        } else if (currentConversationId) {
+          setConversationLoadingStates(prev => ({
+            ...prev,
+            [currentConversationId]: { isLoading: true, isTyping: false }
+          }));
+        } else {
+          setIsTyping(false);
+        }
 
         let receivedContent = "";
         let json_buffer = "";
-        let hasHiddenTyping = false; // Flag to hide typing indicator only once
         
         const reader = chatResponse.body.getReader();
         const decoder = new TextDecoder();
@@ -813,24 +828,6 @@ export default function ChatPage() {
                   console.log("Content length:", receivedContent.length);
                   console.log("First 100 chars:", receivedContent.substring(0, 100));
                   console.log("========================");
-                  
-                  // Hide typing indicator when we first receive content (only once)
-                  if (!hasHiddenTyping) {
-                    hasHiddenTyping = true;
-                    if (newConversationId) {
-                      setConversationLoadingStates(prev => ({
-                        ...prev,
-                        [newConversationId]: { isLoading: true, isTyping: false }
-                      }));
-                    } else if (currentConversationId) {
-                      setConversationLoadingStates(prev => ({
-                        ...prev,
-                        [currentConversationId]: { isLoading: true, isTyping: false }
-                      }));
-                    } else {
-                      setIsTyping(false);
-                    }
-                  }
                   
                   setMessages(prev => prev.map(msg => 
                     msg.id === assistantMessageId ? { ...msg, content: receivedContent } : msg
