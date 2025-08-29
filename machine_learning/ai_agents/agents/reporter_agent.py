@@ -261,7 +261,7 @@ class ReporterAgent(BaseAgent):
             Format your response as a well-structured educational answer with clear sections.
             """
             
-            response = await self._call_llm(prompt)
+            response = await self._call_llm(prompt, temperature=0.3)
             
             return {
                 "content": response,
