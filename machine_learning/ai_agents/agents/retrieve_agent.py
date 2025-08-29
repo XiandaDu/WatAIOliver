@@ -51,9 +51,17 @@ class RetrieveAgent(BaseAgent):
             )
         
         # Stage 1: Initial RAG retrieval using existing system
+        self.logger.info("\n" + "="*250)
+        self.logger.info("INITIAL RAG RETRIEVAL")
+        self.logger.info("="*250)
+        self.logger.info(f"Query: '{agent_input.query}'")
+        self.logger.info(f"Course ID: {course_id}")
+        self.logger.info("Performing initial retrieval...\n")
+        
         initial_results = await self._perform_rag_query(agent_input.query, course_id)
         
         if not initial_results:
+            self.logger.info("Initial RAG retrieval completely failed")
             return AgentOutput(
                 success=False,
                 content={"retrieval_results": [], "quality_assessment": {"score": 0.0}},
@@ -63,20 +71,32 @@ class RetrieveAgent(BaseAgent):
                 error_message="Initial RAG retrieval failed"
             )
         
-        # DEBUG: Log initial results
+        # Log initial results with clear formatting
         sources = initial_results.get('sources', [])
-        self.logger.info(f"DEBUG: Initial RAG returned {len(sources)} sources")
+        self.logger.info(f"Initial RAG completed - found {len(sources)} sources:")
         for i, source in enumerate(sources[:3]):
             score = source.get('score', 'N/A')
-            content = source.get('content', '')[:50]
-            self.logger.info(f"  Source {i+1}: Score={score}, Content='{content}...'")
+            content = source.get('content', '')
+            self.logger.info(f"  {i+1}. Score={score}, Content='{content}'")
+        if len(sources) > 3:
+            self.logger.info(f"  ... and {len(sources) - 3} more sources")
         
         # Stage 2: Quality assessment 
+        self.logger.info("\n" + "="*250)
+        self.logger.info("RETRIEVAL QUALITY ASSESSMENT")
+        self.logger.info("="*250)
+        
         quality_score = self._assess_retrieval_quality(initial_results)
-        self.logger.info(f"DEBUG: Quality score assessed as {quality_score:.3f} (threshold: {self.min_quality_threshold})")
+        self.logger.info(f"Quality Score: {quality_score:.3f} / 1.0")
+        self.logger.info(f"Quality Threshold: {self.min_quality_threshold}")
+        self.logger.info(f"Initial Results Count: {len(initial_results.get('sources', []))}")
         
         # Stage 3: Speculative reframing if quality is poor
         if quality_score < self.min_quality_threshold and self.llm_client:
+            self.logger.info(f"\nQUALITY TOO LOW - TRIGGERING SPECULATIVE REFRAMING")
+            self.logger.info(f"Original query not good enough (score {quality_score:.3f} < {self.min_quality_threshold})")
+            self.logger.info(f"Generating alternative query phrasings...\n")
+            
             reframed_results = await self._speculative_reframing(
                 agent_input.query, 
                 course_id, 
@@ -84,25 +104,42 @@ class RetrieveAgent(BaseAgent):
             )
             
             if reframed_results:
+                self.logger.info("\n" + "="*250)
+                self.logger.info("MERGING SPECULATIVE RESULTS")
+                self.logger.info("="*250)
                 # Merge and deduplicate results
                 final_results = self._merge_results(initial_results, reframed_results)
                 strategy = "speculative_enhanced"
+                new_quality = self._assess_retrieval_quality(final_results)
+                self.logger.info(f"Enhanced quality: {quality_score:.3f} → {new_quality:.3f}")
+                self.logger.info(f"Total sources after merging: {len(final_results.get('sources', []))}")
             else:
+                self.logger.info("\nSpeculative reframing failed - using initial results only")
                 final_results = initial_results
                 strategy = "initial_only"
         else:
+            if quality_score >= self.min_quality_threshold:
+                self.logger.info(f"\nQUALITY SUFFICIENT - NO REFRAMING NEEDED")
+                self.logger.info(f"Score {quality_score:.3f} meets threshold {self.min_quality_threshold}")
+            else:
+                self.logger.info(f"\nQuality low but no LLM client available for reframing")
             final_results = initial_results
             strategy = "initial_sufficient"
         
         # Format final results for downstream agents
+        self.logger.info("\n" + "="*250)
+        self.logger.info("FINAL RETRIEVAL SUMMARY")
+        self.logger.info("="*250)
+        
         formatted_context = self._format_for_agents(final_results)
         
-        # DEBUG: Log formatting results
-        self.logger.info(f"DEBUG: Final results has {len(final_results.get('sources', []))} sources")
-        self.logger.info(f"DEBUG: Formatted context has {len(formatted_context)} items")
+        self.logger.info(f"Strategy Used: {strategy}")
+        self.logger.info(f"Raw Sources: {len(final_results.get('sources', []))}")
+        self.logger.info(f"Formatted Items: {len(formatted_context)}")
         
-        # Log clean chunk summary
+        # Log clean chunk summary with better formatting
         self._log_retrieved_chunks(formatted_context, strategy)
+        self.logger.info("="*250)
         
         return AgentOutput(
             success=True,
@@ -174,11 +211,27 @@ class RetrieveAgent(BaseAgent):
         """Generate alternative queries and perform parallel retrieval"""
         
         try:
+            self.logger.info("\n" + "="*250)
+            self.logger.info("SPECULATIVE QUERY GENERATION")
+            self.logger.info("="*250)
+            self.logger.info(f"Original Query: '{original_query}'")
+            self.logger.info(f"Course ID: {course_id}")
+            self.logger.info("Generating alternative query phrasings...\n")
+            
             # Generate alternative queries using LLM
             alternative_queries = await self._generate_alternative_queries(original_query)
             
             if not alternative_queries:
+                self.logger.info("No alternative queries generated")
                 return None
+            
+            self.logger.info(f"Generated {len(alternative_queries)} alternative queries:")
+            for i, query in enumerate(alternative_queries, 1):
+                self.logger.info(f"  {i}. '{query}'")
+            
+            self.logger.info("\n" + "-"*250)
+            self.logger.info("PARALLEL RETRIEVAL FOR ALTERNATIVES")
+            self.logger.info("-"*250)
             
             # Perform parallel retrieval for alternative queries
             tasks = []
@@ -189,17 +242,32 @@ class RetrieveAgent(BaseAgent):
             results = await asyncio.gather(*tasks, return_exceptions=True)
             
             # Find the best alternative result
+            self.logger.info("\nEvaluating alternative query results:")
             best_result = None
             best_score = 0.0
+            best_query_idx = -1
             
-            for result in results:
+            for i, (result, query) in enumerate(zip(results, alternative_queries)):
                 if isinstance(result, dict) and result.get('success'):
                     score = self._assess_retrieval_quality(result)
+                    sources_count = len(result.get('sources', []))
+                    self.logger.info(f"  Alternative {i+1}: Score={score:.3f}, Sources={sources_count}")
                     if score > best_score:
                         best_score = score
                         best_result = result
+                        best_query_idx = i
+                else:
+                    self.logger.info(f"  Alternative {i+1}: FAILED")
             
-            return best_result
+            if best_result:
+                self.logger.info(f"\nBEST ALTERNATIVE FOUND:")
+                self.logger.info(f"  Query: '{alternative_queries[best_query_idx]}'")
+                self.logger.info(f"  Score: {best_score:.3f}")
+                self.logger.info(f"  Sources: {len(best_result.get('sources', []))}")
+                return best_result
+            else:
+                self.logger.info(f"\nNo successful alternative queries")
+                return None
             
         except Exception as e:
             self.logger.error(f"Speculative reframing failed: {e}")
@@ -219,9 +287,27 @@ class RetrieveAgent(BaseAgent):
             Return only the alternative queries, one per line.
             """
             
+            self.logger.info("\n" + "-"*250)
+            self.logger.info("LLM QUERY GENERATION")
+            self.logger.info("-"*250)
+            self.logger.info("PROMPT:")
+            self.logger.info(prompt.strip())
+            self.logger.info("-"*250)
+            
             response = self.llm_client.generate(prompt)
+            
+            self.logger.info("LLM RESPONSE:")
+            self.logger.info(response.strip())
+            self.logger.info("-"*250)
+            
             queries = [q.strip() for q in response.split('\n') if q.strip() and not q.startswith('#')]
-            return queries[:3]  # Limit to 3 alternatives
+            parsed_queries = queries[:3]  # Limit to 3 alternatives
+            
+            self.logger.info(f"PARSED QUERIES ({len(parsed_queries)}):")
+            for i, q in enumerate(parsed_queries, 1):
+                self.logger.info(f"  {i}. {q}")
+            
+            return parsed_queries
             
         except Exception as e:
             self.logger.error(f"Alternative query generation failed: {e}")
@@ -300,7 +386,7 @@ class RetrieveAgent(BaseAgent):
                 except (ValueError, TypeError):
                     score_display = "N/A"
             
-            content_preview = chunk.get('content', '')[:50] + '...' if len(chunk.get('content', '')) > 50 else chunk.get('content', '')
+            content_preview = chunk.get('content', '')
             self.logger.info(f"   • Similarity: {score_display} | {content_preview}")
     
     async def _debug_course_chunks(self, course_id: str, actual_query: str = None):
@@ -339,7 +425,7 @@ class RetrieveAgent(BaseAgent):
                             
                             self.logger.info(f"DEBUG: Similarity scores for query '{actual_query[:50]}...':")
                             for i, (doc, score) in enumerate(scored_results, 1):
-                                content_preview = doc.page_content[:80] + '...' if len(doc.page_content) > 80 else doc.page_content
+                                content_preview = doc.page_content
                                 metadata = doc.metadata or {}
                                 chunk_id = metadata.get('chunk_index', 'unknown')
                                 self.logger.info(f"   {i}. Chunk {chunk_id} | Score: {score:.4f} | {content_preview}")
@@ -348,7 +434,7 @@ class RetrieveAgent(BaseAgent):
                             self.logger.error(f"DEBUG: Error getting similarity scores: {score_error}")
                             # Fallback to showing chunks without scores
                             for i, doc in enumerate(raw_results, 1):
-                                content_preview = doc.page_content[:80] + '...' if len(doc.page_content) > 80 else doc.page_content
+                                content_preview = doc.page_content
                                 metadata = doc.metadata or {}
                                 chunk_id = metadata.get('chunk_index', 'unknown')
                                 self.logger.info(f"   {i}. Chunk {chunk_id}: {content_preview}")

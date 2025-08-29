@@ -51,7 +51,19 @@ class ModeratorAgent(BaseAgent):
             
             self.logger.info(f"️ Moderator evaluating critique report for {draft_id}")
             self.logger.info(f"Round {current_round}, {len(critiques)} issues found")
+            
+            # ULTRA VERBOSE: Log all received critiques
+            self.logger.info(f"\n" + "="*200)
+            self.logger.info(f"MODERATOR - DETAILED CRITIQUE ANALYSIS")
+            self.logger.info(f"="*200)
+            self.logger.info(f"RECEIVED CRITIQUES ({len(critiques)} total):")
+            for i, critique in enumerate(critiques):
+                severity = critique.get('severity', 'unknown')
+                ctype = critique.get('type', 'unknown')
+                desc = critique.get('description', 'no description')
+                self.logger.info(f"  {i+1}. [{severity.upper()}] {ctype}: {desc}")
             self.logger.info(f"Overall assessment: {overall_assessment}")
+            self.logger.info(f"="*200)
             
             # Analyze critique severity
             severity_analysis = self._analyze_critique_severity(critiques)
@@ -62,6 +74,22 @@ class ModeratorAgent(BaseAgent):
                 current_round, 
                 overall_assessment
             )
+            
+            # ULTRA VERBOSE: Log severity analysis and decision logic
+            self.logger.info(f"\nSEVERITY BREAKDOWN:")
+            self.logger.info(f"  CRITICAL: {severity_analysis['by_severity']['critical']}")
+            self.logger.info(f"  HIGH: {severity_analysis['by_severity']['high']}")
+            self.logger.info(f"  MEDIUM: {severity_analysis['by_severity']['medium']}")
+            self.logger.info(f"  LOW: {severity_analysis['by_severity']['low']}")
+            self.logger.info(f"  TOTAL: {severity_analysis['total_issues']}")
+            
+            self.logger.info(f"\nDECISION LOGIC:")
+            self.logger.info(f"  Current Round: {current_round}")
+            self.logger.info(f"  Convergence Check: {self._check_convergence_conditions(severity_analysis, current_round)}")
+            self.logger.info(f"  Action: {decision['action']}")
+            self.logger.info(f"  Reasoning: {decision['reasoning']}")
+            self.logger.info(f"  Confidence: {decision['confidence']}")
+            self.logger.info(f"="*200)
             
             # Generate appropriate response based on decision
             decision_content = await self._generate_decision_content(
@@ -170,24 +198,39 @@ class ModeratorAgent(BaseAgent):
         
         # Decision logic based on specified rules
         
-        # Rule 1: Convergence conditions
-        if self._check_convergence_conditions(severity_analysis):
+        # Rule 1: Check convergence conditions with NEW STRICT criteria
+        if self._check_convergence_conditions(severity_analysis, current_round):
             return {
                 "action": "converged",
                 "reasoning": self._generate_convergence_reasoning(severity_analysis),
                 "convergence_score": 1.0 - (severity_score / 4.0),
                 "confidence": "high",
-                "detailed_reasoning": f"Quality acceptable with {total_issues} minor issues remaining"
+                "detailed_reasoning": f"Quality acceptable after {current_round} rounds with {total_issues} remaining issues"
             }
         
-        # Rule 2: Deadlock detection (max rounds reached)
+        # Rule 2: ESCALATION - 3+ iterations with persistent MEDIUM+ issues
+        if current_round >= 3 and (critical_count > 0 or high_count > 0 or medium_count > 0):
+            return {
+                "action": "escalate_with_warning",
+                "reasoning": f"After {current_round} improvement iterations, {critical_count + high_count + medium_count} serious issues remain",
+                "convergence_score": 0.4,
+                "confidence": "low",
+                "detailed_reasoning": f"Persistent quality issues: {critical_count} critical, {high_count} high, {medium_count} medium - escalating to user notification",
+                "unresolved_issues": {
+                    "critical": critical_count,
+                    "high": high_count, 
+                    "medium": medium_count
+                }
+            }
+        
+        # Rule 3: Standard deadlock (max rounds without escalation case)
         if current_round >= self.config.max_debate_rounds:
             return {
                 "action": "abort_deadlock",
-                "reasoning": f"Maximum debate rounds ({self.config.max_debate_rounds}) reached without convergence",
+                "reasoning": f"Maximum debate rounds ({self.config.max_debate_rounds}) reached",
                 "convergence_score": 0.3,
                 "confidence": "medium",
-                "detailed_reasoning": f"Deadlock after {current_round} rounds with {critical_count} critical and {high_count} high severity issues"
+                "detailed_reasoning": f"Hard deadlock after {current_round} rounds"
             }
         
         # Rule 3: Critical issues require iteration
@@ -229,26 +272,29 @@ class ModeratorAgent(BaseAgent):
             "detailed_reasoning": "Quality meets acceptance criteria despite minor remaining issues"
         }
     
-    def _check_convergence_conditions(self, severity_analysis: Dict[str, Any]) -> bool:
-        """Check if debate has converged based on severity thresholds"""
+    def _check_convergence_conditions(self, severity_analysis: Dict[str, Any], current_round: int) -> bool:
+        """Check if debate has converged based on NEW STRICT criteria"""
         
         critical_count = severity_analysis["by_severity"]["critical"]
         high_count = severity_analysis["by_severity"]["high"]
+        medium_count = severity_analysis["by_severity"]["medium"]
+        low_count = severity_analysis["by_severity"]["low"]
         total_issues = severity_analysis["total_issues"]
         
-        # Perfect convergence - no issues
+        # Rule 1: Perfect convergence - ZERO issues allowed
         if total_issues == 0:
             return True
         
-        # Acceptable convergence - only low severity issues
-        if critical_count == 0 and high_count == 0 and total_issues <= 3:
-            return True
+        # Rule 2: NO convergence allowed if ANY issues exist UNLESS we've done 3+ iterations
+        if current_round < 3:
+            return False  # Always iterate if we haven't done 3 rounds yet
+            
+        # Rule 3: After 3+ iterations, only converge if NO CRITICAL/HIGH/MEDIUM issues remain
+        if critical_count > 0 or high_count > 0 or medium_count > 0:
+            return False  # Still have serious issues after 3 iterations - this will trigger escalation
         
-        # Marginal convergence - very few issues
-        if critical_count == 0 and high_count <= 1 and total_issues <= 2:
-            return True
-        
-        return False
+        # Rule 4: After 3+ iterations with only LOW severity issues - allow convergence
+        return True
     
     def _generate_convergence_reasoning(self, severity_analysis: Dict[str, Any]) -> str:
         """Generate human-readable convergence reasoning"""
@@ -288,6 +334,17 @@ class ModeratorAgent(BaseAgent):
         elif decision["action"] == "iterate":
             # Generate focused feedback for revision
             content["feedback"] = await self._generate_revision_feedback(critiques, severity_analysis)
+            
+        elif decision["action"] == "escalate_with_warning":
+            # Handle escalation - persistent issues after 3 iterations
+            content["final_draft"] = {
+                "status": "escalated",
+                "quality_warning": True,
+                "persistent_issues": decision["unresolved_issues"],
+                "quality_score": decision["convergence_score"]
+            }
+            content["warning_message"] = self._generate_escalation_warning(critiques, severity_analysis)
+            content["remaining_critiques"] = critiques
             
         elif decision["action"] == "abort_deadlock":
             # Handle deadlock situation
@@ -363,6 +420,43 @@ class ModeratorAgent(BaseAgent):
             feedback_sections.append("• Remove unsupported information not found in context")
         
         return "\n".join(feedback_sections)
+    
+    def _generate_escalation_warning(
+        self, 
+        critiques: List[Dict[str, Any]], 
+        severity_analysis: Dict[str, Any]
+    ) -> str:
+        """Generate warning message for escalated quality issues"""
+        
+        critical_count = severity_analysis["by_severity"]["critical"]
+        high_count = severity_analysis["by_severity"]["high"]
+        medium_count = severity_analysis["by_severity"]["medium"]
+        
+        warning_parts = []
+        warning_parts.append("️ QUALITY ESCALATION NOTICE:")
+        warning_parts.append(f"After 3 improvement iterations, {critical_count + high_count + medium_count} serious issues remain unresolved:")
+        
+        if critical_count > 0:
+            warning_parts.append(f"•{critical_count} CRITICAL issues (major factual errors, severe logical flaws)")
+            
+        if high_count > 0:
+            warning_parts.append(f"•{high_count} HIGH severity issues (significant logical gaps, unsupported claims)")
+            
+        if medium_count > 0:
+            warning_parts.append(f"•{medium_count} MEDIUM severity issues (inconsistencies, missing details)")
+            
+        warning_parts.append("\nThe system has made its best effort to improve this response, but some quality concerns persist.")
+        warning_parts.append("Please review the answer critically and consider these limitations when using the information.")
+        
+        # Add specific issue details
+        if len(critiques) > 0:
+            warning_parts.append("\nSpecific concerns:")
+            for issue in critiques[:3]:  # Show top 3 issues
+                severity = issue.get('severity', 'unknown').upper()
+                description = issue.get('description', 'No description')[:100]
+                warning_parts.append(f"• [{severity}] {description}...")
+                
+        return "\n".join(warning_parts)
     
     def get_decision_statistics(self) -> Dict[str, Any]:
         """Get statistics about moderator decisions"""

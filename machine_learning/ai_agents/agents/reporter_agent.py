@@ -88,6 +88,11 @@ class ReporterAgent(BaseAgent):
                 final_answer = await self._synthesize_approved_answer(
                     original_query, draft_content, chain_of_thought, remaining_critiques, context
                 )
+            elif debate_status == "escalated":
+                quality_warning = final_draft_status.get('quality_warning', 'Quality issues detected after multiple improvement attempts')
+                final_answer = await self._synthesize_escalated_answer(
+                    original_query, draft_content, remaining_critiques, context, quality_warning
+                )
             elif debate_status == "deadlock":
                 final_answer = await self._synthesize_deadlock_answer(
                     original_query, draft_content, remaining_critiques, context
@@ -211,6 +216,68 @@ class ReporterAgent(BaseAgent):
             self.logger.error(f"Approved answer synthesis failed: {str(e)}")
             # Fallback to basic structure
             return self._create_fallback_structure(draft_content, query)
+    
+    async def _synthesize_escalated_answer(
+        self, 
+        query: str, 
+        draft_content: str, 
+        persistent_critiques: List[Dict[str, Any]], 
+        context: List[Dict[str, Any]],
+        quality_warning: str
+    ) -> Dict[str, Any]:
+        """Synthesize answer for escalated situation with quality warnings"""
+        
+        try:
+            critiques_summary = self._format_unresolved_issues(persistent_critiques)
+            context_summary = self._format_context_summary(context)
+            
+            prompt = f"""
+            {self.system_prompt}
+            
+            SITUATION: After 3 improvement iterations, some quality issues remain unresolved. You need to provide the best possible answer while clearly warning the user about potential limitations.
+            
+            ORIGINAL QUERY:
+            {query}
+            
+            BEST AVAILABLE DRAFT:
+            {draft_content}
+            
+            PERSISTENT QUALITY ISSUES:
+            {critiques_summary}
+            
+            QUALITY WARNING TO INCLUDE:
+            {quality_warning}
+            
+            SUPPORTING CONTEXT:
+            {context_summary}
+            
+            INSTRUCTIONS:
+            1. Provide a comprehensive answer based on the available draft and context
+            2. PROMINENTLY include the quality warning at the beginning
+            3. Clearly indicate which parts may be uncertain or problematic
+            4. Suggest ways the user can verify or improve the information
+            5. Maintain educational value while being transparent about limitations
+            
+            Format your response as a well-structured educational answer with clear sections.
+            """
+            
+            response = await self._call_llm(prompt, temperature=0.3)
+            
+            return {
+                "content": response,
+                "status": "escalated",
+                "quality_warning": quality_warning,
+                "persistent_issues": len(persistent_critiques),
+                "transparency": "This answer includes quality warnings due to unresolved issues after multiple improvement attempts."
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Escalated answer synthesis failed: {e}")
+            return {
+                "content": f"I apologize, but I encountered difficulties providing a complete answer to your question. The system detected quality issues that couldn't be fully resolved: {quality_warning}",
+                "status": "error",
+                "quality_warning": quality_warning
+            }
     
     async def _synthesize_deadlock_answer(
         self, 
@@ -480,7 +547,7 @@ class ReporterAgent(BaseAgent):
                 
                 # DEBUG: Log what the agents system generates
                 print("=== DEBUG AGENT SYSTEM OUTPUT ===")
-                print("AGENT LLM RESPONSE:", repr(content[:1000]))  # First 1000 chars
+                print("AGENT LLM RESPONSE:", repr(content))  # Full content
                 print("================================")
                 
                 return content
@@ -491,7 +558,7 @@ class ReporterAgent(BaseAgent):
                 
                 # DEBUG: Log what the agents system generates
                 print("=== DEBUG AGENT SYSTEM OUTPUT ===")
-                print("AGENT LLM RESPONSE:", repr(content_str[:1000]))  # First 1000 chars
+                print("AGENT LLM RESPONSE:", repr(content_str))  # Full content
                 print("================================")
                 
                 return content_str

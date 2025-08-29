@@ -335,33 +335,33 @@ USER QUESTION: {original_prompt}
 RENDERING SYSTEM: You are outputting to a Markdown renderer with KaTeX math support. DO NOT use Mermaid diagrams, HTML, or other unsupported formats.
 
 SUPPORTED FORMATS:
-✅ LaTeX math: $f(x) = x^2$ and $$f(x) = x^2$$
-✅ Regular markdown: **bold**, *italic*, lists, headers
-✅ Code blocks: ```python ... ```
+LaTeX math: $f(x) = x^2$ and $$f(x) = x^2$$
+Regular markdown: **bold**, *italic*, lists, headers
+Code blocks: ```python ... ```
 
-❌ NOT SUPPORTED: Mermaid diagrams, HTML tags, custom graphics
+NOT SUPPORTED: Mermaid diagrams, HTML tags, custom graphics
 
 EXAMPLES - FIX THESE EXACT PROBLEMS:
-❌ "f(x) = x^" → ✅ "$f(x) = x^2$" (complete the broken formula)
-❌ Lone "π" on separate line → ✅ "The $\pi$-periodic extension"
-❌ "[-π, π]" → ✅ "$[-\pi, \pi]$" (use LaTeX)
-❌ "x = ±π, ±π" → ✅ "$x = \pm\pi, \pm 2\pi$" (fix repetition)
+"f(x) = x^" →"$f(x) = x^2$" (complete the broken formula)
+Lone "π" on separate line →"The $\pi$-periodic extension"
+"[-π, π]" →"$[-\pi, \pi]$" (use LaTeX)
+"x = ±π, ±π" →"$x = \pm\pi, \pm 2\pi$" (fix repetition)
 
 GOOD OUTPUT EXAMPLES:
-✅ "The lesson covered the Fourier series of the $\pi$-periodic extension of $f(x) = x^2$."
-✅ "Key intervals: $[-\pi, \pi]$ and $[0, 2\pi]$"
+"The lesson covered the Fourier series of the $\pi$-periodic extension of $f(x) = x^2$."
+"Key intervals: $[-\pi, \pi]$ and $[0, 2\pi]$"
 
 CRITICAL LaTeX RULES:
-✅ Always use backslash: $\pi$ NOT $π$ 
-✅ Intervals: $[\pi, 3\pi]$ NOT $[π, 3π]$
-✅ Plus-minus: $\pm\pi$ NOT $±π$
+Always use backslash: $\pi$ NOT $π$ 
+Intervals: $[\pi, 3\pi]$ NOT $[π, 3π]$
+Plus-minus: $\pm\pi$ NOT $±π$
 
 COMMON MISTAKES TO AVOID:
-❌ "$π$" or "$[π, 3π]$" (literal Greek letters cause red errors)
-❌ "$ \pi $" (spaces inside math delimiters)  
-❌ "$\\pi$" (double backslashes in output)
-✅ "$\pi$" (single backslash, no spaces)
-✅ "$[\pi, 3\pi]$" (proper LaTeX syntax)
+"$π$" or "$[π, 3π]$" (literal Greek letters cause red errors)
+"$ \pi $" (spaces inside math delimiters)  
+"$\\pi$" (double backslashes in output)
+"$\pi$" (single backslash, no spaces)
+"$[\pi, 3\pi]$" (proper LaTeX syntax)
 
 TASK: Transform the retrieved content into clean markdown with proper LaTeX math formatting. NO diagrams, NO Mermaid, NO HTML."""
     
@@ -787,7 +787,8 @@ async def _process_pdf_for_rag(file_content: bytes, filename: str, course_id: st
         
         if rag_result.get('success'):
             document_id = rag_result.get('document_id', filename)
-            _store_document_metadata(document_id, course_id, filename, 'pdf')
+            markdown_content = pdf_result.get('markdown_content', '')
+            _store_document_metadata(document_id, course_id, filename, 'pdf', markdown_content)
             return {
                 'filename': filename,
                 'type': 'pdf',
@@ -819,7 +820,7 @@ async def _process_text_for_rag(file_content: bytes, filename: str, course_id: s
     
     if rag_result.get('success'):
         document_id = rag_result.get('document_id', filename)
-        _store_document_metadata(document_id, course_id, filename, 'text')
+        _store_document_metadata(document_id, course_id, filename, 'text', text_content)
     
     return {
         'filename': filename,
@@ -900,15 +901,19 @@ async def _process_document_with_rag(course_id: str, content: str, filename: str
             'error': f'RAG processing failed: {str(e)}'
         }
 
-def _store_document_metadata(document_id: str, course_id: str, filename: str, file_type: str):
-    """Store document metadata in the documents table"""
+def _store_document_metadata(document_id: str, course_id: str, filename: str, file_type: str, markdown_content: str = None):
+    """Store document metadata in the documents table with full markdown content"""
     try:
         from src.supabaseClient import supabase
+        
+        # Use the full markdown content instead of placeholder text
+        content = markdown_content if markdown_content else f"Uploaded {file_type} file: {filename}"
+        
         supabase.table("documents").insert({
             "document_id": document_id,
             "course_id": course_id,
             "title": filename,
-            "content": f"Uploaded {file_type} file: {filename}",
+            "content": content,
             "term": None
         }).execute()
     except Exception as e:
