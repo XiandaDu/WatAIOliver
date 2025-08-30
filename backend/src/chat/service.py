@@ -430,6 +430,11 @@ async def generate_response(data: ChatRequest) -> StreamingResponse:
         ai_agents_logger.info(f"Mode: {mode}")
         ai_agents_logger.info(f"Course ID: {data.course_id}")
         ai_agents_logger.info(f"Prompt: {data.prompt[:100]}")  # First 100 chars
+    else:
+        print(f"\n=== GENERATE_RESPONSE CALLED ===")
+        print(f"Mode: {mode}")
+        print(f"Course ID: {data.course_id}")
+        print(f"Prompt: {data.prompt[:100]}")  # First 100 chars
     
     async def generate_chunks():
         if mode == "daily":
@@ -526,6 +531,9 @@ async def generate_response(data: ChatRequest) -> StreamingResponse:
     if mode == "rag":
         ai_agents_logger.info(f"=== RETURNING STREAMING RESPONSE ===")
         ai_agents_logger.info(f"Mode: {mode}")
+    else:
+        print(f"=== RETURNING STREAMING RESPONSE ===")
+        print(f"Mode: {mode}")
     return StreamingResponse(generate_chunks(), media_type="text/event-stream")
 
 def _format_agents_response_with_debug(result: Dict[str, Any]) -> str:

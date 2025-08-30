@@ -1,0 +1,81 @@
+version: "3.9"
+
+services:
+  backend:
+    image: xiandadu/oliver-backend-api:${IMAGE_TAG:-latest}
+    container_name: oliver-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend/.env:/app/backend/.env:ro
+      - ./machine_learning/groovy-bonus-454823-i5-53ed89aee2cb.json:/app/machine_learning/groovy-bonus-454823-i5-53ed89aee2cb.json:ro
+    environment:
+      # 若 machine_learning/.env 里配置了 GOOGLE_APPLICATION_CREDENTIALS 指向此 JSON，后端需要访问时会一致
+      GOOGLE_APPLICATION_CREDENTIALS: /app/machine_learning/groovy-bonus-454823-i5-53ed89aee2cb.json
+    restart: unless-stopped
+
+  pdf_processor:
+    image: xiandadu/oliver-pdf-service:${IMAGE_TAG:-latest}
+    container_name: oliver-pdf
+    ports:
+      - "8001:8001"
+    env_file:
+      - ./machine_learning/.env
+    volumes:
+      - ./machine_learning/.env:/app/machine_learning/.env:ro
+      - ./machine_learning/groovy-bonus-454823-i5-53ed89aee2cb.json:/app/machine_learning/groovy-bonus-454823-i5-53ed89aee2cb.json:ro
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /app/machine_learning/groovy-bonus-454823-i5-53ed89aee2cb.json
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  rag_service:
+    image: xiandadu/oliver-rag-service:${IMAGE_TAG:-latest}
+    container_name: oliver-rag
+    ports:
+      - "8002:8002"
+    env_file:
+      - ./machine_learning/.env
+    volumes:
+      - ./machine_learning/.env:/app/machine_learning/.env:ro
+      - ./machine_learning/groovy-bonus-454823-i5-53ed89aee2cb.json:/app/machine_learning/groovy-bonus-454823-i5-53ed89aee2cb.json:ro
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /app/machine_learning/groovy-bonus-454823-i5-53ed89aee2cb.json
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - pdf_processor
+
+  agent_service:
+    image: xiandadu/oliver-agent-service:${IMAGE_TAG:-latest}
+    container_name: oliver-agent
+    ports:
+      - "8003:8003"
+    env_file:
+      - ./machine_learning/.env
+    volumes:
+      - ./machine_learning/.env:/app/machine_learning/.env:ro
+      - ./machine_learning/groovy-bonus-454823-i5-53ed89aee2cb.json:/app/machine_learning/groovy-bonus-454823-i5-53ed89aee2cb.json:ro
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /app/machine_learning/groovy-bonus-454823-i5-53ed89aee2cb.json
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - rag_service
+
+  frontend:
+    image: xiandadu/oliver-frontend:${IMAGE_TAG:-latest}
+    container_name: oliver-frontend
+    ports:
+      - "5173:5173"
+    # 同时通过 env_file 注入 VITE_*，又把 .env 挂进容器（vite dev/preview 两种都能用）
+    env_file:
+      - ./frontend/.env
+    volumes:
+      - ./frontend/.env:/app/frontend/.env:ro
+    restart: unless-stopped
+    depends_on:
+      - backend

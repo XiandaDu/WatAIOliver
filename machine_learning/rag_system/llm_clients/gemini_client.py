@@ -22,18 +22,30 @@ class GeminiClient:
         self.model = model
         self.temperature = temperature
     
-    def generate(self, prompt: str) -> str:
+    def generate(self, prompt: str, temperature: float = None) -> str:
         """
         Generate response from prompt using Gemini LLM.
         
         Args:
             prompt: Input prompt string
+            temperature: Override temperature setting (creates temporary client if different)
         
         Returns:
             Generated response content as string
         """
         try:
-            response = self.llm.invoke(prompt)
+            # If temperature override is provided and different from current, create temporary client
+            if temperature is not None and temperature != self.temperature:
+                from langchain_google_genai import ChatGoogleGenerativeAI
+                temp_llm = ChatGoogleGenerativeAI(
+                    model=self.model,
+                    google_api_key=self.api_key,
+                    temperature=temperature
+                )
+                response = temp_llm.invoke(prompt)
+            else:
+                # Use existing LLM instance with current temperature
+                response = self.llm.invoke(prompt)
             return response.content
         except Exception as e:
             error_str = str(e).lower()

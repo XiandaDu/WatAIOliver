@@ -51,16 +51,22 @@ class CerebrasClient:
     def get_llm_client(self):
         return self.llm
 
-    def generate(self, prompt: str) -> str:
+    def generate(self, prompt: str, temperature: float = None) -> str:
         """
         Generate response from prompt using Cerebras LLM (non-streaming).
+        
+        Args:
+            prompt: Input prompt text
+            temperature: Override temperature setting
         """
+        actual_temperature = temperature if temperature is not None else self.llm._temperature
+        
         try:
             # Use direct API for consistent behavior
             response = self.llm._client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt + " /no_think"}],
                 model=self.llm._model_name,
-                temperature=self.llm._temperature,
+                temperature=actual_temperature,
                 top_p=self.llm._top_p,
                 stream=False
             )
@@ -79,8 +85,6 @@ class CerebrasClient:
     async def generate_stream(self, prompt: str, temperature: float = None):
         """
         Generate streaming response from prompt using Cerebras LLM.
-        
-        Added for streaming support in Problem-Solving mode.
         
         Args:
             prompt: Input prompt text

@@ -44,6 +44,14 @@ async def delete_message_api(message_id: str):
     raise HTTPException(status_code=404, detail="Message not found")
 
 
+@router.get("/course/{course_id}", response_model=List[MessageResponse])
+async def get_messages_by_course_api(course_id: str, limit: int = Query(1000, ge=1, le=5000)):
+    """Get all messages for a specific course, ordered by creation time"""
+    from ..supabaseClient import supabase
+    
+    response = supabase.table("messages").select("*").eq("course_id", course_id).order("created_at", desc=False).limit(limit).execute()
+    return response.data or []
+
 @router.get("/analytics/course/{course_id}")
 async def get_course_analytics(course_id: str):
     return await get_course_analytics_service(course_id)
