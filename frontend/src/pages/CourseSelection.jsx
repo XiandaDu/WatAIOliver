@@ -22,20 +22,20 @@ export default function CourseSelection() {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const response = await fetch('http://localhost:8000/course/', {
+        const response = await fetch("http://localhost:8000/course/", {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-          }
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          },
         });
-        
+
         if (!response.ok) {
           throw new Error(`Failed to fetch courses: ${response.statusText}`);
         }
-        
+
         const data = await response.json();
         setCourses(data || []);
       } catch (err) {
-        console.error('Error fetching courses:', err);
+        console.error("Error fetching courses:", err);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -47,27 +47,27 @@ export default function CourseSelection() {
 
   useEffect(() => {
     // Check if user is authenticated
-    const userData = localStorage.getItem('user');
+    const userData = localStorage.getItem("user");
     if (!userData) {
-      navigate('/login');
+      navigate("/login");
       return;
     }
-    
+
     const parsedUser = JSON.parse(userData);
     setUser(parsedUser);
-    
+
     // Redirect instructors/admins to admin panel
-    if (parsedUser.role === 'instructor' || parsedUser.role === 'admin') {
-      navigate('/admin');
+    if (parsedUser.role === "instructor" || parsedUser.role === "admin") {
+      navigate("/admin");
       return;
     }
   }, [navigate]);
 
   const handleJoinCourse = (courseId) => {
     if (!courseId) {
-      throw new Error('Course ID is required to join a course');
+      throw new Error("Course ID is required to join a course");
     }
-    console.log("Joining course:", courseId);
+    // console.log("Joining course:", courseId);
     navigate(`/chat?course=${courseId}`);
   };
 
@@ -75,54 +75,59 @@ export default function CourseSelection() {
     e.preventDefault();
     const code = inviteCode.trim();
     if (!code || code.length !== 6) {
-      alert('Please enter a valid 6-digit invite code.');
+      alert("Please enter a valid 6-digit invite code.");
       return;
     }
     try {
       const formData = new FormData();
-      formData.append('invite_code', code);
-      const response = await fetch('http://localhost:8000/course/join-by-code', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-        },
-        body: formData
-      });
+      formData.append("invite_code", code);
+      const response = await fetch(
+        "http://localhost:8000/course/join-by-code",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          },
+          body: formData,
+        }
+      );
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
         throw new Error(err.detail || `Failed to join: ${response.statusText}`);
       }
       const data = await response.json();
-      
+
       // Success! Clear the invite code and refresh the courses list
-      setInviteCode('');
-      alert(`Successfully joined "${data.title}"! You can now select it from your courses below.`);
-      
+      setInviteCode("");
+      alert(
+        `Successfully joined "${data.title}"! You can now select it from your courses below.`
+      );
+
       // Refresh courses to show the newly joined course
       try {
-        const coursesResponse = await fetch('http://localhost:8000/course/', {
+        const coursesResponse = await fetch("http://localhost:8000/course/", {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-          }
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          },
         });
         if (coursesResponse.ok) {
           const coursesData = await coursesResponse.json();
           setCourses(coursesData || []);
         }
       } catch (refreshErr) {
-        console.error('Error refreshing courses:', refreshErr);
+        console.error("Error refreshing courses:", refreshErr);
         // Still show success message even if refresh fails
       }
     } catch (err) {
-      console.error('Join by code failed:', err);
-      alert(err.message || 'Failed to join course');
+      console.error("Join by code failed:", err);
+      alert(err.message || "Failed to join course");
     }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('access_token');
-    navigate('/login');
+    localStorage.removeItem("user");
+    localStorage.removeItem("access_token");
+    navigate("/login");
   };
 
   if (loading || !user) {
@@ -141,8 +146,12 @@ export default function CourseSelection() {
       <div className="max-w-3xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div className="text-center flex-1">
-            <h2 className="text-3xl font-bold text-gray-900">Select a Course</h2>
-            <p className="mt-2 text-gray-600">Welcome back, {user?.username || user?.email}</p>
+            <h2 className="text-3xl font-bold text-gray-900">
+              Select a Course
+            </h2>
+            <p className="mt-2 text-gray-600">
+              Welcome back, {user?.username || user?.email}
+            </p>
           </div>
           <Button
             onClick={handleLogout}
@@ -163,14 +172,16 @@ export default function CourseSelection() {
             </div>
           ) : error ? (
             <div className="text-center py-8">
-              <p className="text-red-600 mb-4">Error loading courses: {error}</p>
-              <Button onClick={() => window.location.reload()}>
-                Retry
-              </Button>
+              <p className="text-red-600 mb-4">
+                Error loading courses: {error}
+              </p>
+              <Button onClick={() => window.location.reload()}>Retry</Button>
             </div>
           ) : courses.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-600">No courses joined yet. Join a course below.</p>
+              <p className="text-gray-600">
+                No courses joined yet. Join a course below.
+              </p>
             </div>
           ) : (
             <div className="grid gap-4">
@@ -195,7 +206,9 @@ export default function CourseSelection() {
         <Card>
           <CardHeader>
             <CardTitle className="text-xl">Have an Invite Code?</CardTitle>
-            <CardDescription>Enter your 6-digit invite code below</CardDescription>
+            <CardDescription>
+              Enter your 6-digit invite code below
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleInviteCodeSubmit} className="space-y-4">
@@ -205,7 +218,9 @@ export default function CourseSelection() {
                   id="inviteCode"
                   type="text"
                   value={inviteCode}
-                  onChange={(e) => setInviteCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  onChange={(e) =>
+                    setInviteCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                  }
                   placeholder="e.g. 123456"
                   className="mt-1 block w-full"
                 />
