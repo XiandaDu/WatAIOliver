@@ -366,7 +366,7 @@ export default function AdminPage() {
       const uploadResponse = await fetch('http://localhost:8000/chat/upload_files_for_rag', {
         method: 'POST',
         body: uploadFormData,
-        signal: AbortSignal.timeout(300000)
+        signal: AbortSignal.timeout(1200000) // 20 minutes to match backend
       })
       
       if (uploadResponse.ok) {
@@ -752,7 +752,23 @@ export default function AdminPage() {
       </Dialog>
 
       {/* Metadata Input Dialog */}
-      <Dialog open={showMetadataDialog} onOpenChange={setShowMetadataDialog}>
+      <Dialog 
+        open={showMetadataDialog} 
+        onOpenChange={(open) => {
+          if (!open && isUploading) {
+            // Prevent closing during upload with confirmation
+            const confirmed = confirm(
+              "Upload in progress! Closing this window may interrupt the upload process. Are you sure you want to close?"
+            )
+            if (confirmed) {
+              setShowMetadataDialog(false)
+              setIsUploading(false) // Reset upload state
+            }
+          } else if (!isUploading) {
+            setShowMetadataDialog(open)
+          }
+        }}
+      >
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>File Metadata</DialogTitle>
@@ -761,6 +777,16 @@ export default function AdminPage() {
             <p className="text-sm text-gray-600">
               Please review and customize the metadata for each file. Press Enter or leave blank to use defaults.
             </p>
+            {isUploading && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="text-sm text-amber-800 font-medium">
+                  ⚠️ Upload in progress - Do not close this window!
+                </p>
+                <p className="text-xs text-amber-700 mt-1">
+                  Closing this window may interrupt the upload process.
+                </p>
+              </div>
+            )}
             {fileMetadata.map((item, index) => (
               <div key={index} className="border rounded-lg p-4 space-y-3">
                 <h4 className="font-medium text-sm">File: {item.file.name}</h4>

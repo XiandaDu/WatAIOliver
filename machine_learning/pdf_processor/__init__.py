@@ -1,6 +1,6 @@
 """
-PDF to Markdown Converter
-Simple service for converting PDFs to Markdown using Marker.
+Universal Document to Markdown Converter
+Service for converting any document format to Markdown using Gemini AI.
 """
 
-__version__ = "1.0.0" 
+__version__ = "2.0.0" 

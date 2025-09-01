@@ -1,13 +1,12 @@
-from typing import List, Dict, Any, Optional
+from typing import Dict, Any, Optional
 from datetime import datetime
-from pathlib import Path
 
 from machine_learning.constants import ModelConfig, TextProcessingConfig
 
-# Import document loaders for different file types
-from langchain_community.document_loaders import TextLoader, PyPDFLoader, Docx2txtLoader
 from langchain.chains import RetrievalQA
 from langchain.schema import Document
+from langchain.prompts import PromptTemplate
+from langchain.memory import ConversationBufferMemory
 
 from rag_system.app.config import Settings
 from rag_system.embedding.google_embedding_client import GoogleEmbeddingClient
@@ -63,6 +62,27 @@ class RAGService:
                 "score_threshold": TextProcessingConfig.DEFAULT_SCORE_THRESHOLD
             }
         }
+        
+        # Initialize conversation memory for context
+        self.memory = ConversationBufferMemory(
+            memory_key="chat_history",
+            return_messages=True
+        )
+        
+        # Create structured prompt template
+        self.qa_prompt = PromptTemplate(
+            input_variables=["context", "question"],
+            template="""You are a helpful AI assistant for academic course content. Use the provided context to answer the student's question accurately and concisely.
+
+Context from course materials:
+{context}
+
+Student's question: {question}
+
+Please provide a clear, educational response based on the context. If the context doesn't contain enough information to answer the student's question fully, acknowledge this and provide what you can from the available material.
+
+Answer:"""
+        )
 
     def process_document(self, course_id: str, content: str, doc_id: str = None) -> Dict[str, Any]:
         """
@@ -193,8 +213,7 @@ class RAGService:
 
     def answer_question(self, course_id: str, question: str) -> Dict[str, Any]:
         """
-        Answer a question using RAG with modular components.
-        Retrieves relevant chunks and generates answer using LLM.
+        Answer a question using RetrievalQA chain with langchain.
         
         Args:
             course_id: Identifier for the course
@@ -203,53 +222,38 @@ class RAGService:
         Returns:
             A dictionary with the answer, source information, and success status
         """
-
         try:
-            # Get search results with course filter AND scores
-            search_results = self.vector_client.similarity_search_with_score(
-                query=question,
-                k=TextProcessingConfig.DEFAULT_RETRIEVAL_K,
-                filter={"course_id": course_id}
-            )
+            # Use langchain RetrievalQA for structured QA
+            qa_chain = self.create_course_qa_chain(course_id)
             
-            # Results will be logged by retrieve agent
-            if not search_results:
-                print(f"No results for course {course_id}, trying global search...")
-                search_results = self.vector_client.vector_store.similarity_search_with_relevance_scores(
-                    query=question,
-                    k=TextProcessingConfig.DEFAULT_RETRIEVAL_K
-                )
-                if search_results:
-                    print(f"Global search found {len(search_results)} chunks")
+            # Debug: Get retriever and show what documents are retrieved
+            retriever = self.create_course_retriever(course_id)
+            retrieved_docs = retriever.get_relevant_documents(question)
+            print(f"=== RETRIEVED {len(retrieved_docs)} DOCUMENTS FOR QUERY: '{question}' ===")
+            for i, doc in enumerate(retrieved_docs):
+                print(f"DOC {i+1}:")
+                print(f"  Content: {doc.page_content[:200]}...")
+                print(f"  Metadata: {doc.metadata}")
+                print(f"  ---")
             
-            # Extract documents and preserve scores in metadata
-            documents_with_scores = []
-            for doc, score in search_results:
-                # Ensure the document has metadata
-                if not hasattr(doc, 'metadata') or doc.metadata is None:
-                    doc.metadata = {}
-                # Store the actual similarity score
-                doc.metadata['similarity_score'] = float(score)
-                documents_with_scores.append(doc)
+            # Run the chain
+            result = qa_chain({"query": question})
             
-            # Generate answer using LLM directly with context
-            if documents_with_scores:
-                context = "\n\n".join([doc.page_content for doc in documents_with_scores[:4]])
-                prompt = f"""Based on the following context, answer the question:
-
-Context:
-{context}
-
-Question: {question}
-
-Answer:"""
-                
-                answer = self.llm_client.generate(prompt)
-            else:
-                answer = "I couldn't find relevant information to answer your question."
+            # Extract answer and sources
+            answer = result.get("result", "I couldn't find relevant information to answer your question.")
+            source_docs = result.get("source_documents", [])
             
-            # Format sources with preserved scores
-            sources = self._format_sources(documents_with_scores)
+            # Format sources with similarity scores if available
+            sources = []
+            for doc in source_docs:
+                source_info = {
+                    "content": doc.page_content,
+                    "metadata": doc.metadata,
+                }
+                # Add similarity score if available in metadata
+                if hasattr(doc, 'metadata') and doc.metadata and 'similarity_score' in doc.metadata:
+                    source_info["similarity_score"] = doc.metadata['similarity_score']
+                sources.append(source_info)
             
             return {
                 "answer": answer,
@@ -284,28 +288,6 @@ Answer:"""
             })
         return sources
 
-    def load_file(self, file_path: str) -> List[Document]:
-        """
-        Load documents from file using appropriate loader based on file extension.
-        Supports .txt, .pdf, and .docx formats.
-        
-        Args:
-            file_path: The path to the file to be loaded
-        
-        Returns:
-            A list of Document objects loaded from the file
-        """
-        path = Path(file_path)
-        if path.suffix == '.txt':
-            loader = TextLoader(file_path)
-        elif path.suffix == '.pdf':
-            loader = PyPDFLoader(file_path)
-        elif path.suffix == '.docx':
-            loader = Docx2txtLoader(file_path)
-        else:
-            raise ValueError(f"Unsupported file type: {path.suffix}")
-        
-        return loader.load()
     
     def create_course_retriever(self, course_id: str):
         """
@@ -336,8 +318,23 @@ Answer:"""
         """
         retriever = self.create_course_retriever(course_id)
         
+        # Try course-specific search first, fallback to global if no results
+        try:
+            # Test if retriever returns results for a dummy query
+            test_docs = retriever.get_relevant_documents("test")
+            if not test_docs:
+                print(f"No course-specific docs for {course_id}, using global retriever")
+                retriever = self.vector_client.as_retriever(**self.base_retriever_config)
+        except:
+            # Fallback to global retriever on any error
+            retriever = self.vector_client.as_retriever(**self.base_retriever_config)
+        
         return RetrievalQA.from_chain_type(
             llm=self.llm_client.get_llm_client(),
             retriever=retriever,
-            return_source_documents=True
+            return_source_documents=True,
+            chain_type="stuff",
+            chain_type_kwargs={
+                "prompt": self.qa_prompt
+            }
         )
