@@ -1,115 +1,132 @@
-import { useState, useEffect } from "react"
-import { useNavigate, useLocation } from "react-router-dom"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { DragDropZone } from "@/components/ui/drag-drop-zone"
-import { FileList } from "@/components/ui/file-list"
-import { CourseSelector } from "@/components/ui/course-selector"
-import AdminSidebar from "@/components/AdminSidebar"
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { DragDropZone } from "@/components/ui/drag-drop-zone";
+import { FileList } from "@/components/ui/file-list";
+import { CourseSelector } from "@/components/ui/course-selector";
+import AdminSidebar from "@/components/AdminSidebar";
 
 export default function EditAdminEntry() {
-  const navigate = useNavigate()
-  const location = useLocation()
+  const navigate = useNavigate();
+  const location = useLocation();
   const [formData, setFormData] = useState({
     name: "",
     notes: "",
     doc: "",
     model: "",
-    prompt: ""
-  })
-  const [uploadedFiles, setUploadedFiles] = useState([])
-  const [selectedCourseId, setSelectedCourseId] = useState("")
+    prompt: "",
+  });
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [selectedCourseId, setSelectedCourseId] = useState("");
 
   // GET ENTRY DATA HERE
   useEffect(() => {
     if (location.state?.entry) {
-      setFormData(location.state.entry)
+      setFormData(location.state.entry);
       // Parse existing document paths if they exist
       if (location.state.entry.doc) {
-        const existingDocs = location.state.entry.doc.split(',').map(doc => doc.trim())
-        setUploadedFiles(existingDocs.map(doc => ({ name: doc.split('/').pop(), path: doc, size: 0 })))
+        const existingDocs = location.state.entry.doc
+          .split(",")
+          .map((doc) => doc.trim());
+        setUploadedFiles(
+          existingDocs.map((doc) => ({
+            name: doc.split("/").pop(),
+            path: doc,
+            size: 0,
+          }))
+        );
       }
     }
-  }, [location.state])
+  }, [location.state]);
 
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [field]: value
-    }))
-  }
+      [field]: value,
+    }));
+  };
 
   const handleFilesDrop = async (files) => {
     if (!selectedCourseId) {
-      alert('Please select a course first')
-      return
+      alert("Please select a course first");
+      return;
     }
 
     try {
       // Upload files to RAG system via backend
-      const uploadFormData = new FormData()
-      uploadFormData.append('course_id', selectedCourseId)
-      uploadFormData.append('user_id', 'admin')
-      
+      const uploadFormData = new FormData();
+      uploadFormData.append("course_id", selectedCourseId);
+      uploadFormData.append("user_id", "admin");
+
       for (const file of files) {
-        uploadFormData.append('files', file)
+        uploadFormData.append("files", file);
       }
-      
-      const uploadResponse = await fetch('http://localhost:8000/chat/upload_files_for_rag', {
-        method: 'POST',
-        body: uploadFormData,
-        signal: AbortSignal.timeout(300000)
-      })
-      
+
+      const uploadResponse = await fetch(
+        "http://localhost:8000/chat/upload_files_for_rag",
+        {
+          method: "POST",
+          body: uploadFormData,
+          signal: AbortSignal.timeout(300000),
+        }
+      );
+
       if (uploadResponse.ok) {
-        const uploadData = await uploadResponse.json()
-        console.log('RAG upload completed successfully:', uploadData)
-        
+        const uploadData = await uploadResponse.json();
+        // console.log('RAG upload completed successfully:', uploadData)
+
         // Add successfully uploaded files to the UI
         const newFiles = uploadData.results
-          .filter(result => result.status === 'completed')
-          .map(result => ({
+          .filter((result) => result.status === "completed")
+          .map((result) => ({
             name: result.filename,
             size: 0,
             type: result.type,
-            path: `/uploads/${result.filename}`
-          }))
-        
-        setUploadedFiles(prev => [...prev, ...newFiles])
-        
+            path: `/uploads/${result.filename}`,
+          }));
+
+        setUploadedFiles((prev) => [...prev, ...newFiles]);
+
         // Update the doc field with new file paths
-        const allPaths = [...uploadedFiles, ...newFiles].map(file => file.path)
-        handleInputChange('doc', allPaths.join(','))
-        
-        console.log("Files uploaded to RAG:", newFiles)
+        const allPaths = [...uploadedFiles, ...newFiles].map(
+          (file) => file.path
+        );
+        handleInputChange("doc", allPaths.join(","));
+
+        // console.log("Files uploaded to RAG:", newFiles)
       } else {
-        console.error('RAG upload failed:', uploadResponse.status, uploadResponse.statusText)
+        console.error(
+          "RAG upload failed:",
+          uploadResponse.status,
+          uploadResponse.statusText
+        );
       }
     } catch (error) {
-      console.error("Error uploading files to RAG:", error)
+      console.error("Error uploading files to RAG:", error);
     }
-  }
+  };
 
   const handleRemoveFile = (index) => {
-    const newFiles = uploadedFiles.filter((_, i) => i !== index)
-    setUploadedFiles(newFiles)
-    
+    const newFiles = uploadedFiles.filter((_, i) => i !== index);
+    setUploadedFiles(newFiles);
+
     // Update the doc field
-    const allPaths = newFiles.map(file => file.path)
-    handleInputChange('doc', allPaths.join(','))
-  }
+    const allPaths = newFiles.map((file) => file.path);
+    handleInputChange("doc", allPaths.join(","));
+  };
 
   const handleSave = () => {
-    console.log("Saving updated entry:", formData)
+    // console.log("Saving updated entry:", formData)
     // API CALL HERE TO SAVE CHANGES
-    navigate('/admin')
-  }
+    navigate("/admin");
+  };
 
   const handleCancel = () => {
-    navigate('/admin')
-  }
+    navigate("/admin");
+  };
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -121,9 +138,7 @@ export default function EditAdminEntry() {
             <Button variant="outline" onClick={handleCancel}>
               Cancel
             </Button>
-            <Button onClick={handleSave}>
-              Save Changes
-            </Button>
+            <Button onClick={handleSave}>Save Changes</Button>
           </div>
         </header>
         <main className="flex-1 overflow-y-auto p-6">
@@ -135,17 +150,17 @@ export default function EditAdminEntry() {
                   <Input
                     id="name"
                     value={formData.name}
-                    onChange={(e) => handleInputChange('name', e.target.value)}
+                    onChange={(e) => handleInputChange("name", e.target.value)}
                     placeholder="Enter name"
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="model">Model</Label>
                   <Input
                     id="model"
                     value={formData.model}
-                    onChange={(e) => handleInputChange('model', e.target.value)}
+                    onChange={(e) => handleInputChange("model", e.target.value)}
                     placeholder="Enter model"
                   />
                 </div>
@@ -156,7 +171,7 @@ export default function EditAdminEntry() {
                 <Textarea
                   id="notes"
                   value={formData.notes}
-                  onChange={(e) => handleInputChange('notes', e.target.value)}
+                  onChange={(e) => handleInputChange("notes", e.target.value)}
                   placeholder="Enter notes"
                   rows={3}
                 />
@@ -171,7 +186,16 @@ export default function EditAdminEntry() {
                 <Label>Documents</Label>
                 <DragDropZone
                   onFilesDrop={handleFilesDrop}
-                  acceptedFileTypes={["pdf", "doc", "docx", "txt", "tex", "md", "json", "csv"]}
+                  acceptedFileTypes={[
+                    "pdf",
+                    "doc",
+                    "docx",
+                    "txt",
+                    "tex",
+                    "md",
+                    "json",
+                    "csv",
+                  ]}
                   multiple={true}
                 />
                 <FileList
@@ -186,7 +210,7 @@ export default function EditAdminEntry() {
                 <Textarea
                   id="prompt"
                   value={formData.prompt}
-                  onChange={(e) => handleInputChange('prompt', e.target.value)}
+                  onChange={(e) => handleInputChange("prompt", e.target.value)}
                   placeholder="Enter the prompt template"
                   rows={8}
                   className="font-mono text-sm"
@@ -200,14 +224,12 @@ export default function EditAdminEntry() {
                 <Button variant="outline" onClick={handleCancel}>
                   Cancel
                 </Button>
-                <Button onClick={handleSave}>
-                  Save Changes
-                </Button>
+                <Button onClick={handleSave}>Save Changes</Button>
               </div>
             </div>
           </div>
         </main>
       </div>
     </div>
-  )
-} 
+  );
+}

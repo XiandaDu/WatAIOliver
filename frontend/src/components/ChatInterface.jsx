@@ -35,13 +35,6 @@ export function ChatInterface({
   messagesContainerRef,
   agentProgress
 }) {
-  const navigate = useNavigate()
-  
-  const handleLogout = () => {
-    localStorage.removeItem('user')
-    localStorage.removeItem('access_token')
-    navigate('/login')
-  }
   return (
     <>
       <div className="px-6 py-4 flex-shrink-0">
@@ -133,9 +126,9 @@ export function ChatInterface({
               // For assistant messages, show if they have content
               if (message.content.trim()) return true;
               
-              // For empty assistant messages, only show if we're loading but NOT typing
-              // (when typing=true, we show the separate typing indicator instead)
-              if (isLoading && !isTyping) {
+              // For empty assistant messages, show if it's the latest one and we're not showing typing indicator
+              // This ensures empty streaming messages don't disappear due to loading state changes
+              if (!isTyping) {
                 const laterAssistantMessages = messages.slice(index + 1).filter(m => m.role === "assistant");
                 return laterAssistantMessages.length === 0; // This is the latest assistant message
               }
@@ -175,6 +168,18 @@ export function ChatInterface({
                       </div>
                       {message?.meta?.type === "html" ? (
                         <HtmlPreview html={message.meta.html} />
+                      ) : message.content.trim() ? (
+                        <div className="prose prose-lg max-w-none">
+                          <MarkdownRenderer>{message.content}</MarkdownRenderer>
+                        </div>
+                      ) : isLoading ? (
+                        <div className="flex items-center space-x-2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-500"></div>
+                          <span className="text-sm text-gray-600">
+                            {selectedModel === "daily" && "Searching through course materials..."}
+                            {selectedModel === "rag" && "Agents are solving the problem..."}
+                          </span>
+                        </div>
                       ) : (
                         <div className="prose prose-lg max-w-none">
                           <MarkdownRenderer>{message.content}</MarkdownRenderer>
