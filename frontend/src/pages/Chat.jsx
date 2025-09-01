@@ -667,12 +667,12 @@ export default function ChatPage() {
                 // Only update message if we have content or if it's an error/completion
                 if (receivedContent) {
                   // DEBUG: Log received content
-                  console.log("=== FRONTEND RECEIVED CONTENT ===");
-                  console.log(
-                    "Raw receivedContent:",
-                    receivedContent.substring(0, 500)
-                  );
-                  console.log("================================");
+                  // console.log("=== FRONTEND RECEIVED CONTENT ===");
+                  // console.log(
+                  //   "Raw receivedContent:",
+                  //   receivedContent.substring(0, 500)
+                  // );
+                  // console.log("================================");
 
                   setMessages((prev) =>
                     prev.map((msg) =>
@@ -1014,14 +1014,14 @@ export default function ChatPage() {
                 // Only update message if we have content
                 if (receivedContent) {
                   // DEBUG: Log received content in append function
-                  console.log("=== UPDATING MESSAGE ===");
-                  console.log("Message ID:", assistantMessageId);
-                  console.log("Content length:", receivedContent.length);
-                  console.log(
-                    "First 100 chars:",
-                    receivedContent.substring(0, 100)
-                  );
-                  console.log("========================");
+                  // console.log("=== UPDATING MESSAGE ===");
+                  // console.log("Message ID:", assistantMessageId);
+                  // console.log("Content length:", receivedContent.length);
+                  // console.log(
+                  //   "First 100 chars:",
+                  //   receivedContent.substring(0, 100)
+                  // );
+                  // console.log("========================");
 
                   setMessages((prev) =>
                     prev.map((msg) =>
