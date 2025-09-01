@@ -88,6 +88,11 @@ class ReporterAgent(BaseAgent):
                 final_answer = await self._synthesize_approved_answer(
                     original_query, draft_content, chain_of_thought, remaining_critiques, context
                 )
+            elif debate_status == "escalated":
+                quality_warning = final_draft_status.get('quality_warning', 'Quality issues detected after multiple improvement attempts')
+                final_answer = await self._synthesize_escalated_answer(
+                    original_query, draft_content, remaining_critiques, context, quality_warning
+                )
             elif debate_status == "deadlock":
                 final_answer = await self._synthesize_deadlock_answer(
                     original_query, draft_content, remaining_critiques, context
@@ -211,6 +216,68 @@ class ReporterAgent(BaseAgent):
             self.logger.error(f"Approved answer synthesis failed: {str(e)}")
             # Fallback to basic structure
             return self._create_fallback_structure(draft_content, query)
+    
+    async def _synthesize_escalated_answer(
+        self, 
+        query: str, 
+        draft_content: str, 
+        persistent_critiques: List[Dict[str, Any]], 
+        context: List[Dict[str, Any]],
+        quality_warning: str
+    ) -> Dict[str, Any]:
+        """Synthesize answer for escalated situation with quality warnings"""
+        
+        try:
+            critiques_summary = self._format_unresolved_issues(persistent_critiques)
+            context_summary = self._format_context_summary(context)
+            
+            prompt = f"""
+            {self.system_prompt}
+            
+            SITUATION: After 3 improvement iterations, some quality issues remain unresolved. You need to provide the best possible answer while clearly warning the user about potential limitations.
+            
+            ORIGINAL QUERY:
+            {query}
+            
+            BEST AVAILABLE DRAFT:
+            {draft_content}
+            
+            PERSISTENT QUALITY ISSUES:
+            {critiques_summary}
+            
+            QUALITY WARNING TO INCLUDE:
+            {quality_warning}
+            
+            SUPPORTING CONTEXT:
+            {context_summary}
+            
+            INSTRUCTIONS:
+            1. Provide a comprehensive answer based on the available draft and context
+            2. PROMINENTLY include the quality warning at the beginning
+            3. Clearly indicate which parts may be uncertain or problematic
+            4. Suggest ways the user can verify or improve the information
+            5. Maintain educational value while being transparent about limitations
+            
+            Format your response as a well-structured educational answer with clear sections.
+            """
+            
+            response = await self._call_llm(prompt, temperature=0.3)
+            
+            return {
+                "content": response,
+                "status": "escalated",
+                "quality_warning": quality_warning,
+                "persistent_issues": len(persistent_critiques),
+                "transparency": "This answer includes quality warnings due to unresolved issues after multiple improvement attempts."
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Escalated answer synthesis failed: {e}")
+            return {
+                "content": f"I apologize, but I encountered difficulties providing a complete answer to your question. The system detected quality issues that couldn't be fully resolved: {quality_warning}",
+                "status": "error",
+                "quality_warning": quality_warning
+            }
     
     async def _synthesize_deadlock_answer(
         self, 
@@ -471,30 +538,268 @@ class ReporterAgent(BaseAgent):
         return enhanced
     
     async def _call_llm(self, prompt: str, temperature: float) -> str:
-        """Call LLM with error handling"""
-        try:
+        """
+        Call LLM with error handling, retry logic, and proper async interface support.
+        
+        Handles different LLM client types:
+        - LangChain clients with ainvoke method (Cerebras, Gemini)
+        - OpenAI client with generate_async method
+        - Other clients with synchronous generate method
+        
+        Includes retry logic for server-side errors (up to 3 attempts).
+        """
+        async def _llm_operation():
             if hasattr(self.llm_client, 'get_llm_client'):
                 llm = self.llm_client.get_llm_client()
-                response = await llm.ainvoke(prompt, temperature=temperature)
-                content = response.content if hasattr(response, 'content') else str(response)
-                
-                # DEBUG: Log what the agents system generates
-                print("=== DEBUG AGENT SYSTEM OUTPUT ===")
-                print("AGENT LLM RESPONSE:", repr(content[:1000]))  # First 1000 chars
-                print("================================")
-                
-                return content
+                # Check if the underlying client has ainvoke (LangChain compatibility)
+                if hasattr(llm, 'ainvoke'):
+                    response = await llm.ainvoke(prompt, temperature=temperature)
+                    content = response.content if hasattr(response, 'content') else str(response)
+                    
+                    # DEBUG: Log what the agents system generates (from both branches)
+                    print("=== DEBUG AGENT SYSTEM OUTPUT (ainvoke) ===")
+                    print("AGENT LLM RESPONSE:", repr(content[:1000]))  # First 1000 chars
+                    print("==========================================")
+                    
+                    return content
+                else:
+                    # For raw clients (like OpenAI), use the wrapper's async method
+                    if hasattr(self.llm_client, 'generate_async'):
+                        response = await self.llm_client.generate_async(prompt, temperature=temperature)
+                        content_str = str(response)
+                        
+                        # DEBUG: Log what the agents system generates
+                        print("=== DEBUG AGENT SYSTEM OUTPUT (generate_async) ===")
+                        print("AGENT LLM RESPONSE:", repr(content_str[:1000]))  # First 1000 chars
+                        print("==================================================")
+                        
+                        return content_str
+                    else:
+                        # Last resort: synchronous generate
+                        response = self.llm_client.generate(prompt, temperature=temperature)
+                        return str(response)
             else:
-                # Fallback for different LLM client interfaces
-                response = await self.llm_client.generate(prompt, temperature=temperature)
-                content_str = str(response)
-                
-                # DEBUG: Log what the agents system generates
-                print("=== DEBUG AGENT SYSTEM OUTPUT ===")
-                print("AGENT LLM RESPONSE:", repr(content_str[:1000]))  # First 1000 chars
-                print("================================")
-                
-                return content_str
+                # Direct client interface - check for async support first
+                if hasattr(self.llm_client, 'generate_async'):
+                    response = await self.llm_client.generate_async(prompt, temperature=temperature)
+                    content_str = str(response)
+                    
+                    # DEBUG: Log what the agents system generates
+                    print("=== DEBUG AGENT SYSTEM OUTPUT (direct generate_async) ===")
+                    print("AGENT LLM RESPONSE:", repr(content_str[:1000]))  # First 1000 chars
+                    print("=========================================================")
+                    
+                    return content_str
+                else:
+                    # Fallback to synchronous generate (should not be called with await, but handle gracefully)
+                    response = self.llm_client.generate(prompt, temperature=temperature)
+                    content_str = str(response)
+                    
+                    # DEBUG: Log fallback response (preserving development branch logging)
+                    print("=== DEBUG AGENT SYSTEM OUTPUT (fallback) ===")
+                    print("AGENT LLM RESPONSE:", repr(content_str))  # Full content
+                    print("============================================")
+                    
+                    return content_str
+        
+        try:
+            # Use retry mechanism for server-side errors
+            return await self._retry_with_backoff(_llm_operation, max_retries=3, base_delay=1.0)
         except Exception as e:
-            self.logger.error(f"LLM call failed: {str(e)}")
-            return "" 
+            self.logger.error(f"LLM call failed after all retries: {str(e)}")
+            return ""
+
+    async def _call_llm_stream(self, prompt: str, temperature: float):
+        """
+        Call LLM with streaming support for all model types.
+        
+        Supports Cerebras, OpenAI GPT, and Gemini models with faster streaming.
+        Includes retry logic for server-side errors.
+        """
+        import asyncio
+        
+        async def _stream_operation():
+            if hasattr(self.llm_client, 'generate_stream'):
+                print("=== STARTING CEREBRAS STREAMING ===")
+                chunk_count = 0
+                
+                # All clients now support temperature parameter in generate_stream
+                async for chunk in self.llm_client.generate_stream(prompt, temperature=temperature):
+                    if chunk:
+                        chunk_count += 1
+                        yield chunk
+                        # Reduced delay for faster streaming - only yield control periodically
+                        if chunk_count % 3 == 0:  # Every 3rd chunk
+                            await asyncio.sleep(0.01)  # 10ms delay (reduced from 50ms)
+                print("=== CEREBRAS STREAMING COMPLETE ===")
+            else:
+                # Fallback to non-streaming if streaming not available
+                response = await self._call_llm(prompt, temperature)
+                # Simulate streaming by chunking the response with faster delivery
+                chunk_size = 15  # Smaller chunks for smoother appearance
+                for i in range(0, len(response), chunk_size):
+                    yield response[i:i+chunk_size]
+                    # Faster simulated streaming
+                    await asyncio.sleep(0.02)  # 20ms delay per chunk
+        
+        retry_count = 0
+        max_retries = 3
+        
+        while retry_count < max_retries:
+            try:
+                async for chunk in _stream_operation():
+                    yield chunk
+                return  # Success, exit retry loop
+            except Exception as e:
+                retry_count += 1
+                
+                # Only retry for server-side errors
+                if not self._is_server_side_error(e):
+                    self.logger.error(f"Non-retryable streaming error: {str(e)}")
+                    yield f"Error: {str(e)}"
+                    return
+                
+                if retry_count < max_retries:
+                    delay = 1.0 * (2 ** (retry_count - 1))  # Exponential backoff
+                    self.logger.warning(
+                        f"Streaming error (attempt {retry_count}/{max_retries}): {str(e)}. "
+                        f"Retrying in {delay:.1f}s..."
+                    )
+                    yield f"[Connection error, retrying in {delay:.0f}s...]\n"
+                    await asyncio.sleep(delay)
+                else:
+                    self.logger.error(f"All {max_retries} streaming retry attempts failed: {str(e)}")
+                    yield f"Error after {max_retries} attempts: {str(e)}"
+
+    async def process_streaming(self, agent_input: AgentInput):
+        """
+        Stream the final answer synthesis for Cerebras in Problem-Solving mode.
+        
+        This method streams the final reporter response directly to the frontend
+        instead of collecting the full response first.
+        """
+        try:
+            # Extract debate results (same as non-streaming version)
+            draft_content = agent_input.metadata.get('draft_content', '')
+            chain_of_thought = agent_input.metadata.get('chain_of_thought', [])
+            final_draft_status = agent_input.metadata.get('final_draft_status', {})
+            remaining_critiques = agent_input.metadata.get('remaining_critiques', [])
+            context = agent_input.context
+            original_query = agent_input.query
+            
+            debate_status = final_draft_status.get('status', 'approved')
+            
+            self.logger.info(f"Reporter streaming final answer for debate status: {debate_status}")
+            
+            # Stream based on debate outcome
+            if debate_status == "approved":
+                async for chunk in self._stream_approved_answer(
+                    original_query, draft_content, chain_of_thought, remaining_critiques, context
+                ):
+                    yield chunk
+            else:
+                # For deadlock or other cases, fall back to non-streaming for now
+                result = await self.process(agent_input)
+                answer = result.content.get('final_answer', {})
+                
+                # Stream the pre-formatted response
+                full_text = self._format_answer_for_streaming(answer)
+                chunk_size = 20
+                for i in range(0, len(full_text), chunk_size):
+                    yield full_text[i:i+chunk_size]
+                    
+        except Exception as e:
+            self.logger.error(f"Streaming reporter failed: {str(e)}")
+            yield f"Error generating response: {str(e)}"
+
+    async def _stream_approved_answer(
+        self, 
+        query: str, 
+        draft_content: str, 
+        chain_of_thought: List[Dict[str, Any]], 
+        remaining_critiques: List[Dict[str, Any]], 
+        context: List[Dict[str, Any]]
+    ):
+        """Stream the synthesis of an approved answer"""
+        try:
+            # Build the same prompt as non-streaming version
+            cot_summary = self._format_chain_of_thought_summary(chain_of_thought)
+            minor_issues = self._format_minor_issues(remaining_critiques)
+            context_summary = self._format_context_summary(context)
+            
+            prompt = f"""
+            {self.system_prompt}
+            
+            ORIGINAL QUERY:
+            {query}
+            
+            VERIFIED DRAFT CONTENT:
+            {draft_content}
+            
+            REASONING PROCESS:
+            {cot_summary}
+            
+            MINOR REMAINING ISSUES TO ADDRESS:
+            {minor_issues}
+            
+            SUPPORTING CONTEXT:
+            {context_summary}
+            
+            Please synthesize this into a final, polished answer using this structure:
+            
+            ## INTRODUCTION
+            [Brief context-setting introduction that acknowledges the question and previews the approach]
+            
+            ## STEP-BY-STEP SOLUTION
+            [Clear, logical progression through the solution, incorporating insights from the reasoning process]
+            
+            ## KEY TAKEAWAYS
+            [Important concepts, principles, or insights that generalize beyond this specific question]
+            
+            ## IMPORTANT NOTES
+            [Any limitations, assumptions, or areas requiring caution - address minor issues transparently]
+            
+            Requirements:
+            - **CLEAN UP FORMATTING ISSUES**: Fix broken sentences, missing punctuation, fragmented text from document parsing
+            - **FORMAT MATH FOR KATEX**: Use proper LaTeX syntax - inline math: $f(x) = x^2$, display math: $$f(x) = x^2$$
+            - **FIX MATHEMATICAL EXPRESSIONS ONLY**: Complete broken formulas (e.g., "f(x) = x^" → "$f(x) = x^2$"), integrate scattered math symbols with $ delimiters
+            - **NO LONE MATH SYMBOLS**: Never leave symbols like π on separate lines - integrate them into complete sentences or expressions
+            - **COMPLETE ALL BROKEN FORMULAS**: Fix incomplete expressions and fragmented mathematical content
+            - **FIX SENTENCE FRAGMENTS**: Combine broken text pieces into complete, flowing sentences, remove trailing "and" or incomplete endings
+            - **SYNTHESIZE CONCISELY**: Transform raw retrieved content into coherent explanations without unnecessary expansion
+            - **FIX DOCUMENT PARSING ARTIFACTS**: Remove formatting errors, incomplete sentences, and garbled text
+            - **CREATE PROPER FLOW**: Ensure logical transitions between concepts and ideas
+            - **USE ACADEMIC WRITING STYLE**: Clear, professional, and educational tone
+            - **NO DOCUMENT REFERENCES**: Don't mention "Document 1", "according to sources", or "based on provided materials" - present information naturally
+            - **KEEP ORIGINAL SCOPE**: Don't expand beyond the original content's scope unless necessary for clarity
+            - Integrate minor issues seamlessly (don't ignore them, but address them naturally)
+            - Maintain educational value and clear explanations
+            - Use a confident but honest tone
+            - Ensure accuracy and logical flow
+            """
+            
+            # Stream the LLM response directly
+            async for chunk in self._call_llm_stream(prompt, temperature=0.3):
+                yield chunk
+                
+        except Exception as e:
+            self.logger.error(f"Streaming approved answer failed: {str(e)}")
+            yield f"Error: {str(e)}"
+
+    def _format_answer_for_streaming(self, answer: Dict[str, Any]) -> str:
+        """Format a structured answer into a single text for streaming"""
+        parts = []
+        
+        if answer.get('introduction'):
+            parts.append(f"## Introduction\n{answer['introduction']}\n")
+        
+        if answer.get('step_by_step_solution'):
+            parts.append(f"## Step-by-Step Solution\n{answer['step_by_step_solution']}\n")
+        
+        if answer.get('key_takeaways'):
+            parts.append(f"## Key Takeaways\n{answer['key_takeaways']}\n")
+        
+        if answer.get('important_notes'):
+            parts.append(f"## Important Notes\n{answer['important_notes']}\n")
+        
+        return "\n".join(parts)

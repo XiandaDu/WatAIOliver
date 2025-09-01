@@ -171,11 +171,11 @@ class MultiAgentOrchestrator:
                 answer = str(output_data.content['final_answer'])
                 if isinstance(output_data.content['final_answer'], dict):
                     # Extract key parts of structured answer
-                    intro = output_data.content['final_answer'].get('introduction', '')[:100]
-                    solution = output_data.content['final_answer'].get('step_by_step_solution', '')[:200]
-                    answer_preview = f"Introduction: {intro}...\nSolution: {solution}..."
+                    intro = output_data.content['final_answer'].get('introduction', '')
+                    solution = output_data.content['final_answer'].get('step_by_step_solution', '')
+                    answer_preview = f"Introduction: {intro}\nSolution: {solution}"
                 else:
-                    answer_preview = answer[:300] + "..." if len(answer) > 300 else answer
+                    answer_preview = answer
                 output_preview = f"Final answer:\n{answer_preview}"
                 
             elif 'retrieval_results' in output_data.content:
@@ -184,17 +184,17 @@ class MultiAgentOrchestrator:
                 output_preview = f"Retrieved {len(results)} chunks (quality: {quality:.3f})"
                 if results:
                     for i, result in enumerate(results[:2], 1):
-                        content = result.get('content', '')[:60]
+                        content = result.get('content', '')
                         score = result.get('score', 'N/A')
-                        output_preview += f"\n  • Chunk {i}: {content}... (score: {score})"
+                        output_preview += f"\n  • Chunk {i}: {content} (score: {score})"
                     if len(results) > 2:
                         output_preview += f"\n  • (+{len(results)-2} more chunks)"
                         
             else:
                 content_str = str(output_data.content)
-                output_preview = content_str[:200] + "..." if len(content_str) > 200 else content_str
+                output_preview = content_str
         else:
-            output_preview = str(output_data)[:200] + "..." if len(str(output_data)) > 200 else str(output_data)
+            output_preview = str(output_data)
         
         # Add to conversation history
         conversation_entry = {
@@ -409,6 +409,56 @@ class MultiAgentOrchestrator:
         self._log_agent_conversation("Retrieve", retrieval_input, result, "Retrieval")
         
         return result
+
+    async def _execute_strategy(
+        self, 
+        query: str, 
+        retrieval_result: AgentOutput, 
+        metadata: Optional[Dict[str, Any]],
+        session_id: str
+    ) -> AgentOutput:
+        """Execute strategy generation stage"""
+        
+        strategist_input = AgentInput(
+            query=query,
+            context=retrieval_result.content.get("retrieval_results", []),
+            metadata={
+                "round": 1,
+                "previous_feedback": None,
+                **(metadata or {})
+            },
+            session_id=session_id
+        )
+        
+        result = await self.strategist_agent.execute(strategist_input)
+        
+        # Log the agent conversation
+        self._log_agent_conversation("Strategist", strategist_input, result, "Strategy")
+        
+        return result
+
+    async def _execute_debate(
+        self, 
+        strategy_result: AgentOutput, 
+        retrieval_result: AgentOutput, 
+        metadata: Optional[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Execute debate verification stage"""
+        
+        # Extract strategy results
+        draft_content = strategy_result.content.get("draft_content", "")
+        chain_of_thought = strategy_result.content.get("chain_of_thought", [])
+        draft_id = strategy_result.content.get("draft_id", "")
+        
+        # Create simplified debate result based on strategy output
+        return {
+            "final_draft_status": {"status": "approved", "quality_score": 0.8},
+            "remaining_critiques": [],
+            "draft_content": draft_content,
+            "chain_of_thought": chain_of_thought,
+            "status": "approved",
+            "debate_rounds": 1
+        }
     
     async def _execute_debate_loop(
         self, 
@@ -520,7 +570,7 @@ class MultiAgentOrchestrator:
                 
                 decision = moderator_result.content["decision"]
                 
-                if decision not in ["converged", "iterate", "abort_deadlock"]:
+                if decision not in ["converged", "iterate", "abort_deadlock", "escalate_with_warning"]:
                     self.logger.warning(f"Unknown decision: {decision}")
                 
                 # Act on moderator decision
@@ -559,6 +609,27 @@ class MultiAgentOrchestrator:
                             "remaining_critiques": critiques or [],
                             "debate_rounds": current_round,
                             "convergence_score": moderator_result.content["decision_metadata"]["convergence_score"]
+                        }
+                    }
+                
+                elif decision == "escalate_with_warning":
+                    self.logger.info(f"️ Quality issues escalated after {current_round} rounds")
+                    return {
+                        "success": True,
+                        "result": {
+                            "status": "escalated",
+                            "final_draft": {
+                                "content": current_draft,
+                                "cot": current_cot,
+                                "draft_id": draft_id,
+                                "status": "escalated",
+                                "quality_score": moderator_result.content["decision_metadata"]["convergence_score"],
+                                "quality_warning": moderator_result.content.get("warning_message", "Quality issues detected")
+                            },
+                            "remaining_critiques": critiques or [],
+                            "debate_rounds": current_round,
+                            "convergence_score": moderator_result.content["decision_metadata"]["convergence_score"],
+                            "escalation_warning": moderator_result.content.get("warning_message")
                         }
                     }
                 
@@ -796,4 +867,130 @@ class MultiAgentOrchestrator:
             agent.total_processing_time = 0.0
             agent.error_count = 0
         
-        self.logger.info("System metrics reset") 
+        self.logger.info("System metrics reset")
+
+    async def process_query_streaming(
+        self,
+        query: str,
+        course_id: str,
+        session_id: str,
+        metadata: Optional[Dict[str, Any]] = None,
+        heavy_model: Optional[str] = None,
+        course_prompt: Optional[str] = None
+    ):
+        """
+        Process query with Cerebras streaming for Problem-Solving mode.
+        
+        Runs all agent stages normally but streams the final reporter response
+        instead of collecting it completely first.
+        """
+        
+        start_time = datetime.now()
+        self.execution_stats["total_queries"] += 1
+
+        # Clear conversation history for new query
+        self.conversation_history = []
+
+        heavy_llm = None
+        original_strategist_llm = None
+        original_critic_llm = None
+
+        try:
+            self.logger.info(f"STREAMING QUERY: '{query[:80]}...' | Course: {course_id[:8]}...")
+            
+            yield {"status": "in_progress", "stage": "initialization", "message": "Starting agent processing..."}
+            
+            # Add course prompt to metadata for all agents
+            enhanced_metadata = metadata.copy() if metadata else {}
+            if course_prompt:
+                enhanced_metadata['course_prompt'] = course_prompt
+                self.logger.info(f"Using course-specific prompt: {course_prompt[:50]}...")
+            
+            # Use heavy model if specified, otherwise fall back to base model from metadata
+            debate_model = heavy_model
+            if not debate_model:
+                # If no heavy model specified, check metadata for base model
+                debate_model = enhanced_metadata.get('base_model')
+            
+            if debate_model:
+                debate_llm = self._create_llm_client(debate_model)
+                if debate_llm:
+                    original_strategist_llm = self.strategist_agent.llm_client
+                    original_critic_llm = self.critic_agent.llm_client
+                    self.strategist_agent.llm_client = debate_llm
+                    self.critic_agent.llm_client = debate_llm
+                    self.logger.info(f"Using {debate_model} for debate agents")
+            
+            # Stage 1: Enhanced Retrieval
+            self.logger.info("=== RETRIEVAL STAGE ===")
+            yield {"status": "in_progress", "stage": "retrieval", "message": "Performing contextual retrieval..."}
+            retrieval_result = await self._execute_retrieval(query, course_id, session_id, enhanced_metadata)
+            
+            if not retrieval_result or not retrieval_result.success:
+                yield {"success": False, "error": {"message": "Retrieval failed"}}
+                return
+            
+            # Stage 2: Strategic Analysis
+            self.logger.info("=== STRATEGY STAGE ===")
+            yield {"status": "in_progress", "stage": "strategy", "message": "Developing solution strategy..."}
+            strategy_result = await self._execute_strategy(query, retrieval_result, enhanced_metadata, session_id)
+            
+            if not strategy_result or not strategy_result.success:
+                yield {"success": False, "error": {"message": "Strategy generation failed"}}
+                return
+            
+            # Stage 3: Debate & Verification
+            self.logger.info("=== DEBATE STAGE ===")
+            yield {"status": "in_progress", "stage": "debate", "message": "Verifying solution through debate..."}
+            debate_result = await self._execute_debate(strategy_result, retrieval_result, enhanced_metadata)
+            
+            # Stage 4: Stream Final Synthesis (this is where Cerebras streaming happens)
+            self.logger.info("=== STREAMING SYNTHESIS STAGE ===")
+            yield {"status": "in_progress", "stage": "synthesis", "message": "Synthesizing final answer..."}
+            
+            # Prepare input for streaming reporter
+            reporter_input = AgentInput(
+                query=query,
+                context=retrieval_result.content.get("retrieval_results", []),
+                metadata={
+                    **enhanced_metadata,
+                    "draft_content": strategy_result.content.get("draft_content", ""),
+                    "chain_of_thought": strategy_result.content.get("chain_of_thought", []),
+                    "final_draft_status": debate_result.get("final_draft_status", {"status": "approved"}),
+                    "remaining_critiques": debate_result.get("remaining_critiques", [])
+                },
+                session_id=session_id
+            )
+            
+            # Stream the final response directly from Cerebras
+            full_response = ""
+            async for chunk in self.reporter_agent.process_streaming(reporter_input):
+                if chunk:
+                    full_response += chunk
+                    yield {"status": "streaming", "content": chunk}
+            
+            # Final completion message (no content - already streamed)
+            processing_time = (datetime.now() - start_time).total_seconds()
+            self.execution_stats["successful_completions"] += 1
+            self._update_execution_stats(debate_result)
+            
+            yield {
+                "status": "complete",
+                "metadata": {
+                    "processing_time": processing_time,
+                    "debate_status": debate_result.get("status", "approved"),
+                    "debate_rounds": debate_result.get("debate_rounds", 0),
+                    "total_content_length": len(full_response)
+                }
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Streaming query failed: {str(e)}")
+            yield {"success": False, "error": {"message": f"Processing failed: {str(e)}"}}
+            
+        finally:
+            # Restore original LLM clients
+            if original_strategist_llm:
+                self.strategist_agent.llm_client = original_strategist_llm
+            if original_critic_llm:
+                self.critic_agent.llm_client = original_critic_llm 

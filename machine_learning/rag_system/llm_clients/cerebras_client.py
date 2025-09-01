@@ -51,39 +51,74 @@ class CerebrasClient:
     def get_llm_client(self):
         return self.llm
 
-    def generate(self, prompt: str) -> str:
+    def generate(self, prompt: str, temperature: float = None) -> str:
         """
-        Generate response from prompt using Cerebras LLM.
-        """
-        # Delegate to the underlying LangChain LLM instance
-        return self.llm(prompt)
-       
-
-    async def generate_stream(self, prompt: str):
-        """Generate streaming response from prompt using Cerebras LLM."""
-        response_generator = self.llm._client.chat.completions.create(
-            messages=[{"role": "user", "content": prompt + " /no_think"}],
-            model=self.llm._model_name,
-            temperature=self.llm._temperature,
-            top_p=self.llm._top_p,
-            stream=True  # Ensure streaming is enabled for this method
-        )
+        Generate response from prompt using Cerebras LLM (non-streaming).
         
-        for chunk in response_generator:
-            if chunk.choices and chunk.choices[0].delta.content:
-                yield chunk.choices[0].delta.content
+        Args:
+            prompt: Input prompt text
+            temperature: Override temperature setting
+        """
+        actual_temperature = temperature if temperature is not None else self.llm._temperature
+        
+        try:
+            # Use direct API for consistent behavior
+            response = self.llm._client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt + " /no_think"}],
+                model=self.llm._model_name,
+                temperature=actual_temperature,
+                top_p=self.llm._top_p,
+                stream=False
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            error_str = str(e).lower()
+            # Handle rate limits gracefully - return helpful message
+            if any(term in error_str for term in ['rate limit', 'quota']):
+                return f"Cerebras API quota/rate limit reached: {str(e)}"
+            # Handle other server-side errors that should be retried
+            elif any(term in error_str for term in ['overloaded', '500', '502', '503', '504']):
+                raise ConnectionError(f"Cerebras server error: {str(e)}")
+            else:
+                raise e
 
-    def generate(self, prompt: str) -> str:
+    async def generate_stream(self, prompt: str, temperature: float = None):
         """
-        Generate response from prompt using Cerebras LLM.
+        Generate streaming response from prompt using Cerebras LLM.
+        
+        Args:
+            prompt: Input prompt text
+            temperature: Override temperature setting
         """
-        # Ensure non-streaming for agent usage
-        response = self.llm._client.chat.completions.create(
-            messages=[{"role": "user", "content": prompt + " /no_think"}],
-            model=self.llm._model_name,
-            temperature=self.llm._temperature,
-            top_p=self.llm._top_p,
-            stream=False  # Explicitly disable streaming for the non-streaming generate method
-        )
-        return response.choices[0].message.content
+        actual_temperature = temperature if temperature is not None else self.llm._temperature
+        
+        try:
+            response_generator = self.llm._client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt + " /no_think"}],
+                model=self.llm._model_name,
+                temperature=actual_temperature,
+                top_p=self.llm._top_p,
+                stream=True
+            )
+            
+            import asyncio
+            chunk_count = 0
+            for chunk in response_generator:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    chunk_count += 1
+                    yield chunk.choices[0].delta.content
+                    # Only yield control periodically for maximum speed
+                    if chunk_count % 5 == 0:  # Every 5th chunk
+                        await asyncio.sleep(0)
+        except Exception as e:
+            error_str = str(e).lower()
+            # Handle rate limits gracefully - yield helpful message
+            if any(term in error_str for term in ['rate limit', 'quota']):
+                yield f"Cerebras API quota/rate limit reached: {str(e)}"
+                return
+            # Handle other server-side errors that should be retried
+            elif any(term in error_str for term in ['overloaded', '500', '502', '503', '504']):
+                raise ConnectionError(f"Cerebras streaming error: {str(e)}")
+            else:
+                raise e
        
