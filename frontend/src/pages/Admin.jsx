@@ -448,19 +448,37 @@ export default function AdminPage() {
             result.rag_processing?.document_id
           ) {
             // Update the document metadata with custom title and term
-            await fetch(
-              `${import.meta.env.VITE_API_BASE_URL}/documents/${
-                result.rag_processing.document_id
-              }`,
-              {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  title: metadata.title,
-                  term: metadata.term || null,
-                }),
+            try {
+              console.log(`Updating metadata for document ${result.rag_processing.document_id}:`, {
+                title: metadata.title,
+                term: metadata.term || null
+              });
+              
+              const updateResponse = await fetch(
+                `${import.meta.env.VITE_API_BASE_URL}/documents/${
+                  result.rag_processing.document_id
+                }`,
+                {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    title: metadata.title,
+                    term: metadata.term || null,
+                  }),
+                }
+              );
+              
+              if (updateResponse.ok) {
+                console.log(`Successfully updated metadata for ${metadata.title}`);
+              } else {
+                console.error(`Failed to update metadata for ${metadata.title}:`, 
+                  updateResponse.status, updateResponse.statusText);
+                const errorText = await updateResponse.text();
+                console.error('Response body:', errorText);
               }
-            );
+            } catch (metadataError) {
+              console.error(`Error updating metadata for ${metadata.title}:`, metadataError);
+            }
           }
         }
 
@@ -934,8 +952,14 @@ export default function AdminPage() {
       </Dialog>
 
       {/* Metadata Input Dialog */}
-      <Dialog open={showMetadataDialog} onOpenChange={setShowMetadataDialog}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <Dialog 
+        open={showMetadataDialog} 
+        onOpenChange={isUploading ? undefined : setShowMetadataDialog}
+      >
+        <DialogContent 
+          className="max-w-2xl max-h-[80vh] overflow-y-auto"
+          showCloseButton={!isUploading}
+        >
           <DialogHeader>
             <DialogTitle>File Metadata</DialogTitle>
           </DialogHeader>
