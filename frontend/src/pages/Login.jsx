@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useGoogleLogin } from '@react-oauth/google';
+import { useGoogleLogin } from "@react-oauth/google";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -18,45 +18,47 @@ export default function Login() {
 
   // Check for suggested login type from URL parameters
   useEffect(() => {
-    const suggested = searchParams.get('suggested');
-    if (suggested === 'student') {
-      setActiveTab('student');
-    } else if (suggested === 'instructor') {
-      setActiveTab('instructor');
+    const suggested = searchParams.get("suggested");
+    if (suggested === "student") {
+      setActiveTab("student");
+    } else if (suggested === "instructor") {
+      setActiveTab("instructor");
     }
   }, [searchParams]);
 
   const validateEmail = (email) => {
     const allowedDomains = ["@gmail.com", "@uwaterloo.ca"];
-    return allowedDomains.some(domain => email.toLowerCase().endsWith(domain));
+    return allowedDomains.some((domain) =>
+      email.toLowerCase().endsWith(domain)
+    );
   };
 
   const handleGoogleSuccess = async (tokenResponse) => {
     setLoading(true);
     setError("");
-    
+
     try {
       // Send the access token to our backend
-      const response = await fetch('/auth/google', {
-        method: 'POST',
+      const response = await fetch("/auth/google", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           access_token: tokenResponse.access_token,
-          account_type: activeTab
+          account_type: activeTab,
         }),
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         // Store auth info in localStorage
         if (data.access_token) {
-          localStorage.setItem('access_token', data.access_token);
+          localStorage.setItem("access_token", data.access_token);
         }
-        localStorage.setItem('user', JSON.stringify(data.user));
-        
+        localStorage.setItem("user", JSON.stringify(data.user));
+
         // Navigate based on user role
         if (data.user.role === "instructor" || data.user.role === "admin") {
           navigate("/admin");
@@ -111,8 +113,12 @@ export default function Login() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
         <div className="text-center">
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">Welcome to Oliver</h2>
-          <p className="mt-2 text-sm text-gray-600">Please sign in to continue</p>
+          <h2 className="mt-6 text-3xl font-bold text-gray-900">
+            Welcome to Oliver
+          </h2>
+          <p className="mt-2 text-sm text-gray-600">
+            Please sign in to continue
+          </p>
         </div>
 
         {/* Login Type Selector */}
@@ -157,11 +163,15 @@ export default function Login() {
               alt="Google"
               className="w-5 h-5 mr-2"
             />
-            {loading ? "Signing in..." : `Continue with Google as ${activeTab === "instructor" ? "Instructor" : "Student"}`}
+            {loading
+              ? "Signing in..."
+              : `Continue with Google as ${
+                  activeTab === "instructor" ? "Instructor" : "Student"
+                }`}
           </Button>
         </div>
 
-        {/* 
+        {/*
          * Email login temporarily disabled for cleaner UI. Email/password login can be re-enabled
          * when needed by uncommenting this section.
          */}

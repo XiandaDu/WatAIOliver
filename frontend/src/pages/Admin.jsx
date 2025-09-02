@@ -74,11 +74,14 @@ export default function AdminPage() {
   const loadInstructorCourses = async () => {
     try {
       setLoading(true);
-      const response = await fetch("http://localhost:8000/course/my-courses", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/course/my-courses`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       if (response.ok) {
         const coursesData = await response.json();
@@ -107,9 +110,9 @@ export default function AdminPage() {
     if (!courseId) return [];
     try {
       const resp = await fetch(
-        `http://localhost:8000/documents/?course_id=${encodeURIComponent(
-          courseId
-        )}`
+        `${
+          import.meta.env.VITE_API_BASE_URL
+        }/documents/?course_id=${encodeURIComponent(courseId)}`
       );
       if (resp.ok) {
         const documents = await resp.json();
@@ -150,10 +153,13 @@ export default function AdminPage() {
     }
 
     try {
-      const resp = await fetch(`http://localhost:8000/course/${courseId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const resp = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/course/${courseId}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
 
       if (resp.ok) {
         setCourses((prev) =>
@@ -175,11 +181,15 @@ export default function AdminPage() {
       // Delete from both metadata table and knowledge base
       const [metadataResp, kbResp] = await Promise.all([
         fetch(
-          `http://localhost:8000/documents/${encodeURIComponent(documentId)}`,
+          `${import.meta.env.VITE_API_BASE_URL}/documents/${encodeURIComponent(
+            documentId
+          )}`,
           { method: "DELETE" }
         ),
         fetch(
-          `http://localhost:8000/documents/kb?course_id=${encodeURIComponent(
+          `${
+            import.meta.env.VITE_API_BASE_URL
+          }/documents/kb?course_id=${encodeURIComponent(
             courseId
           )}&document_id=${encodeURIComponent(documentId)}`,
           { method: "DELETE" }
@@ -234,7 +244,9 @@ export default function AdminPage() {
 
     try {
       const response = await fetch(
-        `http://localhost:8000/course/${selectedCourseForModel.course_id}/custom-models`,
+        `${import.meta.env.VITE_API_BASE_URL}/course/${
+          selectedCourseForModel.course_id
+        }/custom-models`,
         {
           method: "POST",
           headers: {
@@ -271,7 +283,9 @@ export default function AdminPage() {
 
     try {
       const resp = await fetch(
-        `http://localhost:8000/course/${editingCourse.course_id}`,
+        `${import.meta.env.VITE_API_BASE_URL}/course/${
+          editingCourse.course_id
+        }`,
         {
           method: "PUT",
           headers: {
@@ -315,7 +329,7 @@ export default function AdminPage() {
     }
 
     try {
-      const resp = await fetch("http://localhost:8000/course/", {
+      const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL}/course/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -413,17 +427,17 @@ export default function AdminPage() {
       }
 
       const uploadResponse = await fetch(
-        "http://localhost:8000/chat/upload_files_for_rag",
+        `${import.meta.env.VITE_API_BASE_URL}/chat/upload_files_for_rag`,
         {
           method: "POST",
           body: uploadFormData,
-          signal: AbortSignal.timeout(1200000), // 20 minutes to match backend
+          signal: AbortSignal.timeout(300000),
         }
       );
 
       if (uploadResponse.ok) {
         const uploadData = await uploadResponse.json();
-        // console.log("RAG upload completed successfully:", uploadData);
+        console.log("RAG upload completed successfully:", uploadData);
 
         // Update document metadata with custom titles and terms
         for (let i = 0; i < uploadData.results.length; i++) {
@@ -435,7 +449,9 @@ export default function AdminPage() {
           ) {
             // Update the document metadata with custom title and term
             await fetch(
-              `http://localhost:8000/documents/${result.rag_processing.document_id}`,
+              `${import.meta.env.VITE_API_BASE_URL}/documents/${
+                result.rag_processing.document_id
+              }`,
               {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },

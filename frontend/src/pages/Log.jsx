@@ -2,30 +2,41 @@ import React, { useEffect, useMemo, useState } from "react";
 import AdminSidebar from "../components/AdminSidebar";
 import { Bar, Doughnut, Line } from "react-chartjs-2";
 import { Chart, registerables } from "chart.js";
-import { MessageTimeline, MessageStats } from "../components/ui/message-timeline";
+import {
+  MessageTimeline,
+  MessageStats,
+} from "../components/ui/message-timeline";
 Chart.register(...registerables);
 
 export default function Log() {
   const [analytics, setAnalytics] = useState(null);
   const [messages, setMessages] = useState([]);
   const [courseId, setCourseId] = useState(null);
-  const [viewMode, setViewMode] = useState('timeline'); // 'timeline' or 'analytics'
+  const [viewMode, setViewMode] = useState("timeline"); // 'timeline' or 'analytics'
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const id = params.get('course_id');
+    const id = params.get("course_id");
     if (!id) return;
     setCourseId(id);
-    
+
     // Load analytics
-    fetch(`http://localhost:8000/messages/analytics/course/${encodeURIComponent(id)}`)
-      .then(r => r.json())
+    fetch(
+      `${
+        import.meta.env.VITE_API_BASE_URL
+      }/messages/analytics/course/${encodeURIComponent(id)}`
+    )
+      .then((r) => r.json())
       .then(setAnalytics)
       .catch(() => setAnalytics(null));
-    
+
     // Load raw messages for timeline
-    fetch(`http://localhost:8000/messages/course/${encodeURIComponent(id)}`)
-      .then(r => r.json())
+    fetch(
+      `${
+        import.meta.env.VITE_API_BASE_URL
+      }/messages/course/${encodeURIComponent(id)}`
+    )
+      .then((r) => r.json())
       .then(setMessages)
       .catch(() => setMessages([]));
   }, []);
@@ -73,21 +84,21 @@ export default function Log() {
           <h1 className="text-2xl font-bold text-gray-900">Course Analytics</h1>
           <div className="flex gap-2">
             <button
-              onClick={() => setViewMode('timeline')}
+              onClick={() => setViewMode("timeline")}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                viewMode === 'timeline' 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                viewMode === "timeline"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
               Timeline View
             </button>
             <button
-              onClick={() => setViewMode('analytics')}
+              onClick={() => setViewMode("analytics")}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                viewMode === 'analytics' 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                viewMode === "analytics"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
               Analytics View
@@ -96,7 +107,7 @@ export default function Log() {
         </header>
         {/* Main Content */}
         <main className="flex-1 p-8 overflow-y-auto">
-          {viewMode === 'timeline' ? (
+          {viewMode === "timeline" ? (
             <div className="space-y-6">
               <MessageStats messages={messages} />
               <MessageTimeline messages={messages} />
@@ -106,16 +117,22 @@ export default function Log() {
               {analytics && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="bg-white rounded-lg shadow p-6 flex flex-col items-center">
-                    <span className="text-3xl font-bold text-blue-600">{analytics.total_conversations}</span>
-                    <span className="text-gray-500 mt-2">Total Conversations</span>
+                    <span className="text-3xl font-bold text-blue-600">
+                      {analytics.total_conversations}
+                    </span>
+                    <span className="text-gray-500 mt-2">
+                      Total Conversations
+                    </span>
                   </div>
                   <div className="bg-white rounded-lg shadow p-6 flex flex-col items-center">
-                    <span className="text-3xl font-bold text-green-600">{analytics.active_users}</span>
+                    <span className="text-3xl font-bold text-green-600">
+                      {analytics.active_users}
+                    </span>
                     <span className="text-gray-500 mt-2">Active Users</span>
                   </div>
                 </div>
               )}
-              
+
               <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-xl font-semibold mb-4">Usage Patterns</h2>
                 <div className="flex flex-col md:flex-row gap-8">
@@ -132,7 +149,9 @@ export default function Log() {
                         },
                       }}
                     />
-                    <span className="mt-2 text-sm text-gray-500">Conversations by Day</span>
+                    <span className="mt-2 text-sm text-gray-500">
+                      Conversations by Day
+                    </span>
                   </div>
                   <div className="w-full md:w-1/2 h-80 flex flex-col items-center justify-center">
                     <Doughnut
@@ -144,12 +163,12 @@ export default function Log() {
                         },
                       }}
                     />
-                    <span className="mt-2 text-sm text-gray-500">Conversations by Model</span>
+                    <span className="mt-2 text-sm text-gray-500">
+                      Conversations by Model
+                    </span>
                   </div>
                 </div>
               </div>
-
-
             </div>
           )}
         </main>

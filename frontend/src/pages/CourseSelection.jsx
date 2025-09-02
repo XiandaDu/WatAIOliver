@@ -22,11 +22,14 @@ export default function CourseSelection() {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const response = await fetch("http://localhost:8000/course/", {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-          },
-        });
+        const response = await fetch(
+          `${import.meta.env.VITE_API_BASE_URL}/course/`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+            },
+          }
+        );
 
         if (!response.ok) {
           throw new Error(`Failed to fetch courses: ${response.statusText}`);
@@ -82,7 +85,7 @@ export default function CourseSelection() {
       const formData = new FormData();
       formData.append("invite_code", code);
       const response = await fetch(
-        "http://localhost:8000/course/join-by-code",
+        `${import.meta.env.VITE_API_BASE_URL}/course/join-by-code`,
         {
           method: "POST",
           headers: {
@@ -105,11 +108,14 @@ export default function CourseSelection() {
 
       // Refresh courses to show the newly joined course
       try {
-        const coursesResponse = await fetch("http://localhost:8000/course/", {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-          },
-        });
+        const coursesResponse = await fetch(
+          `${import.meta.env.VITE_API_BASE_URL}/course/`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+            },
+          }
+        );
         if (coursesResponse.ok) {
           const coursesData = await coursesResponse.json();
           setCourses(coursesData || []);

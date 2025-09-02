@@ -142,7 +142,7 @@ export default function ChatPage() {
     try {
       const token = localStorage.getItem("access_token");
       const response = await fetch(
-        `http://localhost:8000/course/${courseId}/custom-models`,
+        `${import.meta.env.VITE_API_BASE_URL}/course/${courseId}/custom-models`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -221,10 +221,10 @@ export default function ChatPage() {
       searchParams.get("course") || searchParams.get("course_id");
     if (courseParam) {
       setSelectedCourseId(courseParam);
-      // console.log('Course ID loaded from URL:', courseParam)
+      console.log("Course ID loaded from URL:", courseParam);
 
       // Fetch course details
-      fetch(`http://localhost:8000/course/${courseParam}`, {
+      fetch(`${import.meta.env.VITE_API_BASE_URL}/course/${courseParam}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("access_token")}`,
         },
@@ -242,7 +242,7 @@ export default function ChatPage() {
             return;
           }
           setSelectedCourse(course);
-          // console.log('Course details loaded:', course)
+          console.log("Course details loaded:", course);
           // Load custom models for this course
           loadCustomModels(courseParam);
         })
@@ -257,7 +257,7 @@ export default function ChatPage() {
   useEffect(() => {
     // Don't load messages if we're currently sending a message
     if (isSendingMessage) {
-      // console.log('Skipping message load - currently sending message')
+      console.log("Skipping message load - currently sending message");
       return;
     }
 
@@ -270,7 +270,7 @@ export default function ChatPage() {
 
   // Get loading state for current conversation
   const getCurrentConversationLoadingState = () => {
-    if (!selectedConversation) return { isLoading, isTyping };
+    if (!selectedConversation) return { isLoading: false, isTyping: false };
     return (
       conversationLoadingStates[selectedConversation.conversation_id] || {
         isLoading: false,
@@ -283,7 +283,7 @@ export default function ChatPage() {
     setIsLoadingConversations(true);
     try {
       const response = await fetch(
-        `http://localhost:8000/chat/conversations/${userId}`
+        `${import.meta.env.VITE_API_BASE_URL}/chat/conversations/${userId}`
       );
       if (response.ok) {
         const data = await response.json();
@@ -299,15 +299,15 @@ export default function ChatPage() {
   };
 
   const loadMessages = async (conversationId) => {
-    // console.log('Loading messages for conversation:', conversationId)
+    console.log("Loading messages for conversation:", conversationId);
     try {
       const response = await fetch(
-        `http://localhost:8000/chat/messages/${conversationId}`
+        `${import.meta.env.VITE_API_BASE_URL}/chat/messages/${conversationId}`
       );
-      // console.log('Response status:', response.status)
+      console.log("Response status:", response.status);
       if (response.ok) {
         const data = await response.json();
-        // console.log('Loaded messages:', data)
+        console.log("Loaded messages:", data);
         // Transform backend message format to frontend format
         const transformedMessages = data.map((msg) => {
           const maybeHtml =
@@ -315,11 +315,17 @@ export default function ChatPage() {
 
           // DEBUG: Log each message transformation during loading
           if (msg.sender === "assistant") {
-            // console.log("=== LOADING MESSAGE TRANSFORMATION ===");
-            // console.log("Original msg.content:", msg.content.substring(0, 300));
-            // console.log("Extracted HTML:", maybeHtml ? maybeHtml.substring(0, 300) : "None");
-            // console.log("Will use:", maybeHtml ? "HTML renderer" : "Markdown renderer");
-            // console.log("======================================");
+            console.log("=== LOADING MESSAGE TRANSFORMATION ===");
+            console.log("Original msg.content:", msg.content.substring(0, 300));
+            console.log(
+              "Extracted HTML:",
+              maybeHtml ? maybeHtml.substring(0, 300) : "None"
+            );
+            console.log(
+              "Will use:",
+              maybeHtml ? "HTML renderer" : "Markdown renderer"
+            );
+            console.log("======================================");
           }
 
           return {
@@ -330,7 +336,7 @@ export default function ChatPage() {
             meta: maybeHtml ? { type: "html", html: maybeHtml } : undefined,
           };
         });
-        // console.log('Transformed messages:', transformedMessages)
+        console.log("Transformed messages:", transformedMessages);
         setMessages(transformedMessages);
       } else {
         console.error("Failed to load messages");
@@ -357,9 +363,12 @@ export default function ChatPage() {
     e.preventDefault();
     if (!input.trim() && !experimental_attachments?.length) return;
 
-    // console.log('Submit - Input value:', input)
-    // console.log('Submit - Input trimmed:', input.trim())
-    // console.log('Submit - Has attachments:', experimental_attachments?.length > 0)
+    console.log("Submit - Input value:", input);
+    console.log("Submit - Input trimmed:", input.trim());
+    console.log(
+      "Submit - Has attachments:",
+      experimental_attachments?.length > 0
+    );
 
     setIsSendingMessage(true);
 
@@ -382,7 +391,7 @@ export default function ChatPage() {
         : null,
     };
 
-    // console.log('User message content:', userMessage.content)
+    console.log("User message content:", userMessage.content);
 
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
@@ -405,7 +414,7 @@ export default function ChatPage() {
       // If no conversation is selected, create a new one
       if (!newConversationId) {
         const createResponse = await fetch(
-          "http://localhost:8000/chat/create_conversation",
+          `${import.meta.env.VITE_API_BASE_URL}/chat/create_conversation`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -436,15 +445,11 @@ export default function ChatPage() {
             setSelectedConversation(newConversation);
             setConversations((prev) => [newConversation, ...prev]);
 
-            // Set loading state for the new conversation
-            setConversationLoadingStates((prev) => ({
-              ...prev,
-              [newConversationId]: { isLoading: true, isTyping: true },
-            }));
-
-            // Clear global loading states since we now have a conversation
-            setIsLoading(false);
-            setIsTyping(false);
+            // Removed: Set loading state for the new conversation (will be handled by main loading states)
+            // setConversationLoadingStates(prev => ({
+            //   ...prev,
+            //   [newConversationId]: { isLoading: true, isTyping: true }
+            // }))
           }
         }
       }
@@ -462,9 +467,9 @@ export default function ChatPage() {
         }
 
         try {
-          // console.log('Starting file upload...')
+          console.log("Starting file upload...");
           const uploadResponse = await fetch(
-            "http://localhost:8000/chat/upload_files",
+            `${import.meta.env.VITE_API_BASE_URL}/chat/upload_files`,
             {
               method: "POST",
               body: formData,
@@ -474,7 +479,7 @@ export default function ChatPage() {
 
           if (uploadResponse.ok) {
             const uploadData = await uploadResponse.json();
-            // console.log('File upload completed successfully')
+            console.log("File upload completed successfully");
 
             // Extract file content for context
             const fileContents = [];
@@ -510,23 +515,26 @@ export default function ChatPage() {
       // Save user message
       if (newConversationId) {
         try {
-          await fetch("http://localhost:8000/chat/create_message", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              message_id: userMessage.id,
-              conversation_id: newConversationId,
-              user_id: userId,
-              sender: "user",
-              content:
-                input.trim() ||
-                (experimental_attachments?.length
-                  ? "Please analyze the uploaded file."
-                  : ""),
-              course_id: selectedCourseId || null, // Always save course_id if available
-              model: selectedBaseModel,
-            }),
-          });
+          await fetch(
+            `${import.meta.env.VITE_API_BASE_URL}/chat/create_message`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                message_id: userMessage.id,
+                conversation_id: newConversationId,
+                user_id: userId,
+                sender: "user",
+                content:
+                  input.trim() ||
+                  (experimental_attachments?.length
+                    ? "Please analyze the uploaded file."
+                    : ""),
+                course_id: selectedCourseId || null, // Always save course_id if available
+                model: selectedBaseModel,
+              }),
+            }
+          );
         } catch (messageError) {
           console.error("Failed to save user message:", messageError);
           // Continue anyway, the message is already in the UI
@@ -554,17 +562,20 @@ export default function ChatPage() {
           use_agents: useAgents,
         };
 
-        // console.log('=== CHAT REQUEST DEBUG ===')
-        // console.log('selectedModel:', selectedModel)
-        // console.log('useAgents:', useAgents)
-        // console.log('Full request:', chatRequestData)
-        // console.log('==========================')
+        console.log("=== CHAT REQUEST DEBUG ===");
+        console.log("selectedModel:", selectedModel);
+        console.log("useAgents:", useAgents);
+        console.log("Full request:", chatRequestData);
+        console.log("==========================");
 
-        const chatResponse = await fetch("http://localhost:8000/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" }, // Initially assume JSON, check header later
-          body: JSON.stringify(chatRequestData),
-        });
+        const chatResponse = await fetch(
+          "${import.meta.env.VITE_API_BASE_URL}/chat",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" }, // Initially assume JSON, check header later
+            body: JSON.stringify(chatRequestData),
+          }
+        );
 
         if (!chatResponse.ok) {
           console.error(
@@ -592,7 +603,10 @@ export default function ChatPage() {
         const contentType = chatResponse.headers.get("Content-Type");
         // console.log("=== RESPONSE CONTENT TYPE ===");
         // console.log("Content-Type header:", contentType);
-        // console.log("Is streaming?", contentType && contentType.includes('text/event-stream'));
+        // console.log(
+        //   "Is streaming?",
+        //   contentType && contentType.includes("text/event-stream")
+        // );
 
         if (contentType && contentType.includes("text/event-stream")) {
           // Add initial empty message for streaming response
@@ -610,23 +624,13 @@ export default function ChatPage() {
           ]);
           setLastAssistantMessageId(assistantMessageId); // Store this ID for updates
 
-          // Hide typing indicator immediately when streaming starts
-          if (newConversationId) {
-            setConversationLoadingStates((prev) => ({
-              ...prev,
-              [newConversationId]: { isLoading: true, isTyping: false },
-            }));
-          } else if (currentConversationId) {
-            setConversationLoadingStates((prev) => ({
-              ...prev,
-              [currentConversationId]: { isLoading: true, isTyping: false },
-            }));
-          } else {
-            setIsTyping(false);
-          }
+          // Keep typing indicator visible until we actually start receiving content
 
           let receivedContent = ""; // Initialize receivedContent for streaming
           let json_buffer = ""; // Buffer for incomplete JSON objects
+          // Flag to hide typing indicator only once
+          // Prevents flickering of typing indicator during streaming
+          let hasHiddenTyping = false;
 
           const reader = chatResponse.body.getReader();
           const decoder = new TextDecoder();
@@ -649,7 +653,10 @@ export default function ChatPage() {
                 // DEBUG: Log raw SSE line processing for streaming troubleshooting
                 // console.log("=== DEBUG SSE LINE ===");
                 // console.log("Full line:", JSON.stringify(line));
-                // console.log("Extracted content:", JSON.stringify(content_from_line));
+                // console.log(
+                //   "Extracted content:",
+                //   JSON.stringify(content_from_line)
+                // );
                 // console.log("=====================");
                 try {
                   // Parse JSON chunk (unified format for daily and agent modes)
@@ -674,6 +681,22 @@ export default function ChatPage() {
                   // );
                   // console.log("================================");
 
+                  // Hide typing indicator when we first receive content (only once)
+                  if (!hasHiddenTyping) {
+                    hasHiddenTyping = true;
+                    if (currentConversationId) {
+                      setConversationLoadingStates((prev) => ({
+                        ...prev,
+                        [currentConversationId]: {
+                          isLoading: true,
+                          isTyping: false,
+                        },
+                      }));
+                    } else {
+                      setIsTyping(false);
+                    }
+                  }
+
                   setMessages((prev) =>
                     prev.map((msg) =>
                       msg.id === assistantMessageId
@@ -690,7 +713,11 @@ export default function ChatPage() {
           // console.log("Final receivedContent length:", receivedContent.length);
           // console.log("First 200 chars:", receivedContent.substring(0, 200));
           aiResponseContent = receivedContent; // Final content after stream ends
-          // console.log("Set aiResponseContent to:", aiResponseContent.length, "chars");
+          // console.log(
+          //   "Set aiResponseContent to:",
+          //   aiResponseContent.length,
+          //   "chars"
+          // );
         } else {
           // console.log("=== NON-STREAMING RESPONSE ===");
           // console.log("Content-Type was:", contentType);
@@ -746,7 +773,10 @@ export default function ChatPage() {
       // console.log("newConversationId:", newConversationId);
       // console.log("assistantMessageId:", assistantMessageId);
       // console.log("aiResponseContent length:", aiResponseContent?.length);
-      // console.log("aiResponseContent trimmed:", aiResponseContent?.trim()?.substring(0, 50));
+      // console.log(
+      //   "aiResponseContent trimmed:",
+      //   aiResponseContent?.trim()?.substring(0, 50)
+      // );
 
       if (
         newConversationId &&
@@ -757,19 +787,22 @@ export default function ChatPage() {
       ) {
         // console.log("Saving AI response...");
         try {
-          await fetch("http://localhost:8000/chat/create_message", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              message_id: assistantMessageId, // Ensure this is the correct ID
-              conversation_id: newConversationId,
-              user_id: userId,
-              sender: "assistant",
-              content: aiResponseContent,
-              course_id: selectedCourseId || null,
-              model: selectedBaseModel,
-            }),
-          });
+          await fetch(
+            `${import.meta.env.VITE_API_BASE_URL}/chat/create_message`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                message_id: assistantMessageId, // Ensure this is the correct ID
+                conversation_id: newConversationId,
+                user_id: userId,
+                sender: "assistant",
+                content: aiResponseContent,
+                course_id: selectedCourseId || null,
+                model: selectedBaseModel,
+              }),
+            }
+          );
           // console.log("AI response saved successfully");
         } catch (saveError) {
           console.error("Failed to save AI response:", saveError);
@@ -799,7 +832,10 @@ export default function ChatPage() {
           [newConversationId]: { isLoading: false, isTyping: false },
         }));
       } else if (currentConversationId) {
-        // console.log("Clearing for currentConversationId:", currentConversationId);
+        // console.log(
+        //   "Clearing for currentConversationId:",
+        //   currentConversationId
+        // );
         setConversationLoadingStates((prev) => ({
           ...prev,
           [currentConversationId]: { isLoading: false, isTyping: false },
@@ -844,7 +880,7 @@ export default function ChatPage() {
     try {
       if (!newConversationId) {
         const createResponse = await fetch(
-          "http://localhost:8000/chat/create_conversation",
+          `${import.meta.env.VITE_API_BASE_URL}/chat/create_conversation`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -890,36 +926,42 @@ export default function ChatPage() {
 
       // Save user message
       if (newConversationId) {
-        await fetch("http://localhost:8000/chat/create_message", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message_id: userMessage.id,
-            conversation_id: newConversationId,
-            user_id: userId,
-            sender: "user",
-            content: message.content,
-            course_id: selectedCourseId || null,
-            model: selectedBaseModel,
-          }),
-        });
+        await fetch(
+          `${import.meta.env.VITE_API_BASE_URL}/chat/create_message`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              message_id: userMessage.id,
+              conversation_id: newConversationId,
+              user_id: userId,
+              sender: "user",
+              content: message.content,
+              course_id: selectedCourseId || null,
+              model: selectedBaseModel,
+            }),
+          }
+        );
       }
 
       // Get AI response
-      const chatResponse = await fetch("http://localhost:8000/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: message.content,
-          conversation_id: newConversationId,
-          model: selectedBaseModel,
-          mode: selectedModel,
-          course_id: selectedCourseId,
-          rag_model: selectedRagModel,
-          heavy_model: useAgents ? selectedHeavyModel : null,
-          use_agents: useAgents,
-        }),
-      });
+      const chatResponse = await fetch(
+        "${import.meta.env.VITE_API_BASE_URL}/chat",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: message.content,
+            conversation_id: newConversationId,
+            model: selectedBaseModel,
+            mode: selectedModel,
+            course_id: selectedCourseId,
+            rag_model: selectedRagModel,
+            heavy_model: useAgents ? selectedHeavyModel : null,
+            use_agents: useAgents,
+          }),
+        }
+      );
 
       if (!chatResponse.ok) {
         console.error(
@@ -960,23 +1002,11 @@ export default function ChatPage() {
         ]);
         setLastAssistantMessageId(assistantMessageId);
 
-        // Hide typing indicator immediately when streaming starts
-        if (newConversationId) {
-          setConversationLoadingStates((prev) => ({
-            ...prev,
-            [newConversationId]: { isLoading: true, isTyping: false },
-          }));
-        } else if (currentConversationId) {
-          setConversationLoadingStates((prev) => ({
-            ...prev,
-            [currentConversationId]: { isLoading: true, isTyping: false },
-          }));
-        } else {
-          setIsTyping(false);
-        }
+        // Keep typing indicator visible until we actually start receiving content
 
         let receivedContent = "";
         let json_buffer = "";
+        let hasHiddenTyping = false; // Flag to hide typing indicator only once
 
         const reader = chatResponse.body.getReader();
         const decoder = new TextDecoder();
@@ -1003,14 +1033,19 @@ export default function ChatPage() {
           for (const line of lines) {
             if (line.startsWith("data: ")) {
               const json_str_from_line = line.substring(6);
-              // console.log("Processing SSE line:", json_str_from_line.substring(0, 100));
+              // console.log(
+              //   "Processing SSE line:",
+              //   json_str_from_line.substring(0, 100)
+              // );
               try {
                 const chunk = JSON.parse(json_str_from_line);
                 // console.log("Parsed chunk:", chunk);
                 // Both daily and agent modes now use the same format
                 const newContent = chunk.content || "";
                 receivedContent += newContent;
-                // console.log(`Added ${newContent.length} chars, total: ${receivedContent.length}`);
+                // console.log(
+                //   `Added ${newContent.length} chars, total: ${receivedContent.length}`
+                // );
                 // Only update message if we have content
                 if (receivedContent) {
                   // DEBUG: Log received content in append function
@@ -1022,6 +1057,30 @@ export default function ChatPage() {
                   //   receivedContent.substring(0, 100)
                   // );
                   // console.log("========================");
+
+                  // Hide typing indicator when we first receive content (only once)
+                  if (!hasHiddenTyping) {
+                    hasHiddenTyping = true;
+                    if (newConversationId) {
+                      setConversationLoadingStates((prev) => ({
+                        ...prev,
+                        [newConversationId]: {
+                          isLoading: true,
+                          isTyping: false,
+                        },
+                      }));
+                    } else if (currentConversationId) {
+                      setConversationLoadingStates((prev) => ({
+                        ...prev,
+                        [currentConversationId]: {
+                          isLoading: true,
+                          isTyping: false,
+                        },
+                      }));
+                    } else {
+                      setIsTyping(false);
+                    }
+                  }
 
                   setMessages((prev) =>
                     prev.map((msg) =>
@@ -1071,19 +1130,22 @@ export default function ChatPage() {
         aiResponseContent.trim() &&
         !aiResponseContent.startsWith("I'm sorry, I encountered an error")
       ) {
-        await fetch("http://localhost:8000/chat/create_message", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message_id: assistantMessageId,
-            conversation_id: newConversationId,
-            user_id: userId,
-            sender: "assistant",
-            content: aiResponseContent,
-            course_id: selectedCourseId || null,
-            model: selectedBaseModel,
-          }),
-        });
+        await fetch(
+          `${import.meta.env.VITE_API_BASE_URL}/chat/create_message`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              message_id: assistantMessageId,
+              conversation_id: newConversationId,
+              user_id: userId,
+              sender: "assistant",
+              content: aiResponseContent,
+              course_id: selectedCourseId || null,
+              model: selectedBaseModel,
+            }),
+          }
+        );
       }
     } catch (err) {
       console.error("Chat error:", err);
@@ -1147,7 +1209,7 @@ export default function ChatPage() {
   const isEmpty = messages.length === 0 && !selectedConversation;
 
   const handleSelectConversation = (conversation) => {
-    // console.log('Selecting conversation:', conversation)
+    // console.log("Selecting conversation:", conversation);
     setSelectedConversation(conversation);
     if (conversation === null) {
       // Only clear messages if we're explicitly selecting no conversation
@@ -1164,7 +1226,7 @@ export default function ChatPage() {
   const handleDeleteConversation = async (conversationId) => {
     try {
       const response = await fetch(
-        "http://localhost:8000/chat/delete_conversation",
+        `${import.meta.env.VITE_API_BASE_URL}/chat/delete_conversation`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

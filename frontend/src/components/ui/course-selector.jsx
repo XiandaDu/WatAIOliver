@@ -1,72 +1,75 @@
-import { useState, useEffect } from "react"
-import { Button } from "./button"
-import { Input } from "./input"
-import { Label } from "./label"
-import { CustomSelect } from "./custom-select"
+import { useState, useEffect } from "react";
+import { Button } from "./button";
+import { Input } from "./input";
+import { Label } from "./label";
+import { CustomSelect } from "./custom-select";
 
 export function CourseSelector({ value, onChange, className = "" }) {
-  const [courses, setCourses] = useState([])
-  const [isCreating, setIsCreating] = useState(false)
-  const [newCourseName, setNewCourseName] = useState("")
-  const [loading, setLoading] = useState(false)
+  const [courses, setCourses] = useState([]);
+  const [isCreating, setIsCreating] = useState(false);
+  const [newCourseName, setNewCourseName] = useState("");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetchCourses()
-  }, [])
+    fetchCourses();
+  }, []);
 
   const fetchCourses = async () => {
     try {
-      const response = await fetch('http://localhost:8000/chat/courses')
+      const response = await fetch(
+        `http://${import.meta.env.VITE_API_BASE_URL}/chat/courses`
+      );
       if (response.ok) {
-        const data = await response.json()
-        setCourses(data.courses || [])
+        const data = await response.json();
+        setCourses(data.courses || []);
       }
     } catch (error) {
-      console.error('Error fetching courses:', error)
+      console.error("Error fetching courses:", error);
     }
-  }
+  };
 
   const handleCreateCourse = async () => {
-    if (!newCourseName.trim()) return
+    if (!newCourseName.trim()) return;
 
-    setLoading(true)
+    setLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/chat/courses', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          title: newCourseName.trim(),
-          description: '',
-          term: '',
-          created_by: 'A1'
-        })
-      })
+      const response = await fetch(
+        `http://${import.meta.env.VITE_API_BASE_URL}/chat/courses`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            title: newCourseName.trim(),
+            description: "",
+            term: "",
+            created_by: "A1",
+          }),
+        }
+      );
 
       if (response.ok) {
-        const data = await response.json()
-        const newCourse = data.course
+        const data = await response.json();
+        const newCourse = data.course;
         if (newCourse) {
-          setCourses(prev => [...prev, newCourse])
-          onChange(newCourse.course_id)
-          setNewCourseName("")
-          setIsCreating(false)
+          setCourses((prev) => [...prev, newCourse]);
+          onChange(newCourse.course_id);
+          setNewCourseName("");
+          setIsCreating(false);
         }
       }
     } catch (error) {
-      console.error('Error creating course:', error)
+      console.error("Error creating course:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  const courseOptions = courses.map(course => ({
+  const courseOptions = courses.map((course) => ({
     label: course.title,
-    value: course.course_id
-  }))
-
-
+    value: course.course_id,
+  }));
 
   return (
     <div className={`space-y-4 ${className}`}>
@@ -82,9 +85,9 @@ export function CourseSelector({ value, onChange, className = "" }) {
                 placeholder="Select a course"
               />
             </div>
-            <Button 
-              type="button" 
-              variant="outline" 
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => setIsCreating(true)}
             >
               New
@@ -97,22 +100,22 @@ export function CourseSelector({ value, onChange, className = "" }) {
                 value={newCourseName}
                 onChange={(e) => setNewCourseName(e.target.value)}
                 placeholder="Enter course name"
-                onKeyPress={(e) => e.key === 'Enter' && handleCreateCourse()}
+                onKeyPress={(e) => e.key === "Enter" && handleCreateCourse()}
               />
             </div>
-            <Button 
-              type="button" 
+            <Button
+              type="button"
               onClick={handleCreateCourse}
               disabled={!newCourseName.trim() || loading}
             >
               {loading ? "Creating..." : "Create"}
             </Button>
-            <Button 
-              type="button" 
-              variant="outline" 
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => {
-                setIsCreating(false)
-                setNewCourseName("")
+                setIsCreating(false);
+                setNewCourseName("");
               }}
             >
               Cancel
@@ -121,5 +124,5 @@ export function CourseSelector({ value, onChange, className = "" }) {
         )}
       </div>
     </div>
-  )
-} 
+  );
+}
