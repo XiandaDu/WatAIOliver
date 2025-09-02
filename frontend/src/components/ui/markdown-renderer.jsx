@@ -32,51 +32,67 @@ export function MarkdownRenderer({ children }) {
   );
 }
 
-const HighlightedPre = React.memo(async ({ children, language, ...props }) => {
+// Use React.lazy to load shiki asynchronously
+const HighlightedPre = React.lazy(async () => {
   const { codeToTokens, bundledLanguages } = await import("shiki");
+  
+  // Return a component that uses the imported functions
+  return {
+    default: React.memo(({ children, language, ...props }) => {
+      const [highlighted, setHighlighted] = React.useState(null);
+      
+      React.useEffect(() => {
+        if (!language || !(language in bundledLanguages)) {
+          return;
+        }
+        
+        codeToTokens(children, {
+          lang: language,
+          defaultColor: false,
+          themes: {
+            light: "github-light",
+            dark: "github-dark",
+          },
+        }).then(({ tokens }) => {
+          setHighlighted(tokens);
+        }).catch(console.error);
+      }, [children, language]);
+      
+      if (!highlighted) {
+        return <pre {...props}>{children}</pre>;
+      }
+      
+      return (
+        <pre {...props}>
+          <code>
+            {highlighted.map((line, lineIndex) => (
+              <React.Fragment key={lineIndex}>
+                <span>
+                  {line.map((token, tokenIndex) => {
+                    const style =
+                      typeof token.htmlStyle === "string"
+                        ? undefined
+                        : token.htmlStyle;
 
-  if (!(language in bundledLanguages)) {
-    return <pre {...props}>{children}</pre>;
-  }
-
-  const { tokens } = await codeToTokens(children, {
-    lang: language,
-    defaultColor: false,
-    themes: {
-      light: "github-light",
-      dark: "github-dark",
-    },
-  });
-
-  return (
-    <pre {...props}>
-      <code>
-        {tokens.map((line, lineIndex) => (
-          <>
-            <span key={lineIndex}>
-              {line.map((token, tokenIndex) => {
-                const style =
-                  typeof token.htmlStyle === "string"
-                    ? undefined
-                    : token.htmlStyle;
-
-                return (
-                  <span
-                    key={tokenIndex}
-                    className="text-shiki-light bg-shiki-light-bg dark:text-shiki-dark dark:bg-shiki-dark-bg"
-                    style={style}
-                  >
-                    {token.content}
-                  </span>
-                );
-              })}
-            </span>
-            {lineIndex !== tokens.length - 1 && "\n"}
-          </>
-        ))}
-      </code>
-    </pre>
-  );
+                    return (
+                      <span
+                        key={tokenIndex}
+                        className="text-shiki-light bg-shiki-light-bg dark:text-shiki-dark dark:bg-shiki-dark-bg"
+                        style={style}
+                      >
+                        {token.content}
+                      </span>
+                    );
+                  })}
+                </span>
+                {lineIndex !== highlighted.length - 1 && "\n"}
+              </React.Fragment>
+            ))}
+          </code>
+        </pre>
+      );
+    })
+  };
 });
 HighlightedPre.displayName = "HighlightedCode";
 
@@ -142,14 +158,23 @@ const COMPONENTS = {
   blockquote: withClass("blockquote", "border-l-2 border-primary pl-4"),
   code: ({ children, className, node, ...rest }) => {
     const match = /language-(\w+)/.exec(className || "");
-    return match ? (
-      <CodeBlock className={className} language={match[1]} {...rest}>
-        {children}
-      </CodeBlock>
-    ) : (
+    
+    // Check if this is a code block (has language class) but NOT math
+    // Math blocks should be handled by the default markdown renderer for KaTeX
+    if (match && match[1] !== 'math') {
+      return (
+        <CodeBlock className={className} language={match[1]} {...rest}>
+          {children}
+        </CodeBlock>
+      );
+    }
+    
+    // This is inline code or math - render as normal code element
+    return (
       <code
         className={cn(
-          "font-mono [:not(pre)>&]:rounded-md [:not(pre)>&]:bg-background/50 [:not(pre)>&]:px-1 [:not(pre)>&]:py-0.5"
+          match ? "" : "font-mono rounded-md bg-background/50 px-1 py-0.5",
+          className
         )}
         {...rest}
       >
@@ -157,7 +182,11 @@ const COMPONENTS = {
       </code>
     );
   },
-  pre: ({ children }) => children,
+  pre: ({ children, ...rest }) => {
+    // For pre blocks, just pass through the children
+    // This allows the code component above to handle the rendering
+    return children;
+  },
   ol: withClass("ol", "list-decimal space-y-2 pl-6"),
   ul: withClass("ul", "list-disc space-y-2 pl-6"),
   li: withClass("li", "my-1.5"),
@@ -174,7 +203,29 @@ const COMPONENTS = {
     "border border-foreground/20 px-4 py-2 text-left [&[align=center]]:text-center [&[align=right]]:text-right"
   ),
   tr: withClass("tr", "m-0 border-t p-0 even:bg-muted"),
-  p: withClass("p", "whitespace-pre-wrap"),
+  p: ({ children, ...props }) => {
+    // Check if children contain block-level elements (like div or pre)
+    // If so, render children directly without the p wrapper
+    const hasBlockContent = React.Children.toArray(children).some(child => {
+      if (React.isValidElement(child)) {
+        const type = child.type;
+        // Check if it's a block element or our custom CodeBlock
+        // But exclude math blocks which should stay inline
+        const isCodeBlock = child.props && 
+                           child.props.className && 
+                           child.props.className.includes('language-') &&
+                           !child.props.className.includes('language-math');
+        return type === 'div' || type === 'pre' || type === CodeBlock || isCodeBlock;
+      }
+      return false;
+    });
+    
+    if (hasBlockContent) {
+      return <>{children}</>;
+    }
+    
+    return <p className="whitespace-pre-wrap" {...props}>{children}</p>;
+  },
   hr: withClass("hr", "border-foreground/20"),
 };
 

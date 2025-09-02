@@ -33,7 +33,8 @@ const ProtectedRoute = ({ children, requiredRoles = null }) => {
       if (requiresInstructor && user?.role === 'instructor') {
         try {
           const token = localStorage.getItem('access_token');
-          const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/verify-instructor`, {
+          // Use relative URL to leverage Vite proxy configuration
+          const resp = await fetch('/auth/verify-instructor', {
             headers: { Authorization: `Bearer ${token}` },
           });
           if (mounted) {
