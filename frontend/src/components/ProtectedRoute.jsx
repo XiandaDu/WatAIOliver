@@ -1,53 +1,55 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { isAuthenticated, hasRole } from '../utils/auth';
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { isAuthenticated, hasRole } from "../utils/auth";
 
 const ProtectedRoute = ({ children, requiredRoles = null }) => {
   const navigate = useNavigate();
-  const [authState, setAuthState] = useState('checking'); // checking, authorized, denied
+  const [authState, setAuthState] = useState("checking"); // checking, authorized, denied
 
   useEffect(() => {
     let mounted = true;
 
     const checkAccess = async () => {
       if (!isAuthenticated()) {
-        navigate('/login');
+        navigate("/login");
         return;
       }
 
       if (requiredRoles && !hasRole(requiredRoles)) {
-        const user = JSON.parse(localStorage.getItem('user'));
-        if (user?.role === 'instructor' || user?.role === 'admin') {
-          navigate('/admin');
+        const user = JSON.parse(localStorage.getItem("user"));
+        if (user?.role === "instructor" || user?.role === "admin") {
+          navigate("/admin");
         } else {
-          navigate('/courses');
+          navigate("/courses");
         }
         return;
       }
 
       const requiresInstructor = Array.isArray(requiredRoles)
-        ? requiredRoles.includes('instructor')
-        : requiredRoles === 'instructor';
-      const user = JSON.parse(localStorage.getItem('user'));
-      
-      if (requiresInstructor && user?.role === 'instructor') {
+        ? requiredRoles.includes("instructor")
+        : requiredRoles === "instructor";
+      const user = JSON.parse(localStorage.getItem("user"));
+
+      if (requiresInstructor && user?.role === "instructor") {
         try {
-          const token = localStorage.getItem('access_token');
-          // Use relative URL to leverage Vite proxy configuration
-          const resp = await fetch('/auth/verify-instructor', {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+          const token = localStorage.getItem("access_token");
+          const resp = await fetch(
+            `${import.meta.env.VITE_API_BASE_URL}/auth/verify-instructor`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
           if (mounted) {
-            setAuthState(resp.ok ? 'authorized' : 'denied');
+            setAuthState(resp.ok ? "authorized" : "denied");
           }
         } catch (error) {
           if (mounted) {
-            setAuthState('denied');
+            setAuthState("denied");
           }
         }
       } else {
         if (mounted) {
-          setAuthState('authorized');
+          setAuthState("authorized");
         }
       }
     };
@@ -59,7 +61,7 @@ const ProtectedRoute = ({ children, requiredRoles = null }) => {
     };
   }, [navigate, requiredRoles]);
 
-  if (!isAuthenticated() || authState === 'checking') {
+  if (!isAuthenticated() || authState === "checking") {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -70,26 +72,29 @@ const ProtectedRoute = ({ children, requiredRoles = null }) => {
     );
   }
 
-  if (authState === 'denied') {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    
+  if (authState === "denied") {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+
     const handleLogout = () => {
       // Clear current auth data
-      localStorage.removeItem('user');
-      localStorage.removeItem('access_token');
+      localStorage.removeItem("user");
+      localStorage.removeItem("access_token");
       // Redirect to login
-      navigate('/login');
+      navigate("/login");
     };
 
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Access Denied</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+            Access Denied
+          </h1>
           <p className="text-gray-600 mb-4">
             Your email ({user.email}) is not authorized for instructor access.
           </p>
           <p className="text-gray-600 mb-6">
-            Please contact your administrator to be added to the instructor whitelist.
+            Please contact your administrator to be added to the instructor
+            whitelist.
           </p>
           <button
             onClick={handleLogout}
