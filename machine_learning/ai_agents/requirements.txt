@@ -1,21 +1,29 @@
-# Core async and data processing
+# Core dependencies
 asyncio
 pydantic>=2.0.0
-dataclasses-json>=0.6.0
+python-dotenv>=1.0.0
+typing-extensions>=4.0.0
 
-# LangChain ecosystem (inherits from parent RAG system)
+# LangChain ecosystem
 langchain>=0.1.0
 langchain-community>=0.0.20
 langchain-core>=0.1.0
+langgraph>=0.0.20
+langchain-openai>=0.0.5
 
-# Google AI dependencies (inherits from parent RAG system) 
+# LLM providers
 google-genai>=0.1.0
 google-auth>=2.40.0
+openai>=1.0.0
+anthropic>=0.3.0
 
-# Optional: Additional LLM clients
-openai>=1.0.0  # For OpenAI integration
-anthropic>=0.3.0  # For Claude integration
+# Vector database and RAG
+chromadb>=0.4.0
+tiktoken>=0.5.0
 
-# Utility libraries
-python-dotenv>=1.0.0
-typing-extensions>=4.0.0 
+# FastAPI for service
+fastapi>=0.100.0
+uvicorn>=0.23.0
+
+# Utilities
+dataclasses-json>=0.6.0

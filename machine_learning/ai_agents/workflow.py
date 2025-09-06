@@ -7,15 +7,15 @@ Main workflow that orchestrates all agents using LangGraph.
 import logging
 from typing import Dict, Any, List, Literal
 from langgraph.graph import StateGraph, END
-from langgraph.checkpoint import MemorySaver
+from langgraph.checkpoint.memory import MemorySaver
 
-from .state import WorkflowState, AgentContext, initialize_state
-from .agents.retrieve_agent import RetrieveAgent
-from .agents.strategist_agent import StrategistAgent
-from .agents.critic_agent import CriticAgent
-from .agents.moderator_agent import ModeratorAgent
-from .agents.reporter_agent import ReporterAgent
-from .agents.tutor_agent import TutorAgent
+from ai_agents.state import WorkflowState, AgentContext, initialize_state
+from ai_agents.agents.retrieve_agent import RetrieveAgent
+from ai_agents.agents.strategist_agent import StrategistAgent
+from ai_agents.agents.critic_agent import CriticAgent
+from ai_agents.agents.moderator_agent import ModeratorAgent
+from ai_agents.agents.reporter_agent import ReporterAgent
+from ai_agents.agents.tutor_agent import TutorAgent
 
 
 class MultiAgentWorkflow:

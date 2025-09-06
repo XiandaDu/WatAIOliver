@@ -58,6 +58,7 @@ class WorkflowState(TypedDict):
     retrieval_quality_score: float
     retrieval_strategy: str
     speculative_queries: List[str]
+    formatted_retrieval_output: Optional[Any]  # JSON-formatted retrieval output
     
     # Debate loop fields
     current_round: int

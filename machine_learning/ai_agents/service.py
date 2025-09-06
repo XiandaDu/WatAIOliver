@@ -14,8 +14,8 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 import json
 
-from .workflow import create_workflow, MultiAgentWorkflow
-from .state import AgentContext
+from ai_agents.workflow import create_workflow, MultiAgentWorkflow
+from ai_agents.state import AgentContext
 
 
 # Configure detailed logging

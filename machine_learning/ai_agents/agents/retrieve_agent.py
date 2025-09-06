@@ -1,338 +1,432 @@
 """
-Retrieve Agent - Enhanced RAG Integration
+Retrieve Agent - LangChain Implementation
 
-This agent integrates directly with the existing RAG system and adds
-speculative query reframing capabilities on top of it.
+Enhanced retrieval with speculative query reframing using LangChain tools and chains.
+Integrates with existing RAG service while maintaining LangChain native approach.
 """
 
 import asyncio
-from typing import Dict, Any, List, Optional
+import time
+import json
+from typing import Dict, Any, List
+from langchain.schema import Document
+from langchain.prompts import ChatPromptTemplate
+from langchain.chains import LLMChain
+from langchain.tools import Tool
+from langchain.agents import AgentExecutor, create_openai_tools_agent
+from langchain_core.messages import HumanMessage, SystemMessage
 
-from ai_agents.agents.base_agent import BaseAgent, AgentRole, AgentInput, AgentOutput
-from ai_agents.config import SpeculativeAIConfig
+from ai_agents.state import WorkflowState, RetrievalResult, log_agent_execution
+from ai_agents.utils import (
+    create_langchain_llm, 
+    perform_rag_retrieval, 
+    debug_course_chunks,
+    format_rag_results_for_agents
+)
 
 
-class RetrieveAgent(BaseAgent):
-    """Enhanced retrieval agent that integrates with existing RAG system"""
+class RetrieveAgent:
+    """
+    Speculative Retriever using LangChain chains and tools.
     
-    def __init__(
-        self,
-        config: SpeculativeAIConfig,
-        llm_client=None,
-        rag_service=None,
-        logger=None
-    ):
-        super().__init__(
-            agent_role=AgentRole.RETRIEVE,
-            config=config,
-            llm_client=llm_client,
-            logger=logger
-        )
+    Implements the complete retrieval workflow:
+    1. Initial RAG query
+    2. Quality assessment
+    3. Speculative query reframing if needed
+    4. Result merging and re-ranking
+    """
+    
+    def __init__(self, context):
+        self.context = context
+        self.logger = context.logger.getChild("retrieve")
+        self.rag_service = context.rag_service
+        self.llm_client = context.llm_client
         
-        self.rag_service = rag_service
+        # Create LangChain-compatible LLM
+        self.llm = create_langchain_llm(self.llm_client)
         
-        # Quality thresholds for triggering speculative retrieval
+        # Quality thresholds
         self.min_quality_threshold = 0.7
         self.min_results_count = 3
         
-    async def process(self, agent_input: AgentInput) -> AgentOutput:
-        """Execute enhanced retrieval with speculative query reframing"""
+        # Initialize chains
+        self._setup_chains()
         
-        # Extract course_id from metadata  
-        course_id = agent_input.metadata.get('course_id')
-        if not course_id:
-            return AgentOutput(
-                success=False,
-                content={},
-                metadata={},
-                processing_time=0.0,
-                agent_role=self.agent_role,
-                error_message="course_id required for retrieval"
-            )
+    def _setup_chains(self):
+        """Setup LangChain chains for different retrieval tasks"""
         
-        # Stage 1: Initial RAG retrieval using existing system
-        self.logger.info("\n" + "="*250)
-        self.logger.info("INITIAL RAG RETRIEVAL")
-        self.logger.info("="*250)
-        self.logger.info(f"Query: '{agent_input.query}'")
-        self.logger.info(f"Course ID: {course_id}")
-        self.logger.info("Performing initial retrieval...\n")
+        # Chain for quality assessment
+        self.quality_assessment_chain = LLMChain(
+            llm=self.llm,
+            prompt=ChatPromptTemplate.from_messages([
+                SystemMessage(content="""You are a retrieval quality assessor. 
+                Analyze the relevance of retrieved documents to the query.
+                Score from 0 to 1, where 1 is perfect relevance."""),
+                HumanMessage(content="""Query: {query}
+                
+Retrieved Documents:
+{documents}
+
+Provide a quality score (0-1) and brief explanation.
+Format: SCORE: X.XX | REASON: ...""")
+            ])
+        )
         
-        initial_results = await self._perform_rag_query(agent_input.query, course_id)
+        # Chain for query reframing
+        self.query_reframing_chain = LLMChain(
+            llm=self.llm,
+            prompt=ChatPromptTemplate.from_messages([
+                SystemMessage(content="""You are an expert at reformulating queries for better retrieval.
+                When initial retrieval quality is poor, generate alternative queries that might yield better results."""),
+                HumanMessage(content="""Original Query: {query}
+                
+Initial Results Quality: {quality_score}
+Quality Issues: {quality_issues}
+
+Generate 3 alternative query formulations that:
+1. Use different terminology or perspectives
+2. Are more specific or break down the concept
+3. Target different aspects of the topic
+
+Format each query on a new line starting with "QUERY:".""")
+            ])
+        )
         
-        if not initial_results:
-            self.logger.info("Initial RAG retrieval completely failed")
-            return AgentOutput(
-                success=False,
-                content={"retrieval_results": [], "quality_assessment": {"score": 0.0}},
-                metadata={"retrieval_strategy": "failed"},
-                processing_time=0.0,
-                agent_role=self.agent_role,
-                error_message="Initial RAG retrieval failed"
-            )
-        
-        # Log initial results with clear formatting
-        sources = initial_results.get('sources', [])
-        self.logger.info(f"Initial RAG completed - found {len(sources)} sources:")
-        for i, source in enumerate(sources[:3]):
-            score = source.get('score', 'N/A')
-            content = source.get('content', '')
-            self.logger.info(f"  {i+1}. Score={score}, Content='{content}'")
-        if len(sources) > 3:
-            self.logger.info(f"  ... and {len(sources) - 3} more sources")
-        
-        # Stage 2: Quality assessment 
-        self.logger.info("\n" + "="*250)
-        self.logger.info("RETRIEVAL QUALITY ASSESSMENT")
-        self.logger.info("="*250)
-        
-        quality_score = self._assess_retrieval_quality(initial_results)
-        self.logger.info(f"Quality Score: {quality_score:.3f} / 1.0")
-        self.logger.info(f"Quality Threshold: {self.min_quality_threshold}")
-        self.logger.info(f"Initial Results Count: {len(initial_results.get('sources', []))}")
-        
-        # Stage 3: Speculative reframing if quality is poor
-        if quality_score < self.min_quality_threshold and self.llm_client:
-            self.logger.info(f"\nQUALITY TOO LOW - TRIGGERING SPECULATIVE REFRAMING")
-            self.logger.info(f"Original query not good enough (score {quality_score:.3f} < {self.min_quality_threshold})")
-            self.logger.info(f"Generating alternative query phrasings...\n")
-            
-            reframed_results = await self._speculative_reframing(
-                agent_input.query, 
-                course_id, 
-                initial_results
-            )
-            
-            if reframed_results:
-                self.logger.info("\n" + "="*250)
-                self.logger.info("MERGING SPECULATIVE RESULTS")
-                self.logger.info("="*250)
-                # Merge and deduplicate results
-                final_results = self._merge_results(initial_results, reframed_results)
-                strategy = "speculative_enhanced"
-                new_quality = self._assess_retrieval_quality(final_results)
-                self.logger.info(f"Enhanced quality: {quality_score:.3f} → {new_quality:.3f}")
-                self.logger.info(f"Total sources after merging: {len(final_results.get('sources', []))}")
-            else:
-                self.logger.info("\nSpeculative reframing failed - using initial results only")
-                final_results = initial_results
-                strategy = "initial_only"
-        else:
-            if quality_score >= self.min_quality_threshold:
-                self.logger.info(f"\nQUALITY SUFFICIENT - NO REFRAMING NEEDED")
-                self.logger.info(f"Score {quality_score:.3f} meets threshold {self.min_quality_threshold}")
-            else:
-                self.logger.info(f"\nQuality low but no LLM client available for reframing")
-            final_results = initial_results
-            strategy = "initial_sufficient"
-        
-        # Format final results for downstream agents
-        self.logger.info("\n" + "="*250)
-        self.logger.info("FINAL RETRIEVAL SUMMARY")
-        self.logger.info("="*250)
-        
-        formatted_context = self._format_for_agents(final_results)
-        
-        self.logger.info(f"Strategy Used: {strategy}")
-        self.logger.info(f"Raw Sources: {len(final_results.get('sources', []))}")
-        self.logger.info(f"Formatted Items: {len(formatted_context)}")
-        
-        # Log clean chunk summary with better formatting
-        self._log_retrieved_chunks(formatted_context, strategy)
-        self.logger.info("="*250)
-        
-        return AgentOutput(
-            success=True,
-            content={
-                "retrieval_results": formatted_context,
-                "quality_assessment": {
-                    "score": max(quality_score, self._assess_retrieval_quality(final_results)),
-                    "initial_count": len(initial_results.get('sources', [])),
-                    "final_count": len(formatted_context)
-                }
-            },
-            metadata={
-                "retrieval_strategy": strategy,
-                "quality_improvement": strategy == "speculative_enhanced"
-            },
-            processing_time=0.0,
-            agent_role=self.agent_role
+        # Chain for result re-ranking
+        self.reranking_chain = LLMChain(
+            llm=self.llm,
+            prompt=ChatPromptTemplate.from_messages([
+                SystemMessage(content="""You are a document re-ranker. Score each document's relevance to the query."""),
+                HumanMessage(content="""Query: {query}
+
+Document: {document}
+
+Score this document's relevance from 0 to 1.
+Format: SCORE: X.XX""")
+            ])
         )
     
-    async def _perform_rag_query(self, query: str, course_id: str) -> Optional[Dict[str, Any]]:
-        """Perform RAG query using existing system"""
-        try:
-            # DEBUG: Always show first 3 chunks from this course for sanity check
-            await self._debug_course_chunks(course_id, query)
-            
-            if self.rag_service:
-                return self.rag_service.answer_question(course_id, query)
-            else:
-                self.logger.warning("No RAG service available - using mock results")
-                return {
-                    "success": True,
-                    "answer": "Mock RAG response",
-                    "sources": [{"content": "Mock content", "score": 0.8}]
-                }
-        except Exception as e:
-            self.logger.error(f"RAG query failed: {e}")
-            return None
+    def _format_retrieval_output(self, results: List[RetrievalResult], strategy: str = "initial", no_results_suggestion: str = None) -> Dict[str, Any]:
+        """Format retrieval results as JSON output matching the desired format"""
+        if not results:
+            return {
+                "status": "no_results",
+                "suggestion": no_results_suggestion or "Try rephrasing your query to be more specific or break it down into smaller concepts."
+            }
+        
+        formatted_results = []
+        for i, result in enumerate(results):
+            formatted_results.append({
+                "text": result.get('content', ''),
+                "score": float(result.get('score', 0.0)),
+                "source": result.get('source', 'unknown'),
+                "retrieval_path": strategy
+            })
+        
+        return formatted_results
     
-    def _assess_retrieval_quality(self, rag_result: Dict[str, Any]) -> float:
-        """Assess quality of RAG retrieval results"""
+    async def __call__(self, state: WorkflowState) -> WorkflowState:
+        """Execute retrieval with speculative reframing"""
+        start_time = time.time()
+        
+        try:
+            self.logger.info("="*250)
+            self.logger.info("RETRIEVE AGENT - ENHANCED RETRIEVAL")
+            self.logger.info("="*250)
+            
+            query = state["query"]
+            course_id = state["course_id"]
+            
+            # Stage 1: Initial RAG retrieval (matching legacy approach)
+            self.logger.info(f"Query: '{query}'")
+            self.logger.info(f"Course ID: {course_id}")
+            self.logger.info("Performing initial retrieval...")
+            
+            # Debug chunks first (like legacy)
+            await debug_course_chunks(self.rag_service, course_id, query, self.logger)
+            
+            # Perform RAG query using existing service
+            initial_rag_result = await perform_rag_retrieval(
+                self.rag_service, query, course_id, self.logger
+            )
+            
+            if not initial_rag_result:
+                self.logger.error("Initial RAG retrieval completely failed")
+                state["error_messages"].append("Initial RAG retrieval failed")
+                state["workflow_status"] = "failed"
+                return state
+            
+            # Convert to our RetrievalResult format
+            initial_results = self._convert_rag_to_retrieval_results(initial_rag_result)
+            
+            # Stage 2: Quality assessment using LangChain chain
+            quality_score = await self._assess_quality_with_chain(state["query"], initial_results)
+            self.logger.info(f"Quality Score: {quality_score:.3f}")
+            
+            # Stage 3: Speculative reframing if needed
+            final_results = initial_results
+            final_rag_result = initial_rag_result
+            retrieval_strategy = "initial"
+            speculative_queries = []
+            
+            if quality_score < self.min_quality_threshold and self.llm_client:
+                self.logger.info("Quality too low - triggering speculative reframing")
+                
+                # Generate alternative queries using LangChain
+                reframed_queries = await self._generate_reframed_queries(
+                    query, quality_score, initial_rag_result
+                )
+                speculative_queries = reframed_queries
+                
+                if reframed_queries:
+                    # Perform parallel retrieval for alternative queries
+                    best_alternative = await self._parallel_retrieval_with_scoring(
+                        reframed_queries, course_id, query
+                    )
+                    
+                    if best_alternative:
+                        # Store which query produced the best alternative for tracking
+                        best_query_index = reframed_queries.index(best_alternative.get('query', reframed_queries[0])) if 'query' in best_alternative else 0
+                        retrieval_strategy = f"refined_query_{best_query_index + 1}"
+                        
+                        # Merge results (like legacy)
+                        final_rag_result = self._merge_rag_results(initial_rag_result, best_alternative)
+                        final_results = self._convert_rag_to_retrieval_results(final_rag_result)
+                        
+                        # Recalculate quality using LangChain chain
+                        quality_score = await self._assess_quality_with_chain(state["query"], final_results)
+                        self.logger.info(f"Enhanced quality: {quality_score:.3f}")
+                    else:
+                        self.logger.info("No good alternatives found - using initial results")
+                        retrieval_strategy = "initial_only"
+            
+            # Format output as JSON
+            json_output = self._format_retrieval_output(
+                final_results[:10],  # Top 10 results
+                strategy=retrieval_strategy,
+                no_results_suggestion=f"Try rephrasing '{query}' to be more specific about the course material."
+            )
+            
+            # Log the JSON output
+            self.logger.info("="*250)
+            self.logger.info("RETRIEVAL OUTPUT (JSON)")
+            self.logger.info("="*250)
+            self.logger.info(json.dumps(json_output, indent=2))
+            self.logger.info("="*250)
+            
+            # Update state
+            state["retrieval_results"] = final_results[:10]  # Top 10 results
+            state["retrieval_quality_score"] = quality_score
+            state["retrieval_strategy"] = retrieval_strategy
+            state["speculative_queries"] = speculative_queries
+            state["workflow_status"] = "retrieving"
+            
+            # Add formatted JSON output to state for downstream agents
+            if "formatted_retrieval_output" not in state:
+                state["formatted_retrieval_output"] = json_output
+            else:
+                state["formatted_retrieval_output"] = json_output
+            
+            # Log execution
+            processing_time = time.time() - start_time
+            log_agent_execution(
+                state=state,
+                agent_name="Retrieve",
+                input_summary=f"Query: {query[:100]}",
+                output_summary=f"Retrieved {len(final_results)} chunks, quality: {quality_score:.3f}, JSON output logged",
+                processing_time=processing_time,
+                success=True
+            )
+            
+            self.logger.info(f"Retrieval completed in {processing_time:.2f}s")
+            
+        except Exception as e:
+            self.logger.error(f"Retrieval failed: {str(e)}")
+            state["error_messages"].append(f"Retrieve agent error: {str(e)}")
+            state["workflow_status"] = "failed"
+            
+            log_agent_execution(
+                state=state,
+                agent_name="Retrieve",
+                input_summary=f"Query: {state['query'][:100]}",
+                output_summary=f"Error: {str(e)}",
+                processing_time=time.time() - start_time,
+                success=False
+            )
+        
+        return state
+    
+    def _convert_rag_to_retrieval_results(self, rag_result: Dict[str, Any]) -> List[RetrievalResult]:
+        """Convert RAG service result to RetrievalResult format"""
         if not rag_result or not rag_result.get('success'):
+            return []
+        
+        results = []
+        sources = rag_result.get('sources', [])
+        
+        for source in sources:
+            results.append(RetrievalResult(
+                content=source.get('content', ''),
+                score=source.get('score', 0.0),
+                source=source.get('metadata', {}).get('source', 'unknown'),
+                metadata=source.get('metadata', {})
+            ))
+        
+        return results
+    
+    async def _assess_quality_with_chain(self, query: str, results: List[RetrievalResult]) -> float:
+        """Assess retrieval quality using LangChain"""
+        if not results:
             return 0.0
         
-        sources = rag_result.get('sources', [])
-        if len(sources) < self.min_results_count:
-            return 0.3
-        
-        # Calculate average relevance score
-        scores = []
-        for source in sources:
-            score = source.get('score', 0)
-            if score and score != 'N/A':
-                try:
-                    scores.append(float(score))
-                except (ValueError, TypeError):
-                    continue
-        if not scores:
-            return 0.5
-        
-        avg_score = sum(scores) / len(scores)
-        return min(avg_score * 1.2, 1.0)  # Boost slightly, cap at 1.0
-    
-    async def _speculative_reframing(
-        self, 
-        original_query: str, 
-        course_id: str, 
-        initial_results: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
-        """Generate alternative queries and perform parallel retrieval"""
-        
         try:
-            self.logger.info("\n" + "="*250)
-            self.logger.info("SPECULATIVE QUERY GENERATION")
-            self.logger.info("="*250)
-            self.logger.info(f"Original Query: '{original_query}'")
-            self.logger.info(f"Course ID: {course_id}")
-            self.logger.info("Generating alternative query phrasings...\n")
+            # Format documents for assessment
+            doc_text = "\n\n".join([
+                f"Document {i+1} (score: {r['score']:.3f}):\n{r['content'][:500]}"
+                for i, r in enumerate(results[:5])
+            ])
             
-            # Generate alternative queries using LLM
-            alternative_queries = await self._generate_alternative_queries(original_query)
+            # Run quality assessment chain
+            response = await self.quality_assessment_chain.arun(
+                query=query,
+                documents=doc_text
+            )
             
-            if not alternative_queries:
-                self.logger.info("No alternative queries generated")
-                return None
+            # Parse score from response
+            if "SCORE:" in response:
+                score_str = response.split("SCORE:")[1].split("|")[0].strip()
+                return float(score_str)
             
-            self.logger.info(f"Generated {len(alternative_queries)} alternative queries:")
-            for i, query in enumerate(alternative_queries, 1):
-                self.logger.info(f"  {i}. '{query}'")
-            
-            self.logger.info("\n" + "-"*250)
-            self.logger.info("PARALLEL RETRIEVAL FOR ALTERNATIVES")
-            self.logger.info("-"*250)
-            
-            # Perform parallel retrieval for alternative queries
-            tasks = []
-            for alt_query in alternative_queries:
-                task = self._perform_rag_query(alt_query, course_id)
-                tasks.append(task)
-            
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            # Find the best alternative result
-            self.logger.info("\nEvaluating alternative query results:")
-            best_result = None
-            best_score = 0.0
-            best_query_idx = -1
-            
-            for i, (result, query) in enumerate(zip(results, alternative_queries)):
-                if isinstance(result, dict) and result.get('success'):
-                    score = self._assess_retrieval_quality(result)
-                    sources_count = len(result.get('sources', []))
-                    self.logger.info(f"  Alternative {i+1}: Score={score:.3f}, Sources={sources_count}")
-                    if score > best_score:
-                        best_score = score
-                        best_result = result
-                        best_query_idx = i
-                else:
-                    self.logger.info(f"  Alternative {i+1}: FAILED")
-            
-            if best_result:
-                self.logger.info(f"\nBEST ALTERNATIVE FOUND:")
-                self.logger.info(f"  Query: '{alternative_queries[best_query_idx]}'")
-                self.logger.info(f"  Score: {best_score:.3f}")
-                self.logger.info(f"  Sources: {len(best_result.get('sources', []))}")
-                return best_result
-            else:
-                self.logger.info(f"\nNo successful alternative queries")
-                return None
+            # Fallback to average document scores
+            return sum(r["score"] for r in results[:5]) / min(len(results), 5)
             
         except Exception as e:
-            self.logger.error(f"Speculative reframing failed: {e}")
-            return None
+            self.logger.error(f"Quality assessment failed: {str(e)}")
+            return 0.5
     
-    async def _generate_alternative_queries(self, original_query: str) -> List[str]:
-        """Generate alternative queries using LLM"""
+    async def _generate_reframed_queries(
+        self, 
+        query: str, 
+        quality_score: float, 
+        initial_rag_result: Dict[str, Any]
+    ) -> List[str]:
+        """Generate reframed queries using LangChain"""
         try:
-            prompt = f"""
-            The original query "{original_query}" didn't retrieve high-quality results.
-            Generate 2-3 alternative queries that might find better information:
+            # Identify quality issues from RAG result
+            quality_issues = self._analyze_rag_quality_issues(initial_rag_result)
             
-            1. A more specific version
-            2. A broader conceptual version  
-            3. A query using different terminology
+            # Generate reframed queries
+            response = await self.query_reframing_chain.arun(
+                query=query,
+                quality_score=quality_score,
+                quality_issues=quality_issues
+            )
             
-            Return only the alternative queries, one per line.
-            """
+            # Parse queries from response
+            queries = []
+            for line in response.split("\n"):
+                if line.startswith("QUERY:"):
+                    query = line.replace("QUERY:", "").strip()
+                    # Filter out placeholder queries like {query_alternative_1}
+                    if not (query.startswith("{") and query.endswith("}")):
+                        queries.append(query)
             
-            self.logger.info("\n" + "-"*250)
-            self.logger.info("LLM QUERY GENERATION")
-            self.logger.info("-"*250)
-            self.logger.info("PROMPT:")
-            self.logger.info(prompt.strip())
-            self.logger.info("-"*250)
+            # If no valid queries from QUERY: format, try to parse the response differently
+            if not queries:
+                lines = [line.strip() for line in response.split("\n") if line.strip()]
+                for line in lines:
+                    # Skip numbered items, empty lines, or placeholder templates
+                    if (line and 
+                        not line.startswith(("1.", "2.", "3.", "#", "QUERY:", "Alternative")) and
+                        not (line.startswith("{") and line.endswith("}")) and
+                        len(line) > 10):  # Reasonable query length
+                        queries.append(line)
+                        if len(queries) >= 3:  # Limit to 3
+                            break
             
-            response = self.llm_client.generate(prompt)
+            queries = queries[:3]  # Ensure we limit to 3 queries
             
-            self.logger.info("LLM RESPONSE:")
-            self.logger.info(response.strip())
-            self.logger.info("-"*250)
-            
-            queries = [q.strip() for q in response.split('\n') if q.strip() and not q.startswith('#')]
-            parsed_queries = queries[:3]  # Limit to 3 alternatives
-            
-            self.logger.info(f"PARSED QUERIES ({len(parsed_queries)}):")
-            for i, q in enumerate(parsed_queries, 1):
+            self.logger.info(f"Generated {len(queries)} reframed queries")
+            for i, q in enumerate(queries, 1):
                 self.logger.info(f"  {i}. {q}")
             
-            return parsed_queries
+            return queries
             
         except Exception as e:
-            self.logger.error(f"Alternative query generation failed: {e}")
+            self.logger.error(f"Query reframing failed: {str(e)}")
             return []
     
-    def _merge_results(
+    async def _parallel_retrieval_with_scoring(
         self, 
-        initial_results: Dict[str, Any], 
-        reframed_results: Dict[str, Any]
+        queries: List[str], 
+        course_id: str,
+        original_query: str
     ) -> Dict[str, Any]:
-        """Merge and deduplicate results from multiple retrievals"""
+        """Perform parallel retrieval and find best alternative (like legacy)"""
+        self.logger.info(f"\nPerforming parallel retrieval for {len(queries)} alternative queries:")
+        for i, q in enumerate(queries, 1):
+            self.logger.info(f"  {i}. '{q}'")
         
-        initial_sources = initial_results.get('sources', [])
-        reframed_sources = reframed_results.get('sources', [])
+        # Perform parallel retrieval
+        tasks = [
+            perform_rag_retrieval(self.rag_service, q, course_id, self.logger)
+            for q in queries
+        ]
         
-        # Simple deduplication by content similarity
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Find best alternative (matching legacy logic)
+        best_result = None
+        best_score = 0.0
+        best_query_idx = -1
+        
+        self.logger.info("\nEvaluating alternative query results:")
+        for i, (result, query) in enumerate(zip(results, queries)):
+            if isinstance(result, dict) and result.get('success'):
+                # Convert to RetrievalResult format and use chain for quality assessment
+                alternative_results = self._convert_rag_to_retrieval_results(result)
+                score = await self._assess_quality_with_chain(original_query, alternative_results)
+                sources_count = len(result.get('sources', []))
+                self.logger.info(f"  Alternative {i+1}: Score={score:.3f}, Sources={sources_count}")
+                
+                if score > best_score:
+                    best_score = score
+                    best_result = result
+                    best_query_idx = i
+            else:
+                self.logger.info(f"  Alternative {i+1}: FAILED")
+        
+        if best_result:
+            self.logger.info(f"\nBEST ALTERNATIVE FOUND:")
+            self.logger.info(f"  Query: '{queries[best_query_idx]}'")
+            self.logger.info(f"  Score: {best_score:.3f}")
+            self.logger.info(f"  Sources: {len(best_result.get('sources', []))}")
+            # Add the query that produced the best result for tracking
+            best_result['query'] = queries[best_query_idx]
+            return best_result
+        else:
+            self.logger.info(f"\nNo successful alternative queries")
+            return None
+    
+    def _merge_rag_results(
+        self, 
+        initial_result: Dict[str, Any], 
+        alternative_result: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Merge RAG results (matching legacy logic)"""
+        initial_sources = initial_result.get('sources', [])
+        alternative_sources = alternative_result.get('sources', [])
+        
+        # Simple deduplication by content similarity (like legacy)
         merged_sources = initial_sources.copy()
         
-        for new_source in reframed_sources:
+        for new_source in alternative_sources:
             new_content = new_source.get('content', '')
             is_duplicate = False
             
             for existing_source in merged_sources:
                 existing_content = existing_source.get('content', '')
-                # Simple overlap check
+                # Simple overlap check (like legacy)
                 if len(set(new_content.split()) & set(existing_content.split())) > len(new_content.split()) * 0.7:
                     is_duplicate = True
                     break
@@ -343,122 +437,39 @@ class RetrieveAgent(BaseAgent):
         # Return merged result
         return {
             "success": True,
-            "answer": reframed_results.get('answer', initial_results.get('answer')),
+            "answer": alternative_result.get('answer', initial_result.get('answer')),
             "sources": merged_sources
         }
     
-    def _format_for_agents(self, rag_result: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Format RAG results for downstream agent consumption"""
-        
-        if not rag_result or not rag_result.get('success'):
-            return []
-        
+    def _analyze_rag_quality_issues(self, rag_result: Dict[str, Any]) -> str:
+        """Analyze what's wrong with RAG retrieval results"""
+        issues = []
         sources = rag_result.get('sources', [])
-        formatted_results = []
         
-        for i, source in enumerate(sources):
-            formatted_item = {
-                "index": i,
-                "content": source.get('content', ''),
-                "score": source.get('score', 0.0),
-                "source": source.get('metadata', {})
-            }
-            formatted_results.append(formatted_item)
+        if len(sources) < self.min_results_count:
+            issues.append(f"Too few results ({len(sources)} < {self.min_results_count})")
         
-        return formatted_results
-    
-    def _log_retrieved_chunks(self, chunks: List[Dict[str, Any]], strategy: str):
-        """Log retrieved chunks in a clean, organized format"""
-        if not chunks:
-            self.logger.info("No chunks retrieved")
-            return
+        if sources:
+            # Calculate average score
+            scores = []
+            for source in sources[:5]:
+                score = source.get('score', 0)
+                if score and score != 'N/A':
+                    try:
+                        scores.append(float(score))
+                    except (ValueError, TypeError):
+                        continue
             
-        self.logger.info(f"Retrieved {len(chunks)} chunks using {strategy}:")
-        for chunk in chunks:
-            score = chunk.get('score', 0.0)
-            # Handle the score properly - it might be 'N/A', None, or a number
-            if score == 'N/A' or score is None:
-                score_display = "N/A"
-            else:
-                try:
-                    score_float = float(score)
-                    score_display = f"{score_float:.3f}"
-                except (ValueError, TypeError):
-                    score_display = "N/A"
+            if scores:
+                avg_score = sum(scores) / len(scores)
+                if avg_score < 0.5:
+                    issues.append(f"Low average relevance score ({avg_score:.2f})")
             
-            content_preview = chunk.get('content', '')
-            self.logger.info(f"   • Similarity: {score_display} | {content_preview}")
+            # Check content diversity
+            contents = [s.get('content', '')[:100] for s in sources[:5]]
+            if len(set(contents)) < 3:
+                issues.append("Low content diversity - results too similar")
+        
+        return "; ".join(issues) if issues else "General low relevance"
     
-    async def _debug_course_chunks(self, course_id: str, actual_query: str = None):
-        """Debug: Show first 3 chunks from this course with similarity scores"""
-        try:
-            if not self.rag_service:
-                self.logger.info(f"DEBUG: No RAG service available for course {course_id}")
-                return
-                
-            # Get the vector client directly to query raw chunks
-            vector_client = getattr(self.rag_service, 'vector_client', None)
-            if not vector_client:
-                self.logger.info(f"DEBUG: No vector client available for course {course_id}")
-                return
-                
-            # Query for any 3 documents from this course (no similarity filtering)
-            try:
-                # First, get any chunks to show they exist
-                raw_results = vector_client.similarity_search(
-                    query="course content", 
-                    k=3, 
-                    filter={"course_id": course_id}
-                )
-                
-                if raw_results:
-                    self.logger.info(f"DEBUG: Found {len(raw_results)} chunks in course {course_id}")
-                    
-                    # If we have the actual query, show similarity scores with that query
-                    if actual_query:
-                        try:
-                            scored_results = vector_client.similarity_search_with_score(
-                                query=actual_query,
-                                k=3,
-                                filter={"course_id": course_id}
-                            )
-                            
-                            self.logger.info(f"DEBUG: Similarity scores for query '{actual_query[:50]}...':")
-                            for i, (doc, score) in enumerate(scored_results, 1):
-                                content_preview = doc.page_content
-                                metadata = doc.metadata or {}
-                                chunk_id = metadata.get('chunk_index', 'unknown')
-                                self.logger.info(f"   {i}. Chunk {chunk_id} | Score: {score:.4f} | {content_preview}")
-                                
-                        except Exception as score_error:
-                            self.logger.error(f"DEBUG: Error getting similarity scores: {score_error}")
-                            # Fallback to showing chunks without scores
-                            for i, doc in enumerate(raw_results, 1):
-                                content_preview = doc.page_content
-                                metadata = doc.metadata or {}
-                                chunk_id = metadata.get('chunk_index', 'unknown')
-                                self.logger.info(f"   {i}. Chunk {chunk_id}: {content_preview}")
-                    else:
-                        # Just show the chunks without scores
-                        for i, doc in enumerate(raw_results, 1):
-                            content_preview = doc.page_content[:80] + '...' if len(doc.page_content) > 80 else doc.page_content
-                            metadata = doc.metadata or {}
-                            chunk_id = metadata.get('chunk_index', 'unknown')
-                            self.logger.info(f"   {i}. Chunk {chunk_id}: {content_preview}")
-                else:
-                    self.logger.info(f"DEBUG: No chunks found in course {course_id} database")
-                    
-            except Exception as search_error:
-                self.logger.error(f"DEBUG: Error searching course {course_id}: {search_error}")
-                
-        except Exception as e:
-            self.logger.error(f"DEBUG: Failed to debug course chunks: {e}")
 
-    def get_agent_metrics(self) -> Dict[str, Any]:
-        """Get retrieval-specific metrics"""
-        base_metrics = self.get_metrics()
-        return {
-            **base_metrics,
-            "retrieval_strategy_distribution": getattr(self, '_strategy_stats', {}),
-            "average_quality_score": getattr(self, '_avg_quality', 0.0)
-        } 
