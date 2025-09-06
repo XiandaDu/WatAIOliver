@@ -437,7 +437,7 @@ export default function AdminPage() {
 
       if (uploadResponse.ok) {
         const uploadData = await uploadResponse.json();
-        console.log("RAG upload completed successfully:", uploadData);
+        // console.log("RAG upload completed successfully:", uploadData);
 
         // Update document metadata with custom titles and terms
         for (let i = 0; i < uploadData.results.length; i++) {

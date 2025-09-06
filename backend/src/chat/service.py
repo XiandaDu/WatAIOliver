@@ -29,32 +29,38 @@ from machine_learning.rag_system.app.config import get_settings
 
 BASE_URL = ServiceConfig.NEBULA_BASE_URL
 
+
 def get_custom_model_api_key(course_id: str, model_name: str) -> Optional[str]:
     """Get API key for a custom model in a specific course."""
     if not course_id or not model_name.startswith("custom-"):
         return None
-    
+
     try:
         from src.course.CRUD import get_course
+
         course = get_course(course_id)
         if not course:
             return None
-        
-        custom_models = course.get('custom_models', []) or []
+
+        custom_models = course.get("custom_models", []) or []
         custom_model_name = model_name.replace("custom-", "")
-        
+
         for model in custom_models:
-            if model.get('name') == custom_model_name:
-                return model.get('api_key')
-        
+            if model.get("name") == custom_model_name:
+                return model.get("api_key")
+
         return None
     except Exception as e:
         logger.error(f"Error getting custom model API key: {e}")
         return None
 
+
 def generate(data: ChatRequest) -> str:
-    response = requests.post(f"{BASE_URL}/generate", data={"prompt": data.prompt, "reasoning": True})
+    response = requests.post(
+        f"{BASE_URL}/generate", data={"prompt": data.prompt, "reasoning": True}
+    )
     return response.json().get("result", "No result returned")
+
 
 def generate_vision(prompt: str, image_path: str, fast: bool = False) -> str:
     with open(image_path, "rb") as img:
@@ -62,6 +68,7 @@ def generate_vision(prompt: str, image_path: str, fast: bool = False) -> str:
         data = {"prompt": prompt, "fast": str(fast).lower()}
         response = requests.post(f"{BASE_URL}/generate_vision", data=data, files=files)
     return response.json().get("result", "No result returned")
+
 
 def nebula_text_endpoint(data: ChatRequest) -> str:
     """
@@ -73,32 +80,34 @@ def nebula_text_endpoint(data: ChatRequest) -> str:
     Returns:
         str: The generated text from the API.
     """
-    
+
     # Build conversation context if conversation_id is provided
     conversation_context = ""
     if data.conversation_id:
         try:
             messages = get_messages(data.conversation_id)
-            
+
             if messages and len(messages) > 1:  # More than just the current message
                 # Build conversation history (last 10 messages to avoid token limits)
                 recent_messages = messages[-10:] if len(messages) > 10 else messages
                 conversation_parts = []
-                
-                for msg in recent_messages[:-1]:  # Exclude the current message being processed
-                    role = "User" if msg['sender'] == 'user' else "Assistant"
+
+                for msg in recent_messages[
+                    :-1
+                ]:  # Exclude the current message being processed
+                    role = "User" if msg["sender"] == "user" else "Assistant"
                     conversation_parts.append(f"{role}: {msg['content']}")
-                
+
                 if conversation_parts:
                     conversation_context = "\n".join(conversation_parts) + "\n\n"
         except Exception as e:
             logger.error(f"Error loading conversation context: {e}")
-    
+
     # Add file context if provided
     file_context = ""
     if data.file_context:
         file_context = f"File content for reference:\n{data.file_context}\n\n"
-    
+
     # Construct the full prompt with context
     if conversation_context:
         full_prompt = f"{file_context}Previous conversation:\n{conversation_context}User: {data.prompt}\n\nAssistant:"
@@ -109,9 +118,13 @@ def nebula_text_endpoint(data: ChatRequest) -> str:
         "prompt": full_prompt,
         "reasoning": True,
     }
-    
+
     try:
-        response = requests.post(f"{BASE_URL}/generate", request_data, timeout=TimeoutConfig.CHAT_REQUEST_TIMEOUT)
+        response = requests.post(
+            f"{BASE_URL}/generate",
+            request_data,
+            timeout=TimeoutConfig.CHAT_REQUEST_TIMEOUT,
+        )
         if response.status_code == 200:
             return response.json().get("result", "No result returned")
         else:
@@ -120,11 +133,12 @@ def nebula_text_endpoint(data: ChatRequest) -> str:
         logger.error("Connection timeout to UWaterloo server")
         return "Sorry, the AI service is currently unavailable due to network timeout. Please try again later."
     except requests.exceptions.ConnectionError:
-        logger.error("Connection error to UWaterloo server") 
+        logger.error("Connection error to UWaterloo server")
         return "Sorry, the AI service is currently unavailable. Please check your internet connection."
     except Exception as e:
         logger.error(f"Request failed: {e}")
         return f"Error communicating with model: {str(e)}"
+
 
 async def llm_text_endpoint(data: ChatRequest) -> StreamingResponse:
     """Generate a response using a specified LLM client."""
@@ -149,27 +163,26 @@ async def llm_text_endpoint(data: ChatRequest) -> StreamingResponse:
         file_context = f"File content for reference:\n{data.file_context}\n\n"
 
     if conversation_context:
-        full_prompt = (
-            f"{file_context}Previous conversation:\n{conversation_context}User: {data.prompt}\n\nAssistant:"
-        )
+        full_prompt = f"{file_context}Previous conversation:\n{conversation_context}User: {data.prompt}\n\nAssistant:"
     else:
         full_prompt = f"{file_context}User: {data.prompt}\n\nAssistant:"
 
     settings = get_settings()
     model_name = data.model or "qwen-3-235b-a22b-instruct-2507"
-    
+
     # Check if this is a custom model
     custom_api_key = None
     if model_name.startswith("custom-") and data.course_id:
         custom_api_key = get_custom_model_api_key(data.course_id, model_name)
         if not custom_api_key:
             return f"Custom model '{model_name}' not found or API key not available for this course."
-    
+
     try:
+
         async def format_stream_for_sse(stream_generator):
             """
             Convert LLM streaming responses to Server-Sent Events format.
-            
+
             Ensures consistent JSON-encoded chunks and proper error handling.
             """
             full_response = ""
@@ -188,7 +201,6 @@ async def llm_text_endpoint(data: ChatRequest) -> StreamingResponse:
             finally:
                 # Debug output for monitoring response quality
                 logger.debug(f"LLM Response completed: {len(full_response)} chars")
-            
 
         if model_name.startswith("gemini"):
             client = GeminiClient(
@@ -196,19 +208,29 @@ async def llm_text_endpoint(data: ChatRequest) -> StreamingResponse:
                 model=model_name,
                 temperature=ModelConfig.DEFAULT_TEMPERATURE,
             )
-            return StreamingResponse(format_stream_for_sse(client.generate_stream(full_prompt)), media_type="text/event-stream")
-        elif model_name.startswith("gpt") or (model_name.startswith("custom-") and custom_api_key):
+            return StreamingResponse(
+                format_stream_for_sse(client.generate_stream(full_prompt)),
+                media_type="text/event-stream",
+            )
+        elif model_name.startswith("gpt") or (
+            model_name.startswith("custom-") and custom_api_key
+        ):
             # Use custom API key if available, otherwise use default
             api_key = custom_api_key if custom_api_key else settings.openai_api_key
             # For custom models, use a default GPT model
-            actual_model = "gpt-4o-mini" if model_name.startswith("custom-") else model_name
+            actual_model = (
+                "gpt-4o-mini" if model_name.startswith("custom-") else model_name
+            )
             client = OpenAIClient(
                 api_key=api_key,
                 model=actual_model,
                 temperature=0.6,
                 top_p=0.95,
             )
-            return StreamingResponse(format_stream_for_sse(client.generate_stream(full_prompt)), media_type="text/event-stream")
+            return StreamingResponse(
+                format_stream_for_sse(client.generate_stream(full_prompt)),
+                media_type="text/event-stream",
+            )
         elif model_name.startswith("claude"):
             client = AnthropicClient(
                 api_key=settings.anthropic_api_key,
@@ -216,7 +238,10 @@ async def llm_text_endpoint(data: ChatRequest) -> StreamingResponse:
                 temperature=0.6,
                 top_p=0.95,
             )
-            return StreamingResponse(format_stream_for_sse(client.generate_stream(full_prompt)), media_type="text/event-stream")
+            return StreamingResponse(
+                format_stream_for_sse(client.generate_stream(full_prompt)),
+                media_type="text/event-stream",
+            )
         elif model_name.startswith("qwen") or model_name.startswith("cerebras"):
             client = CerebrasClient(
                 api_key=settings.cerebras_api_key,
@@ -224,21 +249,27 @@ async def llm_text_endpoint(data: ChatRequest) -> StreamingResponse:
                 temperature=0.6,
                 top_p=0.95,
             )
-            return StreamingResponse(format_stream_for_sse(client.generate_stream(full_prompt)), media_type="text/event-stream")
+            return StreamingResponse(
+                format_stream_for_sse(client.generate_stream(full_prompt)),
+                media_type="text/event-stream",
+            )
         else:
             client = GeminiClient(
                 api_key=settings.google_api_key,
                 model=model_name,
                 temperature=ModelConfig.DEFAULT_TEMPERATURE,
             )
-            return StreamingResponse(format_stream_for_sse(client.generate_stream(full_prompt)), media_type="text/event-stream")
+            return StreamingResponse(
+                format_stream_for_sse(client.generate_stream(full_prompt)),
+                media_type="text/event-stream",
+            )
     except Exception as e:
         logger.error(f"LLM generation failed: {e}")
         return f"Error communicating with model: {str(e)}"
 
+
 def open_ask(data: ConversationCreate):
     pass
-
 
 
 async def get_most_recent_user_query(conversation_id: str) -> Optional[str]:
@@ -248,21 +279,27 @@ async def get_most_recent_user_query(conversation_id: str) -> Optional[str]:
     """
     try:
         messages = get_messages(conversation_id)
-        
+
         # Filter for user messages and get the most recent one
-        user_messages = [msg for msg in messages if msg.get('sender') == 'user']
-        
+        user_messages = [msg for msg in messages if msg.get("sender") == "user"]
+
         if user_messages:
             # Messages are ordered by created_at, so take the last one
             most_recent = user_messages[-1]
-            return most_recent.get('content', '')
-        
+            return most_recent.get("content", "")
+
         return None
     except Exception as e:
         logger.error(f"Error getting recent user query: {e}")
         return None
 
-async def query_rag_system(conversation_id: str, question: str, course_id: Optional[str] = None, rag_model: Optional[str] = None) -> Optional[Dict[str, Any]]:
+
+async def query_rag_system(
+    conversation_id: str,
+    question: str,
+    course_id: Optional[str] = None,
+    rag_model: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
     """
     Query the RAG system for relevant information based on the user's question.
     """
@@ -271,59 +308,66 @@ async def query_rag_system(conversation_id: str, question: str, course_id: Optio
             target_course_id = course_id
         else:
             from src.course.CRUD import get_all_courses
+
             courses = get_all_courses()
             if not courses:
                 return None
-                
-            target_course_id = str(courses[0]['course_id'])
+
+            target_course_id = str(courses[0]["course_id"])
         async with httpx.AsyncClient(timeout=TimeoutConfig.RAG_QUERY_TIMEOUT) as client:
             rag_payload = {
-                'course_id': target_course_id,
-                'question': question,
+                "course_id": target_course_id,
+                "question": question,
             }
             if rag_model:
-                rag_payload['embedding_model'] = rag_model
+                rag_payload["embedding_model"] = rag_model
 
-            
             response = await client.post(
-                f'http://{ServiceConfig.LOCALHOST}:{ServiceConfig.RAG_SYSTEM_PORT}/ask',
-                json=rag_payload
+                f"http://{ServiceConfig.LOCALHOST}:{ServiceConfig.RAG_SYSTEM_PORT}/ask",
+                json=rag_payload,
             )
 
             if response.status_code == 200:
                 return response.json()
             else:
-                logger.error(f"RAG system returned {response.status_code}: {response.text}")
+                logger.error(
+                    f"RAG system returned {response.status_code}: {response.text}"
+                )
                 return None
-    
+
     except Exception as e:
         logger.error(f"Error querying RAG system: {e}")
         return None
 
-def enhance_prompt_with_rag_context(original_prompt: str, rag_result: Optional[Dict[str, Any]]) -> str:
+
+def enhance_prompt_with_rag_context(
+    original_prompt: str, rag_result: Optional[Dict[str, Any]]
+) -> str:
     """
     Enhance the original prompt with context from RAG system if available.
     """
-    if not rag_result or not rag_result.get('success'):
+    if not rag_result or not rag_result.get("success"):
         return original_prompt
-    
-    answer = rag_result.get('answer', '')
-    sources = rag_result.get('sources', [])
-    
+
+    answer = rag_result.get("answer", "")
+    sources = rag_result.get("sources", [])
+
     # Build context from actual document content
     document_context = ""
     if sources:
         document_context = "Relevant document content:\n\n"
         for i, source in enumerate(sources, 1):
-            content = source.get('content', '')
-            score = source.get('score', 0)
+            content = source.get("content", "")
+            score = source.get("score", 0)
             # Convert score to float if it's a string
             try:
                 score_float = float(score)
             except (ValueError, TypeError):
                 score_float = 0.0
-            document_context += f"Document {i} (relevance: {score_float:.3f}):\n{content}\n\n"
-    
+            document_context += (
+                f"Document {i} (relevance: {score_float:.3f}):\n{content}\n\n"
+            )
+
     # Create enhanced prompt with actual document content
     enhanced_prompt = f"""You are an educational assistant helping students understand course materials. You have access to relevant information from course documents.
 
@@ -364,68 +408,79 @@ COMMON MISTAKES TO AVOID:
 "$[\pi, 3\pi]$" (proper LaTeX syntax)
 
 TASK: Transform the retrieved content into clean markdown with proper LaTeX math formatting. NO diagrams, NO Mermaid, NO HTML."""
-    
+
     print("=== DEBUG RAG PROMPT ===")
     print("ORIGINAL PROMPT:", original_prompt)
-    print("ENHANCED PROMPT:", enhanced_prompt[-500:])  # Last 500 chars to see instructions
+    print(
+        "ENHANCED PROMPT:", enhanced_prompt[-500:]
+    )  # Last 500 chars to see instructions
     print("======================")
-    
+
     return enhanced_prompt
+
 
 async def generate_standard_rag_response(data: ChatRequest) -> StreamingResponse:
     """Generate a response using RAG with course-specific prompt."""
     if not data.course_id:
+
         async def error_generator():
             yield b"RAG model requires a course selection to access the knowledge base."
+
         return StreamingResponse(error_generator(), media_type="text/plain")
-    
+
     try:
         from src.course.CRUD import get_course
+
         course = get_course(data.course_id)
-        
+
         if not course:
+
             async def error_generator():
                 yield b"Course not found. Please select a valid course."
+
             return StreamingResponse(error_generator(), media_type="text/plain")
-        
+
         # Query RAG system for relevant context
         rag_result = await query_rag_system(
-            data.conversation_id or "",
-            data.prompt,
-            data.course_id,
-            data.rag_model
+            data.conversation_id or "", data.prompt, data.course_id, data.rag_model
         )
-        
+
         # Get course-specific prompt or use default
-        system_prompt = course.get('prompt') or "You are a helpful educational assistant."
-        
+        system_prompt = (
+            course.get("prompt") or "You are a helpful educational assistant."
+        )
+
         # Build enhanced prompt with RAG context
         enhanced_prompt = enhance_prompt_with_rag_context(data.prompt, rag_result)
-        
+
         # Create modified ChatRequest with enhanced prompt and system context
         modified_data = ChatRequest(
             prompt=f"System: {system_prompt}\n\n{enhanced_prompt}",
             conversation_id=data.conversation_id,
             file_context=data.file_context,
             model=data.model or "qwen-3-235b-a22b-instruct-2507",
-            course_id=data.course_id
+            course_id=data.course_id,
         )
-        
+
         return await llm_text_endpoint(modified_data)
-        
+
     except Exception as e:
+
         async def error_generator():
-            yield f"Error generating standard response: {str(e)}".encode('utf-8')
+            yield f"Error generating standard response: {str(e)}".encode("utf-8")
+
         return StreamingResponse(error_generator(), media_type="text/plain")
+
 
 async def generate_response(data: ChatRequest) -> StreamingResponse:
     """Generate response using daily (RAG) or rag (Multi-agent) systems"""
-    
+
     mode = data.mode or "daily"
     # Log to ai_agents for Problem-Solving mode
     if mode == "rag":
         import logging
-        ai_agents_logger = logging.getLogger("ai_agents.streaming") 
+
+        ai_agents_logger = logging.getLogger("ai_agents.streaming")
         ai_agents_logger.info(f"\n=== GENERATE_RESPONSE CALLED ===")
         ai_agents_logger.info(f"Mode: {mode}")
         ai_agents_logger.info(f"Course ID: {data.course_id}")
@@ -435,29 +490,31 @@ async def generate_response(data: ChatRequest) -> StreamingResponse:
         print(f"Mode: {mode}")
         print(f"Course ID: {data.course_id}")
         print(f"Prompt: {data.prompt[:100]}")  # First 100 chars
-    
+
     async def generate_chunks():
         if mode == "daily":
             streaming_response = await generate_standard_rag_response(data)
             async for chunk in streaming_response.body_iterator:
                 yield chunk
-        
+
         elif mode == "rag":
             if not data.course_id:
                 # Send error as content chunk like daily mode
                 error_msg = "Agent System requires a course selection to identify the knowledge base."
-                yield f"data: {json.dumps({'content': error_msg})}\n\n".encode('utf-8')
+                yield f"data: {json.dumps({'content': error_msg})}\n\n".encode("utf-8")
                 return
 
             try:
                 # Get course prompt for agents system
                 from src.course.CRUD import get_course
+
                 course = get_course(data.course_id)
-                course_prompt = course.get('prompt') if course else None
-                
+                course_prompt = course.get("prompt") if course else None
+
                 # Collect the full response from agents system
                 full_response = ""
                 import logging
+
                 ai_agents_logger = logging.getLogger("ai_agents.streaming")
                 ai_agents_logger.info("\n=== AGENT SYSTEM START ===")
                 chunk_count = 0
@@ -472,62 +529,81 @@ async def generate_response(data: ChatRequest) -> StreamingResponse:
                 ):
                     chunk_count += 1
                     ai_agents_logger.info(f"=== AGENT CHUNK {chunk_count} RECEIVED ===")
-                    ai_agents_logger.info(f"Chunk type: {chunk.get('status', 'unknown')}")
+                    ai_agents_logger.info(
+                        f"Chunk type: {chunk.get('status', 'unknown')}"
+                    )
                     ai_agents_logger.info(f"Chunk keys: {chunk.keys()}")
                     ai_agents_logger.info(f"Raw chunk: {str(chunk)[:200]}")
-                    
+
                     # If it's an error, yield and stop
-                    if not chunk.get('success', True):
-                        error_msg = chunk.get('error', {}).get('message', "An unexpected error occurred.")
+                    if not chunk.get("success", True):
+                        error_msg = chunk.get("error", {}).get(
+                            "message", "An unexpected error occurred."
+                        )
                         ai_agents_logger.error(f"ERROR: {error_msg}")
-                        yield f"data: {json.dumps({'content': f'Error: {error_msg}'})}\n\n".encode('utf-8')
+                        yield f"data: {json.dumps({'content': f'Error: {error_msg}'})}\n\n".encode(
+                            "utf-8"
+                        )
                         return
-                    
+
                     # Handle streaming content chunks
-                    if chunk.get('success') and chunk.get('answer') and chunk.get('is_streaming'):
+                    if (
+                        chunk.get("success")
+                        and chunk.get("answer")
+                        and chunk.get("is_streaming")
+                    ):
                         ai_agents_logger.info("=== STREAMING CHUNK RECEIVED ===")
-                        answer = chunk.get('answer', {})
-                        
+                        answer = chunk.get("answer", {})
+
                         # Get the streaming content and send it directly to frontend
-                        streaming_content = answer.get('step_by_step_solution', '')
+                        streaming_content = answer.get("step_by_step_solution", "")
                         if streaming_content:
-                            ai_agents_logger.debug(f"Sending streaming content: {repr(streaming_content[:50])}...")
-                            chunk_json = json.dumps({'content': streaming_content})
-                            yield f"data: {chunk_json}\n\n".encode('utf-8')
-                    
+                            ai_agents_logger.debug(
+                                f"Sending streaming content: {repr(streaming_content[:50])}..."
+                            )
+                            chunk_json = json.dumps({"content": streaming_content})
+                            yield f"data: {chunk_json}\n\n".encode("utf-8")
+
                     # Handle final completion signal (no additional content)
-                    elif chunk.get('status') == 'complete':
+                    elif chunk.get("status") == "complete":
                         ai_agents_logger.info("=== STREAMING COMPLETE ===")
                         break
-                    elif chunk.get('status') == 'in_progress':
+                    elif chunk.get("status") == "in_progress":
                         # Just log progress, don't send to frontend
-                        ai_agents_logger.debug(f"Agent progress: {chunk.get('stage')} - {chunk.get('message')}")
+                        ai_agents_logger.debug(
+                            f"Agent progress: {chunk.get('stage')} - {chunk.get('message')}"
+                        )
                     else:
                         ai_agents_logger.warning(f"=== UNHANDLED CHUNK TYPE ===")
-                        ai_agents_logger.warning(f"Chunk success: {chunk.get('success')}")
+                        ai_agents_logger.warning(
+                            f"Chunk success: {chunk.get('success')}"
+                        )
                         ai_agents_logger.warning(f"Has answer: {'answer' in chunk}")
                         ai_agents_logger.warning(f"Has status: {'status' in chunk}")
-                
-                ai_agents_logger.info(f"=== AGENT LOOP FINISHED: {chunk_count} chunks processed ===")
-                
+
+                ai_agents_logger.info(
+                    f"=== AGENT LOOP FINISHED: {chunk_count} chunks processed ==="
+                )
+
                 # Streaming implementation complete - content streamed in real-time above
-            
+
             except Exception as e:
                 # Send error as content chunk like daily mode
                 ai_agents_logger.error(f"=== EXCEPTION IN AGENT SYSTEM ===")
                 ai_agents_logger.error(f"Exception: {str(e)}")
                 ai_agents_logger.error(f"Exception type: {type(e)}")
                 import traceback
+
                 ai_agents_logger.error(f"Traceback: {traceback.format_exc()}")
                 error_msg = f"The Agent System is currently unavailable. Please try again later.\n\nTechnical details: {str(e)}"
-                yield f"data: {json.dumps({'content': error_msg})}\n\n".encode('utf-8')
-        
+                yield f"data: {json.dumps({'content': error_msg})}\n\n".encode("utf-8")
+
         else:
             # Send error as content chunk like daily mode
             error_msg = f"Unknown mode '{mode}'. Please select 'daily' for Daily mode or 'rag' for Problem Solving mode."
-            yield f"data: {json.dumps({'content': error_msg})}\n\n".encode('utf-8')
-            
-    # Log to ai_agents for Problem-Solving mode  
+            yield f"data: {json.dumps({'content': error_msg})}\n\n".encode("utf-8")
+
+    # Log to ai_agents for Problem-Solving mode
     if mode == "rag":
         ai_agents_logger.info(f"=== RETURNING STREAMING RESPONSE ===")
         ai_agents_logger.info(f"Mode: {mode}")
@@ -536,20 +612,23 @@ async def generate_response(data: ChatRequest) -> StreamingResponse:
         print(f"Mode: {mode}")
     return StreamingResponse(generate_chunks(), media_type="text/event-stream")
 
+
 def _format_agents_response_with_debug(result: Dict[str, Any]) -> str:
     """Format agents response with optional debug information"""
-    answer_data = result.get('answer', {})
+    answer_data = result.get("answer", {})
     formatted_answer = format_agents_response(answer_data)
-    
-    debug_info = result.get('debug_info', {})
+
+    debug_info = result.get("debug_info", {})
     if debug_info:
         debug_summary = f"\n\n**Reasoning Process:**"
         debug_summary += f"\n- Debate Status: {result.get('metadata', {}).get('debate_status', 'unknown')}"
         debug_summary += f"\n- Debate Rounds: {result.get('metadata', {}).get('debate_rounds', 'unknown')}"
         debug_summary += f"\n- Quality Score: {result.get('metadata', {}).get('convergence_score', 'unknown'):.3f}"
-        debug_summary += f"\n- Context Items: {debug_info.get('context_items', 'unknown')}"
+        debug_summary += (
+            f"\n- Context Items: {debug_info.get('context_items', 'unknown')}"
+        )
         formatted_answer += debug_summary
-    
+
     return formatted_answer
 
 
@@ -563,18 +642,18 @@ async def query_agents_system(
     course_prompt: Optional[str] = None,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """Query the multi-agent system with optional model overrides"""
-    
+
     print(f"=== QUERY_AGENTS_SYSTEM CALLED ===")
     print(f"Course ID: {course_id}")
     print(f"Query: {query[:100]}")
-    
+
     try:
         async with httpx.AsyncClient(timeout=TimeoutConfig.RAG_QUERY_TIMEOUT) as client:
             payload = {
                 "query": query,
                 "course_id": course_id,
                 "session_id": conversation_id,
-                "metadata": {"source": "chat_interface", "base_model": base_model}
+                "metadata": {"source": "chat_interface", "base_model": base_model},
             }
             if rag_model:
                 payload["embedding_model"] = rag_model
@@ -584,19 +663,21 @@ async def query_agents_system(
                 payload["base_model"] = base_model
             if course_prompt:
                 payload["course_prompt"] = course_prompt
-            
+
             print(f"=== CONNECTING TO AGENT SYSTEM ===")
-            print(f"URL: http://{ServiceConfig.LOCALHOST}:{ServiceConfig.AGENTS_SYSTEM_PORT}/query")
+            print(
+                f"URL: http://{ServiceConfig.LOCALHOST}:{ServiceConfig.AGENTS_SYSTEM_PORT}/query"
+            )
             print(f"Payload: {payload}")
-            
+
             async with client.stream(
                 "POST",
-                f'http://{ServiceConfig.LOCALHOST}:{ServiceConfig.AGENTS_SYSTEM_PORT}/query',
+                f"http://{ServiceConfig.LOCALHOST}:{ServiceConfig.AGENTS_SYSTEM_PORT}/query",
                 json=payload,
-                headers={'Accept': 'text/event-stream'}
+                headers={"Accept": "text/event-stream"},
             ) as response:
                 print(f"=== AGENT RESPONSE STATUS: {response.status_code} ===")
-                response.raise_for_status() # Raise an exception for HTTP errors
+                response.raise_for_status()  # Raise an exception for HTTP errors
                 print(f"=== STARTING TO READ AGENT CHUNKS ===")
                 chunk_count = 0
                 async for chunk in response.aiter_bytes():
@@ -606,29 +687,37 @@ async def query_agents_system(
                     # Decode each chunk and yield as dictionary
                     # Assuming the agent system sends valid JSON chunks as text/event-stream
                     try:
-                        decoded_chunk = chunk.decode('utf-8').strip()
+                        decoded_chunk = chunk.decode("utf-8").strip()
                         print(f"Decoded chunk: {decoded_chunk[:200]}")
-                        
+
                         # The agent system sends raw JSON, not SSE format
                         if decoded_chunk:
                             print(f"Parsing raw JSON from agent system")
                             yield json.loads(decoded_chunk)
                     except json.JSONDecodeError as e:
                         print(f"JSON decode error: {e} - Chunk: {decoded_chunk}")
-                        logger.error(f"JSON decode error in agent stream: {e} - Chunk: {decoded_chunk}")
+                        logger.error(
+                            f"JSON decode error in agent stream: {e} - Chunk: {decoded_chunk}"
+                        )
                         # Yield an error chunk or handle as appropriate
-                        yield {'success': False, 'error': {'type': 'parsing_error', 'message': f'Failed to parse agent response chunk: {e}'}}
-                
+                        yield {
+                            "success": False,
+                            "error": {
+                                "type": "parsing_error",
+                                "message": f"Failed to parse agent response chunk: {e}",
+                            },
+                        }
+
                 print(f"=== FINISHED READING AGENT CHUNKS: {chunk_count} total ===")
-    
+
     except Exception as e:
         logger.error(f"Failed to connect to Agents service: {str(e)}")
         yield {
-            'success': False,
-            'error': {
-                'type': 'connection_error',
-                'message': f'Failed to connect to Agents service: {str(e)}'
-            }
+            "success": False,
+            "error": {
+                "type": "connection_error",
+                "message": f"Failed to connect to Agents service: {str(e)}",
+            },
         }
 
 
@@ -645,18 +734,20 @@ async def query_agents_system_streaming(
 
     # Create ai_agents logger for proper logging location
     import logging
+
     ai_agents_logger = logging.getLogger("ai_agents.streaming")
     ai_agents_logger.setLevel(logging.INFO)
-    
+
     ai_agents_logger.info(f"=== CEREBRAS STREAMING QUERY_AGENTS_SYSTEM CALLED ===")
     ai_agents_logger.info(f"Course ID: {course_id}")
     ai_agents_logger.info(f"Query: {query[:100]}")
-    
+
     try:
         # Import here to avoid circular imports
         import sys
-        sys.path.append('/home/chloe_wei/WatAIOliver/machine_learning')
-        
+
+        sys.path.append("/home/chloe_wei/WatAIOliver/machine_learning")
+
         from ai_agents.orchestrator import MultiAgentOrchestrator
         from ai_agents.config import SpeculativeAIConfig
         from rag_system.llm_clients.cerebras_client import CerebrasClient
@@ -664,19 +755,19 @@ async def query_agents_system_streaming(
         from rag_system.llm_clients.openai_client import OpenAIClient
         from rag_system.llm_clients.anthropic_client import AnthropicClient
         from rag_system.app.config import get_settings
-        
+
         # Initialize orchestrator with legitimate RAG service
         config = SpeculativeAIConfig()
-        
+
         # Get RAG settings first
         rag_settings = get_settings()
-        
+
         # Create appropriate LLM client based on model (same logic as daily mode)
         model_name = base_model or "qwen-3-235b-a22b-instruct-2507"
         custom_api_key = None
         if model_name.startswith("custom-") and course_id:
             custom_api_key = get_custom_model_api_key(course_id, model_name)
-        
+
         # Initialize LLM client using same logic as daily mode
         if model_name.startswith("gemini"):
             llm_client = GeminiClient(
@@ -684,9 +775,13 @@ async def query_agents_system_streaming(
                 model=model_name,
                 temperature=0.6,
             )
-        elif model_name.startswith("gpt") or (model_name.startswith("custom-") and custom_api_key):
+        elif model_name.startswith("gpt") or (
+            model_name.startswith("custom-") and custom_api_key
+        ):
             api_key = custom_api_key if custom_api_key else rag_settings.openai_api_key
-            actual_model = "gpt-4o-mini" if model_name.startswith("custom-") else model_name
+            actual_model = (
+                "gpt-4o-mini" if model_name.startswith("custom-") else model_name
+            )
             llm_client = OpenAIClient(
                 api_key=api_key,
                 model=actual_model,
@@ -714,198 +809,220 @@ async def query_agents_system_streaming(
                 model=model_name,
                 temperature=0.6,
             )
-        
-        
+
         # Create a proper RAG service wrapper with required methods
         class RAGServiceWrapper:
             def __init__(self, settings):
                 self.settings = settings
-            
+
             def answer_question(self, course_id: str, question: str, **kwargs):
                 """Answer question using the RAG system via HTTP call (synchronous wrapper)"""
                 import asyncio
                 import concurrent.futures
+
                 try:
                     # Use thread pool to run async code when event loop is already running
                     with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(asyncio.run, self._async_answer_question(course_id, question, **kwargs))
+                        future = executor.submit(
+                            asyncio.run,
+                            self._async_answer_question(course_id, question, **kwargs),
+                        )
                         return future.result(timeout=60)  # 60 second timeout
                 except Exception as e:
                     ai_agents_logger.error(f"Error in synchronous RAG wrapper: {e}")
                     return {"success": False, "error": str(e)}
-            
-            async def _async_answer_question(self, course_id: str, question: str, **kwargs):
+
+            async def _async_answer_question(
+                self, course_id: str, question: str, **kwargs
+            ):
                 """Async implementation of answer_question"""
                 try:
-                    async with httpx.AsyncClient(timeout=TimeoutConfig.RAG_QUERY_TIMEOUT) as client:
+                    async with httpx.AsyncClient(
+                        timeout=TimeoutConfig.RAG_QUERY_TIMEOUT
+                    ) as client:
                         rag_payload = {
-                            'course_id': course_id,
-                            'question': question,
+                            "course_id": course_id,
+                            "question": question,
                         }
-                        
+
                         response = await client.post(
-                            f'http://{ServiceConfig.LOCALHOST}:{ServiceConfig.RAG_SYSTEM_PORT}/ask',
-                            json=rag_payload
+                            f"http://{ServiceConfig.LOCALHOST}:{ServiceConfig.RAG_SYSTEM_PORT}/ask",
+                            json=rag_payload,
                         )
-                        
+
                         if response.status_code == 200:
                             return response.json()
                         else:
-                            ai_agents_logger.error(f"RAG system returned {response.status_code}: {response.text}")
-                            return {"success": False, "error": f"RAG system error: {response.status_code}"}
-                
+                            ai_agents_logger.error(
+                                f"RAG system returned {response.status_code}: {response.text}"
+                            )
+                            return {
+                                "success": False,
+                                "error": f"RAG system error: {response.status_code}",
+                            }
+
                 except Exception as e:
                     ai_agents_logger.error(f"Error querying RAG system: {e}")
                     return {"success": False, "error": str(e)}
-        
+
         rag_service = RAGServiceWrapper(rag_settings)
-        
+
         orchestrator = MultiAgentOrchestrator(
             config=config,
             rag_service=rag_service,
             llm_client=llm_client,
-            logger=ai_agents_logger.getChild("orchestrator")
+            logger=ai_agents_logger.getChild("orchestrator"),
         )
-        
+
         metadata = {
             "source": "chat_interface",
             "base_model": base_model,
-            "streaming_mode": True
+            "streaming_mode": True,
         }
-        
+
         ai_agents_logger.info("=== STARTING CEREBRAS STREAMING ORCHESTRATOR ===")
-        
+
         # Track streaming chunks for conversion to agent system format
         is_streaming_content = False
         accumulated_content = ""
-        
+
         async for chunk in orchestrator.process_query_streaming(
             query=query,
             course_id=course_id,
             session_id=conversation_id,
             metadata=metadata,
             heavy_model=heavy_model,
-            course_prompt=course_prompt
+            course_prompt=course_prompt,
         ):
-            ai_agents_logger.debug(f"=== ORCHESTRATOR CHUNK: {chunk.get('status', 'unknown')} ===")
-            
+            ai_agents_logger.debug(
+                f"=== ORCHESTRATOR CHUNK: {chunk.get('status', 'unknown')} ==="
+            )
+
             if chunk.get("status") == "streaming" and chunk.get("content"):
                 # This is actual Cerebras streaming content
                 if not is_streaming_content:
                     is_streaming_content = True
                     ai_agents_logger.info("=== CEREBRAS CONTENT STREAMING STARTED ===")
-                
+
                 content = chunk["content"]
                 accumulated_content += content
                 ai_agents_logger.debug(f"Streaming chunk: {repr(content[:50])}...")
-                
+
                 # Create a structured answer format that frontend expects (matching non-streaming format)
                 streaming_answer = {
                     "introduction": "",
                     "step_by_step_solution": content,  # Stream the actual content
                     "key_takeaways": "",
-                    "important_notes": ""
+                    "important_notes": "",
                 }
-                
+
                 # Yield the streaming content in the same format as the final response
                 yield {
                     "success": True,
                     "answer": streaming_answer,
-                    "is_streaming": True  # Flag to indicate this is streaming content
+                    "is_streaming": True,  # Flag to indicate this is streaming content
                 }
-                
+
             elif chunk.get("status") == "complete":
                 # Final completion - format as successful agent response
-                ai_agents_logger.info(f"=== STREAMING COMPLETE: {len(accumulated_content)} chars ===")
-                
+                ai_agents_logger.info(
+                    f"=== STREAMING COMPLETE: {len(accumulated_content)} chars ==="
+                )
+
                 # Format the accumulated content as a structured agent response
                 final_answer = {
                     "introduction": "Here's the solution to your problem:",
                     "step_by_step_solution": accumulated_content,
                     "key_takeaways": "This response was generated using Cerebras streaming.",
-                    "important_notes": "Response streamed directly from the agent system."
+                    "important_notes": "Response streamed directly from the agent system.",
                 }
-                
+
                 yield {
                     "success": True,
                     "answer": final_answer,
                     "metadata": chunk.get("metadata", {}),
-                    "processing_time": chunk.get("metadata", {}).get("processing_time", 0)
+                    "processing_time": chunk.get("metadata", {}).get(
+                        "processing_time", 0
+                    ),
                 }
                 break
-                
+
             elif chunk.get("status") == "in_progress":
                 # Forward progress updates
                 yield chunk
-                
+
             elif chunk.get("success") == False:
                 # Handle errors
                 yield chunk
                 break
-    
+
     except Exception as e:
         # Create ai_agents logger for error logging
         import logging
+
         ai_agents_logger = logging.getLogger("ai_agents.streaming")
-        
+
         ai_agents_logger.error(f"=== STREAMING ORCHESTRATOR ERROR ===")
         ai_agents_logger.error(f"Exception: {str(e)}")
         import traceback
+
         ai_agents_logger.error(f"Traceback: {traceback.format_exc()}")
-        
+
         yield {
-            'success': False,
-            'error': {
-                'type': 'streaming_error',
-                'message': f'Failed to query streaming orchestrator: {str(e)}'
-            }
+            "success": False,
+            "error": {
+                "type": "streaming_error",
+                "message": f"Failed to query streaming orchestrator: {str(e)}",
+            },
         }
 
 
 def format_agents_response(answer_data: dict) -> str:
     """Format the structured agents system response for display"""
-    
+
     if not answer_data:
         return "No answer provided by the Speculative AI system."
-    
+
     formatted_sections = []
-    
+
     # Handle different response formats based on debate status
     if "partial_solution" in answer_data:
         # Deadlock format
         formatted_sections.append("## Partial Solution")
         formatted_sections.append(answer_data.get("partial_solution", ""))
-        
+
         if answer_data.get("areas_of_uncertainty"):
             formatted_sections.append("\n## Areas of Uncertainty")
             formatted_sections.append(answer_data["areas_of_uncertainty"])
-        
+
         if answer_data.get("what_we_can_conclude"):
             formatted_sections.append("\n## What We Can Conclude")
             formatted_sections.append(answer_data["what_we_can_conclude"])
-        
+
         if answer_data.get("recommendations_for_further_exploration"):
             formatted_sections.append("\n## Recommendations for Further Exploration")
-            formatted_sections.append(answer_data["recommendations_for_further_exploration"])
-    
+            formatted_sections.append(
+                answer_data["recommendations_for_further_exploration"]
+            )
+
     else:
         # Standard approved format
         if answer_data.get("introduction"):
             formatted_sections.append("## Introduction")
             formatted_sections.append(answer_data["introduction"])
-        
+
         if answer_data.get("step_by_step_solution"):
             formatted_sections.append("\n## Solution")
             formatted_sections.append(answer_data["step_by_step_solution"])
-        
+
         if answer_data.get("key_takeaways"):
             formatted_sections.append("\n## Key Takeaways")
             formatted_sections.append(answer_data["key_takeaways"])
-        
+
         if answer_data.get("important_notes"):
             formatted_sections.append("\n## Important Notes")
             formatted_sections.append(answer_data["important_notes"])
-    
+
     # Add quality indicators
     quality_indicators = answer_data.get("quality_indicators", {})
     if quality_indicators:
@@ -914,230 +1031,408 @@ def format_agents_response(answer_data: dict) -> str:
         context_support = quality_indicators.get("context_support", "unknown")
         formatted_sections.append(f"- Verification Level: {verification_level}")
         formatted_sections.append(f"- Context Support: {context_support}")
-    
+
     # Add sources if available
     sources = answer_data.get("sources", [])
     if sources:
         formatted_sections.append("\n## Sources")
         for i, source in enumerate(sources[:5], 1):  # Limit to 5 sources
             formatted_sections.append(f"{i}. {source}")
-        
-    return "\n".join(formatted_sections) if formatted_sections else "No structured content available."
+
+    return (
+        "\n".join(formatted_sections)
+        if formatted_sections
+        else "No structured content available."
+    )
+
 
 # File Processing Services
 
-async def process_files_for_chat(files: List[UploadFile], conversation_id: str, user_id: str) -> List[Dict[str, Any]]:
+
+async def process_files_for_chat(
+    files: List[UploadFile], conversation_id: str, user_id: str
+) -> List[Dict[str, Any]]:
     """Process files for chat context (not sent to RAG)"""
     results = []
-    
+
     for file in files:
-        filename = file.filename or 'unknown_file'
+        filename = file.filename or "unknown_file"
         file_content = await file.read()
-        
-        if filename.lower().endswith('.pdf'):
+
+        if filename.lower().endswith(".pdf"):
             result = await _process_pdf_for_chat(file_content, filename)
-        elif filename.lower().endswith(('.txt', '.md', '.mdx')):
+        elif filename.lower().endswith((".txt", ".md", ".mdx")):
             result = await _process_text_for_chat(file_content, filename)
+        elif filename.lower().endswith((".tex", ".latex")):
+            result = await _process_latex_for_chat(file_content, filename)
         else:
             result = _create_unsupported_file_result(filename)
-        
+
         results.append(result)
-    
+
     return results
 
-async def process_files_for_rag(files: List[UploadFile], course_id: str, user_id: str, rag_model: Optional[str] = None) -> List[Dict[str, Any]]:
+
+async def process_files_for_rag(
+    files: List[UploadFile],
+    course_id: str,
+    user_id: str,
+    rag_model: Optional[str] = None,
+) -> List[Dict[str, Any]]:
     """Process files for RAG knowledge base"""
     results = []
-    
+
     for file in files:
-        filename = file.filename or 'unknown_file'
+        filename = file.filename or "unknown_file"
         file_content = await file.read()
-        
-        if filename.lower().endswith('.pdf'):
-            result = await _process_pdf_for_rag(file_content, filename, course_id, rag_model)
-        elif filename.lower().endswith(('.txt', '.md', '.mdx')):
-            result = await _process_text_for_rag(file_content, filename, course_id, rag_model)
+
+        if filename.lower().endswith(".pdf"):
+            result = await _process_pdf_for_rag(
+                file_content, filename, course_id, rag_model
+            )
+        elif filename.lower().endswith((".txt", ".md", ".mdx")):
+            result = await _process_text_for_rag(
+                file_content, filename, course_id, rag_model
+            )
+        elif filename.lower().endswith((".tex", ".latex")):
+            result = await _process_latex_for_rag(
+                file_content, filename, course_id, rag_model
+            )
         else:
             result = _create_unsupported_file_result(filename)
-        
+
         results.append(result)
-    
+
     return results
+
 
 async def _process_pdf_for_chat(file_content: bytes, filename: str) -> Dict[str, Any]:
     """Process PDF for chat context"""
     pdf_result = await _process_pdf_file(file_content, filename)
-    
-    if pdf_result.get('success'):
-        markdown_content = pdf_result.get('markdown_content', '')
+
+    if pdf_result.get("success"):
+        markdown_content = pdf_result.get("markdown_content", "")
         return {
-            'filename': filename,
-            'type': 'pdf',
-            'markdown_content': markdown_content,
-            'content_length': len(markdown_content),
-            'status': 'completed'
+            "filename": filename,
+            "type": "pdf",
+            "markdown_content": markdown_content,
+            "content_length": len(markdown_content),
+            "status": "completed",
         }
     else:
         return {
-            'filename': filename,
-            'type': 'pdf',
-            'error': pdf_result.get('error_message', 'PDF processing failed'),
-            'status': 'failed'
+            "filename": filename,
+            "type": "pdf",
+            "error": pdf_result.get("error_message", "PDF processing failed"),
+            "status": "failed",
         }
+
 
 async def _process_text_for_chat(file_content: bytes, filename: str) -> Dict[str, Any]:
     """Process text file for chat context"""
-    text_content = file_content.decode('utf-8')
+    text_content = file_content.decode("utf-8")
     return {
-        'filename': filename,
-        'type': 'text',
-        'text_content': text_content,
-        'content_length': len(text_content),
-        'status': 'completed'
+        "filename": filename,
+        "type": "text",
+        "text_content": text_content,
+        "content_length": len(text_content),
+        "status": "completed",
     }
 
-async def _process_pdf_for_rag(file_content: bytes, filename: str, course_id: str, rag_model: Optional[str]) -> Dict[str, Any]:
+
+async def _process_latex_for_chat(file_content: bytes, filename: str) -> Dict[str, Any]:
+    """Process LaTeX file for chat context"""
+    try:
+        latex_content = file_content.decode("utf-8")
+        processed_content = _convert_latex_to_text(latex_content)
+        return {
+            "filename": filename,
+            "type": "latex",
+            "text_content": processed_content,
+            "content_length": len(processed_content),
+            "status": "completed",
+        }
+    except Exception as e:
+        logger.error(f"Error processing LaTeX file {filename} for chat: {str(e)}")
+        return {
+            "filename": filename,
+            "type": "latex",
+            "error": f"LaTeX processing failed: {str(e)}",
+            "status": "failed",
+        }
+
+
+async def _process_pdf_for_rag(
+    file_content: bytes, filename: str, course_id: str, rag_model: Optional[str]
+) -> Dict[str, Any]:
     """Process PDF for RAG knowledge base"""
     pdf_result = await _process_pdf_file(file_content, filename)
-    
-    if pdf_result.get('success'):
+
+    if pdf_result.get("success"):
         rag_result = await _process_document_with_rag(
-            course_id,
-            pdf_result.get('markdown_content', ''),
-            filename,
-            rag_model
+            course_id, pdf_result.get("markdown_content", ""), filename, rag_model
         )
-        
-        if rag_result.get('success'):
-            document_id = rag_result.get('document_id', filename)
-            markdown_content = pdf_result.get('markdown_content', '')
-            _store_document_metadata(document_id, course_id, filename, 'pdf', markdown_content)
+
+        if rag_result.get("success"):
+            document_id = rag_result.get("document_id", filename)
+            markdown_content = pdf_result.get("markdown_content", "")
+            _store_document_metadata(
+                document_id, course_id, filename, "pdf", markdown_content
+            )
             return {
-                'filename': filename,
-                'type': 'pdf',
-                'pdf_processing': pdf_result,
-                'rag_processing': rag_result,
-                'status': 'completed'
+                "filename": filename,
+                "type": "pdf",
+                "pdf_processing": pdf_result,
+                "rag_processing": rag_result,
+                "status": "completed",
             }
         else:
             return {
-                'filename': filename,
-                'type': 'pdf',
-                'pdf_processing': pdf_result,
-                'rag_processing': rag_result,
-                'error': rag_result.get('error_message', 'RAG processing failed'),
-                'status': 'failed'
+                "filename": filename,
+                "type": "pdf",
+                "pdf_processing": pdf_result,
+                "rag_processing": rag_result,
+                "error": rag_result.get("error_message", "RAG processing failed"),
+                "status": "failed",
             }
     else:
         return {
-            'filename': filename,
-            'type': 'pdf',
-            'error': pdf_result.get('error_message', 'PDF processing failed'),
-            'status': 'failed'
+            "filename": filename,
+            "type": "pdf",
+            "error": pdf_result.get("error_message", "PDF processing failed"),
+            "status": "failed",
         }
 
-async def _process_text_for_rag(file_content: bytes, filename: str, course_id: str, rag_model: Optional[str]) -> Dict[str, Any]:
+
+async def _process_text_for_rag(
+    file_content: bytes, filename: str, course_id: str, rag_model: Optional[str]
+) -> Dict[str, Any]:
     """Process text file for RAG knowledge base"""
-    text_content = file_content.decode('utf-8')
-    rag_result = await _process_document_with_rag(course_id, text_content, filename, rag_model)
-    
-    if rag_result.get('success'):
-        document_id = rag_result.get('document_id', filename)
-        _store_document_metadata(document_id, course_id, filename, 'text', text_content)
-    
+    text_content = file_content.decode("utf-8")
+    rag_result = await _process_document_with_rag(
+        course_id, text_content, filename, rag_model
+    )
+
+    if rag_result.get("success"):
+        document_id = rag_result.get("document_id", filename)
+        _store_document_metadata(document_id, course_id, filename, "text", text_content)
+
     return {
-        'filename': filename,
-        'type': 'text',
-        'rag_processing': rag_result,
-        'status': 'completed'
+        "filename": filename,
+        "type": "text",
+        "rag_processing": rag_result,
+        "status": "completed",
     }
+
+
+async def _process_latex_for_rag(
+    file_content: bytes, filename: str, course_id: str, rag_model: Optional[str]
+) -> Dict[str, Any]:
+    """Process LaTeX file for RAG knowledge base"""
+    try:
+        latex_content = file_content.decode("utf-8")
+
+        # Convert LaTeX to readable text by removing LaTeX commands and formatting
+        processed_content = _convert_latex_to_text(latex_content)
+
+        rag_result = await _process_document_with_rag(
+            course_id, processed_content, filename, rag_model
+        )
+
+        if rag_result.get("success"):
+            document_id = rag_result.get("document_id", filename)
+            _store_document_metadata(
+                document_id, course_id, filename, "latex", processed_content
+            )
+
+        return {
+            "filename": filename,
+            "type": "latex",
+            "rag_processing": rag_result,
+            "processed_content_length": len(processed_content),
+            "status": "completed",
+        }
+    except Exception as e:
+        logger.error(f"Error processing LaTeX file {filename}: {str(e)}")
+        return {
+            "filename": filename,
+            "type": "latex",
+            "error": f"LaTeX processing failed: {str(e)}",
+            "status": "failed",
+        }
+
 
 def _create_unsupported_file_result(filename: str) -> Dict[str, Any]:
     """Create result for unsupported file type"""
     return {
-        'filename': filename,
-        'type': 'unsupported',
-        'error': 'Unsupported file type. Please upload PDF, TXT, MD, or MDX files.',
-        'status': 'failed'
+        "filename": filename,
+        "type": "unsupported",
+        "error": "Unsupported file type. Please upload PDF, TXT, MD, MDX, or LaTeX (.tex, .latex) files.",
+        "status": "failed",
     }
+
 
 async def _process_pdf_file(file_content: bytes, filename: str) -> Dict[str, Any]:
     """Send PDF file to the PDF processor service"""
     try:
-        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp_file:
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_file:
             tmp_file.write(file_content)
             tmp_file_path = tmp_file.name
-        
+
         try:
-            async with httpx.AsyncClient(timeout=TimeoutConfig.PDF_PROCESSING_TIMEOUT) as client:
-                with open(tmp_file_path, 'rb') as f:
-                    files = {'file': (filename, f, 'application/pdf')}
+            async with httpx.AsyncClient(
+                timeout=TimeoutConfig.PDF_PROCESSING_TIMEOUT
+            ) as client:
+                with open(tmp_file_path, "rb") as f:
+                    files = {"file": (filename, f, "application/pdf")}
                     response = await client.post(
-                        f'http://{ServiceConfig.LOCALHOST}:{ServiceConfig.PDF_PROCESSOR_PORT}/convert',
-                        files=files
+                        f"http://{ServiceConfig.LOCALHOST}:{ServiceConfig.PDF_PROCESSOR_PORT}/convert",
+                        files=files,
                     )
-                
+
                 if response.status_code == 200:
                     return response.json()
                 else:
                     return {
-                        'success': False,
-                        'error_message': f'PDF processor service returned {response.status_code}: {response.text}'
+                        "success": False,
+                        "error_message": f"PDF processor service returned {response.status_code}: {response.text}",
                     }
         finally:
             if os.path.exists(tmp_file_path):
                 os.unlink(tmp_file_path)
-    
-    except Exception as e:
-        return {
-            'success': False,
-            'error_message': f'PDF processing failed: {str(e)}'
-        }
 
-async def _process_document_with_rag(course_id: str, content: str, filename: str, rag_model: Optional[str] = None) -> Dict[str, Any]:
+    except Exception as e:
+        return {"success": False, "error_message": f"PDF processing failed: {str(e)}"}
+
+
+async def _process_document_with_rag(
+    course_id: str, content: str, filename: str, rag_model: Optional[str] = None
+) -> Dict[str, Any]:
     """Send processed document content to the RAG system"""
     try:
-        async with httpx.AsyncClient(timeout=TimeoutConfig.RAG_PROCESSING_TIMEOUT) as client:
-            rag_payload = {
-                'course_id': course_id,
-                'content': content
-            }
+        async with httpx.AsyncClient(
+            timeout=TimeoutConfig.RAG_PROCESSING_TIMEOUT
+        ) as client:
+            rag_payload = {"course_id": course_id, "content": content}
             if rag_model:
-                rag_payload['embedding_model'] = rag_model
-            
+                rag_payload["embedding_model"] = rag_model
+
             response = await client.post(
-                f'http://{ServiceConfig.LOCALHOST}:{ServiceConfig.RAG_SYSTEM_PORT}/process_document',
-                json=rag_payload
+                f"http://{ServiceConfig.LOCALHOST}:{ServiceConfig.RAG_SYSTEM_PORT}/process_document",
+                json=rag_payload,
             )
-            
+
             if response.status_code == 200:
                 return response.json()
             else:
                 return {
-                    'success': False,
-                    'error': f'RAG system returned {response.status_code}: {response.text}'
+                    "success": False,
+                    "error": f"RAG system returned {response.status_code}: {response.text}",
                 }
-    
-    except Exception as e:
-        return {
-            'success': False,
-            'error': f'RAG processing failed: {str(e)}'
-        }
 
-def _store_document_metadata(document_id: str, course_id: str, filename: str, file_type: str, markdown_content: str = None):
+    except Exception as e:
+        return {"success": False, "error": f"RAG processing failed: {str(e)}"}
+
+
+def _store_document_metadata(
+    document_id: str,
+    course_id: str,
+    filename: str,
+    file_type: str,
+    markdown_content: str = None,
+):
     """Store document metadata in the documents table with full markdown content"""
     try:
         from src.supabaseClient import supabase
-        
+
         # Use the full markdown content instead of placeholder text
-        content = markdown_content if markdown_content else f"Uploaded {file_type} file: {filename}"
-        
-        supabase.table("documents").insert({
-            "document_id": document_id,
-            "course_id": course_id,
-            "title": filename,
-            "content": content,
-            "term": None
-        }).execute()
+        content = (
+            markdown_content
+            if markdown_content
+            else f"Uploaded {file_type} file: {filename}"
+        )
+
+        supabase.table("documents").insert(
+            {
+                "document_id": document_id,
+                "course_id": course_id,
+                "title": filename,
+                "content": content,
+                "term": None,
+            }
+        ).execute()
     except Exception as e:
         logger.error(f"Failed to store document metadata: {e}")
+
+
+def _convert_latex_to_text(latex_content: str) -> str:
+    """Convert LaTeX content to readable text by removing LaTeX commands and formatting"""
+    import re
+
+    # Remove LaTeX comments
+    text = re.sub(r"%.*$", "", latex_content, flags=re.MULTILINE)
+
+    # Remove document class and package declarations
+    text = re.sub(r"\\documentclass.*?\{.*?\}", "", text)
+    text = re.sub(r"\\usepackage.*?\{.*?\}", "", text)
+
+    # Remove begin/end document
+    text = re.sub(r"\\begin\{document\}", "", text)
+    text = re.sub(r"\\end\{document\}", "", text)
+
+    # Remove common LaTeX commands
+    text = re.sub(r"\\title\{([^}]*)\}", r"Title: \1", text)
+    text = re.sub(r"\\author\{([^}]*)\}", r"Author: \1", text)
+    text = re.sub(r"\\date\{([^}]*)\}", r"Date: \1", text)
+    text = re.sub(r"\\section\{([^}]*)\}", r"\n\n\1\n", text)
+    text = re.sub(r"\\subsection\{([^}]*)\}", r"\n\n\1\n", text)
+    text = re.sub(r"\\subsubsection\{([^}]*)\}", r"\n\n\1\n", text)
+    text = re.sub(r"\\paragraph\{([^}]*)\}", r"\n\1\n", text)
+
+    # Preserve math content: keep inline/block math as-is
+    # Just ensure we don't break math by touching inner content here.
+
+    # Unwrap common text environments while preserving their content
+    text = re.sub(
+        r"\\begin\{itemize\}(.*?)\\end\{itemize\}", r"\1", text, flags=re.DOTALL
+    )
+    text = re.sub(
+        r"\\begin\{enumerate\}(.*?)\\end\{enumerate\}", r"\1", text, flags=re.DOTALL
+    )
+    text = re.sub(r"\\begin\{quote\}(.*?)\\end\{quote\}", r"\1", text, flags=re.DOTALL)
+    text = re.sub(
+        r"\\begin\{abstract\}(.*?)\\end\{abstract\}",
+        r"Abstract: \1",
+        text,
+        flags=re.DOTALL,
+    )
+
+    # Remove item commands
+    text = re.sub(r"\\item\s*", "• ", text)
+
+    # Remove text formatting commands
+    text = re.sub(r"\\textbf\{([^}]*)\}", r"\1", text)
+    text = re.sub(r"\\textit\{([^}]*)\}", r"\1", text)
+    text = re.sub(r"\\emph\{([^}]*)\}", r"\1", text)
+    text = re.sub(r"\\underline\{([^}]*)\}", r"\1", text)
+    text = re.sub(r"\\texttt\{([^}]*)\}", r"\1", text)
+
+    # Remove citation and reference commands
+    text = re.sub(r"\\cite\{[^}]*\}", "[CITATION]", text)
+    text = re.sub(r"\\ref\{[^}]*\}", "[REFERENCE]", text)
+    text = re.sub(r"\\label\{[^}]*\}", "", text)
+
+    # Remove figure and table environments
+    text = re.sub(r"\\begin\{figure\}.*?\\end\{figure\}", "", text, flags=re.DOTALL)
+    text = re.sub(r"\\begin\{table\}.*?\\end\{table\}", "", text, flags=re.DOTALL)
+
+    # Relaxed cleanup: unwrap single-arg commands by keeping their content; leave others intact
+    text = re.sub(r"\\[a-zA-Z]+\{([^}]*)\}", r"\1", text)
+    # Do NOT strip bare commands like \alpha to avoid losing LaTeX semantics
+
+    # Clean up whitespace
+    text = re.sub(r"\n\s*\n\s*\n", "\n\n", text)  # Remove excessive newlines
+    text = re.sub(r"^\s+", "", text, flags=re.MULTILINE)  # Remove leading whitespace
+    text = re.sub(r"\s+$", "", text, flags=re.MULTILINE)  # Remove trailing whitespace
+
+    return text.strip()

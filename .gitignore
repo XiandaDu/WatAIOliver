@@ -22,3 +22,5 @@ machine_learning/.env
 
 .DS_Store
 .cursor/rules
+
+/output

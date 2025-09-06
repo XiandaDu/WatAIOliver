@@ -76,7 +76,7 @@ export default function EditAdminEntry() {
 
       if (uploadResponse.ok) {
         const uploadData = await uploadResponse.json();
-        console.log("RAG upload completed successfully:", uploadData);
+        // console.log("RAG upload completed successfully:", uploadData);
 
         // Add successfully uploaded files to the UI
         const newFiles = uploadData.results
@@ -96,7 +96,7 @@ export default function EditAdminEntry() {
         );
         handleInputChange("doc", allPaths.join(","));
 
-        console.log("Files uploaded to RAG:", newFiles);
+        // console.log("Files uploaded to RAG:", newFiles);
       } else {
         console.error(
           "RAG upload failed:",
@@ -119,7 +119,7 @@ export default function EditAdminEntry() {
   };
 
   const handleSave = () => {
-    console.log("Saving updated entry:", formData);
+    // console.log("Saving updated entry:", formData);
     // API CALL HERE TO SAVE CHANGES
     navigate("/admin");
   };
