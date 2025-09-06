@@ -221,7 +221,7 @@ export default function ChatPage() {
       searchParams.get("course") || searchParams.get("course_id");
     if (courseParam) {
       setSelectedCourseId(courseParam);
-      console.log("Course ID loaded from URL:", courseParam);
+      // console.log("Course ID loaded from URL:", courseParam);
 
       // Fetch course details
       fetch(`${import.meta.env.VITE_API_BASE_URL}/course/${courseParam}`, {
@@ -242,7 +242,7 @@ export default function ChatPage() {
             return;
           }
           setSelectedCourse(course);
-          console.log("Course details loaded:", course);
+          // console.log("Course details loaded:", course);
           // Load custom models for this course
           loadCustomModels(courseParam);
         })
@@ -257,7 +257,7 @@ export default function ChatPage() {
   useEffect(() => {
     // Don't load messages if we're currently sending a message
     if (isSendingMessage) {
-      console.log("Skipping message load - currently sending message");
+      // console.log("Skipping message load - currently sending message");
       return;
     }
 
@@ -299,15 +299,15 @@ export default function ChatPage() {
   };
 
   const loadMessages = async (conversationId) => {
-    console.log("Loading messages for conversation:", conversationId);
+    // console.log("Loading messages for conversation:", conversationId);
     try {
       const response = await fetch(
         `${import.meta.env.VITE_API_BASE_URL}/chat/messages/${conversationId}`
       );
-      console.log("Response status:", response.status);
+      // console.log("Response status:", response.status);
       if (response.ok) {
         const data = await response.json();
-        console.log("Loaded messages:", data);
+        // console.log("Loaded messages:", data);
         // Transform backend message format to frontend format
         const transformedMessages = data.map((msg) => {
           const maybeHtml =
@@ -315,17 +315,17 @@ export default function ChatPage() {
 
           // DEBUG: Log each message transformation during loading
           if (msg.sender === "assistant") {
-            console.log("=== LOADING MESSAGE TRANSFORMATION ===");
-            console.log("Original msg.content:", msg.content.substring(0, 300));
-            console.log(
-              "Extracted HTML:",
-              maybeHtml ? maybeHtml.substring(0, 300) : "None"
-            );
-            console.log(
-              "Will use:",
-              maybeHtml ? "HTML renderer" : "Markdown renderer"
-            );
-            console.log("======================================");
+            // console.log("=== LOADING MESSAGE TRANSFORMATION ===");
+            // console.log("Original msg.content:", msg.content.substring(0, 300));
+            // console.log(
+            //   "Extracted HTML:",
+            //   maybeHtml ? maybeHtml.substring(0, 300) : "None"
+            // );
+            // console.log(
+            //   "Will use:",
+            //   maybeHtml ? "HTML renderer" : "Markdown renderer"
+            // );
+            // console.log("======================================");
           }
 
           return {
@@ -336,7 +336,7 @@ export default function ChatPage() {
             meta: maybeHtml ? { type: "html", html: maybeHtml } : undefined,
           };
         });
-        console.log("Transformed messages:", transformedMessages);
+        // console.log("Transformed messages:", transformedMessages);
         setMessages(transformedMessages);
       } else {
         console.error("Failed to load messages");
@@ -363,12 +363,12 @@ export default function ChatPage() {
     e.preventDefault();
     if (!input.trim() && !experimental_attachments?.length) return;
 
-    console.log("Submit - Input value:", input);
-    console.log("Submit - Input trimmed:", input.trim());
-    console.log(
-      "Submit - Has attachments:",
-      experimental_attachments?.length > 0
-    );
+    // console.log("Submit - Input value:", input);
+    // console.log("Submit - Input trimmed:", input.trim());
+    // console.log(
+    //   "Submit - Has attachments:",
+    //   experimental_attachments?.length > 0
+    // );
 
     setIsSendingMessage(true);
 
@@ -391,7 +391,7 @@ export default function ChatPage() {
         : null,
     };
 
-    console.log("User message content:", userMessage.content);
+    // console.log("User message content:", userMessage.content);
 
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
@@ -467,7 +467,7 @@ export default function ChatPage() {
         }
 
         try {
-          console.log("Starting file upload...");
+          // console.log("Starting file upload...");
           const uploadResponse = await fetch(
             `${import.meta.env.VITE_API_BASE_URL}/chat/upload_files`,
             {
@@ -479,7 +479,7 @@ export default function ChatPage() {
 
           if (uploadResponse.ok) {
             const uploadData = await uploadResponse.json();
-            console.log("File upload completed successfully");
+            // console.log("File upload completed successfully");
 
             // Extract file content for context
             const fileContents = [];
@@ -562,14 +562,14 @@ export default function ChatPage() {
           use_agents: useAgents,
         };
 
-        console.log("=== CHAT REQUEST DEBUG ===");
-        console.log("selectedModel:", selectedModel);
-        console.log("useAgents:", useAgents);
-        console.log("Full request:", chatRequestData);
-        console.log("==========================");
+        // console.log("=== CHAT REQUEST DEBUG ===");
+        // console.log("selectedModel:", selectedModel);
+        // console.log("useAgents:", useAgents);
+        // console.log("Full request:", chatRequestData);
+        // console.log("==========================");
 
         const chatResponse = await fetch(
-          "${import.meta.env.VITE_API_BASE_URL}/chat",
+          `${import.meta.env.VITE_API_BASE_URL}/chat`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" }, // Initially assume JSON, check header later
@@ -942,7 +942,7 @@ export default function ChatPage() {
 
       // Get AI response
       const chatResponse = await fetch(
-        "${import.meta.env.VITE_API_BASE_URL}/chat",
+        `${import.meta.env.VITE_API_BASE_URL}/chat`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
