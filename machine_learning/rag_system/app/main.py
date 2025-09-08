@@ -121,3 +121,4 @@ def ask_question(data: QuestionIn):
     if not result["success"]:
         raise HTTPException(status_code=500, detail=result.get("error"))
     return result
+

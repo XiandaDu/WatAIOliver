@@ -264,6 +264,79 @@ Answer:"""
             print(f"RAG Error: {str(e)}")
             return {"error": str(e), "success": False}
     
+    def answer_question_with_scores(self, course_id: str, question: str) -> Dict[str, Any]:
+        """
+        Answer a question using direct vector search to preserve similarity scores.
+        
+        This method bypasses the retriever chain that loses scores and uses the vector client
+        directly to get documents with their similarity scores preserved.
+        
+        Args:
+            course_id: Identifier for the course
+            question: The question text to be answered
+            
+        Returns:
+            A dictionary with the answer, source information with scores, and success status
+        """
+        try:
+            # Get documents directly from vector search with scores preserved
+            scored_results = self.vector_client.similarity_search_with_score(
+                query=question,
+                k=4,  # Match default retrieval k
+                filter={"course_id": course_id}
+            )
+            
+            if not scored_results:
+                return {
+                    "success": False,
+                    "answer": "No relevant documents found for this course.",
+                    "sources": []
+                }
+            
+            # Debug: Show what documents are retrieved (like existing debug output)
+            print(f"=== RETRIEVED {len(scored_results)} DOCUMENTS FOR QUERY: '{question}' ===")
+            for i, (doc, score) in enumerate(scored_results):
+                print(f"DOC {i+1}:")
+                print(f"  Content: {doc.page_content[:200]}...")
+                print(f"  Metadata: {doc.metadata}")
+                print(f"  Score: {score:.4f}")
+                print(f"  ---")
+            
+            # Extract documents and create context for LLM
+            documents = [doc for doc, _ in scored_results]
+            context = "\n\n".join([doc.page_content for doc in documents])
+            
+            # Generate answer using the LLM directly with the context
+            prompt = f"""Based on the following context from course materials, please answer the question comprehensively.
+            
+Context:
+{context}
+
+Question: {question}
+
+Please provide a detailed answer based on the context provided. If the context doesn't contain enough information to fully answer the question, mention what information is missing."""
+            
+            answer = self.llm_client.generate(prompt)
+            
+            # Format sources with preserved similarity scores
+            sources = []
+            for doc, score in scored_results:
+                source_info = {
+                    "content": doc.page_content,
+                    "score": score,  # Score preserved from vector search!
+                    "metadata": doc.metadata or {}
+                }
+                sources.append(source_info)
+            
+            return {
+                "answer": answer,
+                "sources": sources,
+                "success": True
+            }
+            
+        except Exception as e:
+            print(f"RAG Error with scores: {str(e)}")
+            return {"error": str(e), "success": False}
 
     def _format_sources(self, source_documents):
         """
@@ -338,3 +411,4 @@ Answer:"""
                 "prompt": self.qa_prompt
             }
         )
+

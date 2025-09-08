@@ -1,859 +1,900 @@
 """
-Critic Agent - Critical Verifier
+Critic Agent - LangChain Implementation with PARALLEL VERIFICATION
 
-This agent performs ruthless, evidence-based review of draft solutions,
-identifying logical flaws, factual errors, and hallucinations.
+Critical verifier that performs ruthless, evidence-based review of drafts.
+Uses independent parallel verification for logic, facts, and hallucinations.
 """
 
-import re
-from typing import List, Dict, Any, Tuple
-from ai_agents.agents.base_agent import BaseAgent, AgentInput, AgentOutput, AgentRole
+import time
+import json
+import asyncio
+from typing import List, Dict, Any
+from langchain.prompts import ChatPromptTemplate
+from langchain.chains import LLMChain
+from langchain.tools import Tool
+from pydantic import BaseModel, Field
+
+from ai_agents.state import WorkflowState, Critique, log_agent_execution
+from ai_agents.utils import create_langchain_llm
 
 
-class CriticAgent(BaseAgent):
+class CritiqueOutput(BaseModel):
+    """Structured critique output"""
+    critiques: List[Dict[str, Any]] = Field(description="List of identified issues")
+    overall_assessment: str = Field(description="Overall quality assessment")
+    severity_score: float = Field(description="Overall severity score 0-1")
+
+
+class CriticAgent:
     """
-    Critic Agent - Critical Verifier
+    Critical Verifier using LangChain chains with parallel execution.
     
-    Responsible for:
-    1. Logical verification of Chain-of-Thought steps
-    2. Fact-checking against provided context
-    3. Hallucination detection
-    4. Generating structured critique reports
+    Performs three INDEPENDENT types of verification in parallel:
+    1. Logical flow verification - checks reasoning coherence
+    2. Factual accuracy checking - verifies claims against context
+    3. Hallucination detection - identifies unsupported content
+    
+    All three run simultaneously and results are synthesized.
     """
     
-    def __init__(self, config, llm_client=None, logger=None):
-        super().__init__(AgentRole.CRITIC, config, llm_client, logger)
+    def __init__(self, context):
+        self.context = context
+        self.logger = context.logger.getChild("critic")
+        self.llm_client = context.llm_client
+        self.llm = create_langchain_llm(self.llm_client)
         
-        # Critic-specific settings
-        self.system_prompt = self._build_system_prompt()
+        # Setup verification chains
+        self._setup_chains()
         
-        # Severity levels for critiques
-        self.severity_levels = {
-            "critical": 4,    # Major factual errors, logical fallacies
-            "high": 3,        # Significant logical gaps, unsupported claims
-            "medium": 2,      # Minor inconsistencies, missing details
-            "low": 1         # Style issues, minor improvements
-        }
-        
-    def _build_system_prompt(self) -> str:
-        """Build the system prompt for the critic"""
-        return """
-        You are a rigorous academic critic and fact-checker. Your role is to:
-
-        1. ANALYZE the draft solution and Chain-of-Thought for logical consistency
-        2. VERIFY factual claims against the provided context
-        3. DETECT any hallucinated or unsupported information
-        4. IDENTIFY logical gaps, fallacies, or inconsistencies
-
-        Critical principles:
-        - Be ruthless but constructive in your analysis
-        - Focus on evidence-based verification
-        - Identify specific issues with precise references
-        - Classify issues by severity: critical, high, medium, low
-        - Do NOT provide corrections, only identify problems
-        - Think methodically and document reasoning for each critique
-
-        Your output should be a structured critique report suitable for revision guidance.
-        """
+        # Create verification tools
+        self._setup_tools()
     
-    async def process(self, agent_input: AgentInput) -> AgentOutput:
-        """
-        Perform critical verification of draft solution
+    def _setup_chains(self):
+        """Setup INDEPENDENT LangChain chains for parallel verification"""
         
-        Args:
-            agent_input: Contains draft, CoT, context, and metadata
-            
-        Returns:
-            AgentOutput: Structured critique report with issues identified
-        """
-        import time
+        # Independent Logic Verification Chain
+        self.logic_verification_chain = LLMChain(
+            llm=self.llm,
+            prompt=ChatPromptTemplate.from_messages([
+                ("system", """You are a logic verifier that analyzes the ACTUAL content provided.
+                
+CRITICAL INSTRUCTIONS:
+1. You must read and analyze ONLY the actual draft content provided below
+2. Do NOT generate fake examples about "Event A caused Event B" or "X is the largest Y"
+3. Do NOT make up problems that don't exist in the actual draft
+4. Do NOT use template responses or placeholder critiques
+5. If there are NO actual logical issues in the draft, return an empty logic_issues array
+
+Your job is to find REAL logical problems in the ACTUAL text provided."""),
+                ("human", """Query: {query}
+
+===============================================================================
+>>> SOLUTION DRAFT TO ANALYZE (ONLY THIS CONTENT CAN BE CRITICIZED) <<<
+===============================================================================
+{draft}
+===============================================================================
+>>> END OF DRAFT <<<
+===============================================================================
+
+>>> CHAIN OF THOUGHT TO ANALYZE <<<
+===============================================================================
+{cot}
+===============================================================================
+>>> END OF CHAIN OF THOUGHT <<<
+===============================================================================
+
+CRITICAL: Analyze ONLY the draft and chain of thought above. Look for REAL logical issues such as:
+- Contradictory statements within the draft
+- Logical leaps in the reasoning chain
+- Assumptions that aren't supported by prior steps
+- Conclusions that don't follow from premises
+
+STEP REFERENCE INSTRUCTIONS:
+- The Chain of Thought above has numbered steps like "Step 1:", "Step 2:", etc.
+- When you find a logical issue, identify which step number it relates to
+- If the issue relates to "Step 3:", set step_ref to 3
+- If the issue spans multiple steps, use the primary step number
+- If the issue is not tied to a specific step, set step_ref to null
+
+Do NOT make up fake issues. Analyze only what is actually written in the draft above.
+
+Return valid JSON:
+{{
+    "logic_issues": [
+        {{
+            "step_ref": <step_number_from_CoT_or_null>,
+            "severity": "low/medium/high/critical",
+            "description": "<describe the actual logical problem found in the text>",
+            "problematic_content": "<exact quote from the actual draft>"
+        }}
+    ],
+    "logic_summary": "<summary based on actual analysis>",
+    "areas_of_concern": []
+}}
+
+If you find NO logical issues in the actual draft, return:
+{{
+    "logic_issues": [],
+    "logic_summary": "No significant logical issues found",
+    "areas_of_concern": []
+}}""")
+            ]),
+            output_key="logic_analysis"
+        )
+        
+        # Independent Fact Checking Chain
+        self.fact_checking_chain = LLMChain(
+            llm=self.llm,
+            prompt=ChatPromptTemplate.from_messages([
+                ("system", """You are a fact checker that verifies ACTUAL claims in the provided draft.
+                
+CRITICAL INSTRUCTIONS:
+1. Read the actual draft content carefully
+2. Identify specific factual claims made in the draft
+3. Check ONLY those actual claims against the provided context
+4. Do NOT generate fake fact-check examples like "X is the largest Y"
+5. Do NOT invent factual contradictions that don't exist
+6. If all facts in the draft are supported by the context, return empty fact_issues array
+
+Focus on verifying REAL claims from the ACTUAL draft."""),
+                ("human", """Query: {query}
+
+===============================================================================
+>>> DRAFT TO ANALYZE (ONLY CONTENT FROM THIS SECTION CAN BE CRITICIZED) <<<
+===============================================================================
+{draft}
+===============================================================================
+>>> END OF DRAFT - DO NOT CRITICIZE CONTENT BELOW THIS LINE <<<
+===============================================================================
+
+>>> REFERENCE CONTEXT (USE ONLY TO VERIFY CLAIMS FROM DRAFT ABOVE) <<<
+===============================================================================
+{context}
+===============================================================================
+>>> END OF CONTEXT - THIS IS REFERENCE MATERIAL, NOT CONTENT TO CRITICIZE <<<
+===============================================================================
+
+CRITICAL INSTRUCTIONS:
+1. ONLY analyze claims made in the DRAFT section above
+2. NEVER criticize or fact-check content from the CONTEXT section
+3. The CONTEXT is your reference material to verify DRAFT claims
+4. If you see content in CONTEXT, it is CORRECT - do not question it
+5. Only report issues where the DRAFT contradicts or lacks support from CONTEXT
+
+WORKFLOW:
+1. Read the DRAFT section and identify factual claims
+2. For each DRAFT claim, check if it's supported by the CONTEXT
+3. Only flag DRAFT claims that contradict or lack support in CONTEXT
+
+STEP REFERENCE INSTRUCTIONS:
+- The Chain of Thought above has numbered steps like "Step 1:", "Step 2:", etc.
+- When you find a factual issue, identify which step number it relates to
+- If the issue relates to "Step 3:", set step_ref to 3
+- If the issue spans multiple steps, use the primary step number
+- If the issue is not tied to a specific step, set step_ref to null
+
+Return valid JSON:
+{{
+    "fact_issues": [
+        {{
+            "claim": "<exact claim found in the actual draft>",
+            "step_ref": <step_number_from_CoT_or_null>,
+            "severity": "low/medium/high/critical",
+            "description": "<why this claim is incorrect or unsupported based on context>"
+        }}
+    ],
+    "fact_summary": "<summary of fact-checking results>",
+    "verified_facts": ["<list of facts that were correctly stated>"]
+}}
+
+If the draft's claims are supported by context, return:
+{{
+    "fact_issues": [],
+    "fact_summary": "All facts verified against context",
+    "verified_facts": []
+}}""")
+            ]),
+            output_key="fact_analysis"
+        )
+        
+        # Independent Hallucination Detection Chain
+        self.hallucination_chain = LLMChain(
+            llm=self.llm,
+            prompt=ChatPromptTemplate.from_messages([
+                ("system", """You are a hallucination detector that identifies ACTUAL unsupported content.
+                
+CRITICAL INSTRUCTIONS:
+1. Read the actual draft content carefully
+2. Compare it against the provided context sources
+3. Identify content in the draft that has NO support in the context
+4. Do NOT make up fake hallucinations about "quantum tunneling" or "Mars colonies"
+5. Do NOT invent problems that don't exist in the actual draft
+6. If the draft is properly supported by context, return empty hallucinations array
+
+Only flag content that is genuinely unsupported."""),
+                ("human", """Query: {query}
+
+===============================================================================
+>>> DRAFT TO CHECK FOR HALLUCINATIONS (ONLY THIS CONTENT CAN BE FLAGGED) <<<
+===============================================================================
+{draft}
+===============================================================================
+>>> END OF DRAFT - DO NOT FLAG CONTENT BELOW THIS LINE <<<
+===============================================================================
+
+>>> REFERENCE CONTEXT (USE TO VERIFY DRAFT CLAIMS ARE SUPPORTED) <<<
+===============================================================================
+{context}
+===============================================================================
+>>> END OF CONTEXT - THIS IS REFERENCE MATERIAL, NOT CONTENT TO FLAG <<<
+===============================================================================
+
+CRITICAL INSTRUCTIONS:
+1. ONLY flag content from the DRAFT section above
+2. NEVER flag content from the CONTEXT section - it is reference material
+3. The CONTEXT is your source of truth to verify DRAFT claims
+4. Only flag DRAFT content that has NO support in the CONTEXT
+
+WORKFLOW:
+1. Read the DRAFT section and identify major claims/concepts
+2. For each DRAFT claim, check if it appears anywhere in the CONTEXT
+3. Only flag DRAFT content that is completely absent from CONTEXT
+4. Do NOT flag reasonable inferences or explanations derived from CONTEXT
+
+STEP REFERENCE INSTRUCTIONS:
+- The Chain of Thought above has numbered steps like "Step 1:", "Step 2:", etc.
+- When you find a hallucination, identify which step number it relates to
+- If the issue relates to "Step 3:", set step_ref to 3
+- If the issue spans multiple steps, use the primary step number
+- If the issue is not tied to a specific step, set step_ref to null
+
+Return valid JSON:
+{{
+    "hallucinations": [
+        {{
+            "content": "<actual unsupported content from draft>",
+            "step_ref": <step_number_from_CoT_or_null>,
+            "severity": "low/medium/high/critical",
+            "reason": "<why this content is not supported by context>",
+            "suggested_fix": "<what should be there based on context>"
+        }}
+    ],
+    "hallucination_summary": "<summary of findings>"
+}}
+
+If the draft IS supported by context, return:
+{{
+    "hallucinations": [],
+    "hallucination_summary": "Draft content is supported by context"
+}}""")
+            ]),
+            output_key="hallucination_analysis"
+        )
+        
+        # Synthesis Chain - Combines all independent verification results
+        self.synthesis_chain = LLMChain(
+            llm=self.llm,
+            prompt=ChatPromptTemplate.from_messages([
+                ("system", """You are a JSON extraction agent. Your ONLY job is to extract existing issues from analysis results.
+
+ABSOLUTE RULES:
+1. Look at the analysis results provided
+2. If ALL analysis results show empty arrays (like "fact_issues": [], "logic_issues": [], "hallucinations": []), then output empty critiques array
+3. NEVER generate example critiques like "Event A", "Person Z", "Mars colonies", etc.
+4. NEVER create fake problems that don't exist in the analysis results
+5. Only extract issues that are explicitly listed in the analysis results
+6. CRITICAL: Issues must be about problems found in the DRAFT, not about reference context being "wrong"
+
+CONTEXT CONFUSION PREVENTION:
+- If an analysis mentions context content as problematic, IGNORE IT
+- Only extract issues where the DRAFT contradicts or lacks support from context
+- Context content is reference material and should NEVER be criticized
+
+If you see empty analysis results, you MUST output an empty critiques array."""),
+                ("human", """VERIFICATION ANALYSIS RESULTS:
+
+Logic Analysis:
+{logic_analysis}
+
+Fact-Checking Analysis:
+{fact_analysis}
+
+Hallucination Analysis:
+{hallucination_analysis}
+
+TASK: Read the analysis results above and extract ONLY the actual issues found.
+
+STEP 1: Check if all analysis results are empty:
+- If Logic Analysis shows "logic_issues": [] AND
+- If Fact Analysis shows "fact_issues": [] AND  
+- If Hallucination Analysis shows "hallucinations": []
+THEN output: {{"critiques": [], "overall_assessment": "No issues found", "severity_score": 0.1}}
+
+STEP 2: If any analysis found actual issues, extract them exactly as written.
+
+EXTRACTION RULES:
+- For logic_issues: use type="logic_flaw", extract step_ref, description. claim is null.
+- For fact_issues: use type="fact_contradiction", extract step_ref, description, claim.
+- For hallucinations: use type="hallucination", extract step_ref, description. claim is null.
+
+DO NOT GENERATE FAKE EXAMPLES. DO NOT USE TEMPLATES.
+
+Required JSON format:
+{{
+    "critiques": [
+        {{
+            "type": "logic_flaw/fact_contradiction/hallucination",
+            "severity": "low/medium/high/critical",
+            "description": "<EXACT description from analysis above>",
+            "step_ref": <step_ref_from_analysis_or_null>,
+            "claim": "<EXACT claim from analysis or null>"
+        }}
+    ],
+    "overall_assessment": "<based on ACTUAL findings>",
+    "severity_score": <0.0-1.0>
+}}
+
+Output ONLY the JSON. Do NOT create fake critiques.""")
+            ]),
+            output_key="final_critique"
+        )
+    
+    def _setup_tools(self):
+        """Setup LangChain tools for verification tasks"""
+        
+        self.verification_tools = [
+            Tool(
+                name="verify_calculation",
+                func=self._verify_calculation,
+                description="Verify mathematical calculations"
+            ),
+            Tool(
+                name="check_formula",
+                func=self._check_formula,
+                description="Check if a formula is correctly stated"
+            ),
+            Tool(
+                name="verify_reference",
+                func=self._verify_reference,
+                description="Verify a reference or citation"
+            )
+        ]
+    
+    async def __call__(self, state: WorkflowState) -> WorkflowState:
+        """Perform critical verification of the draft"""
         start_time = time.time()
         
         try:
-            # Extract data from input
-            draft_content = agent_input.metadata.get('draft_content', '')
-            chain_of_thought = agent_input.metadata.get('chain_of_thought', [])
-            context = agent_input.context
-            
-            self.logger.info("\n" + "="*250)
-            self.logger.info("CRITIC AGENT - DRAFT ANALYSIS")
             self.logger.info("="*250)
-            self.logger.info(f"CoT steps: {len(chain_of_thought)}")
-            self.logger.info(f"Context items: {len(context)}")
-            self.logger.info(f"Draft length: {len(draft_content)} characters")
+            self.logger.info(f"CRITIC AGENT - ROUND {state['current_round']}")
+            self.logger.info("="*250)
             
-            # ULTRA VERBOSE: Show the actual content being analyzed
-            self.logger.info(f"\n--- DRAFT CONTENT TO ANALYZE ---")
-            self.logger.info(f"'{draft_content}'")
+            draft = state["draft"]
+            query = state["query"]
+            context = state["retrieval_results"]
             
-            self.logger.info(f"\n--- CONTEXT ITEMS FOR VERIFICATION ---")
-            for i, ctx_item in enumerate(context[:3]):
-                content = ctx_item.get('content', ctx_item.get('text', str(ctx_item)))
-                self.logger.info(f"Context {i+1}: '{content}'")
-            if len(context) > 3:
-                self.logger.info(f"... and {len(context) - 3} more context items")
+            if not draft:
+                raise ValueError("No draft to critique")
+            
+            self.logger.info(f"Critiquing draft: {draft['draft_id']}")
+            
+            # Create structured input matching Strategist output format
+            structured_draft_input = {
+                "draft_id": draft["draft_id"],
+                "draft_content": draft["content"],
+                "chain_of_thought": draft["chain_of_thought"]
+            }
+            
+            context_str = self._format_context(context)
+            
+            # RUN INDEPENDENT CHAINS IN PARALLEL
+            self.logger.info("Running PARALLEL critique pipeline...")
+            self.logger.info("  • Logic Verification (independent)")
+            self.logger.info("  • Fact Checking (independent)")  
+            self.logger.info("  • Hallucination Detection (independent)")
+            self.logger.info("  → All results combined in Synthesis")
+            
+            # Execute all verification chains in parallel
+            try:
+                # Prepare inputs for all chains using structured format
+                base_inputs = {
+                    "query": query,
+                    "draft": draft["content"],
+                    "cot": self._format_cot(draft["chain_of_thought"]),
+                    "context": context_str
+                }
                 
-            self.logger.info(f"\n--- CHAIN OF THOUGHT STEPS ---")
-            for i, step in enumerate(chain_of_thought[:3]):
-                step_text = step.get('thought', str(step))
-                self.logger.info(f"CoT Step {i+1}: '{step_text}...'")
-            if len(chain_of_thought) > 3:
-                self.logger.info(f"... and {len(chain_of_thought) - 3} more CoT steps")
-            
-            # Perform three core verification tasks in parallel
-            critiques = []
-            
-            # Task 1: Logical Verification
-            self.logger.info("\n" + "-"*250)
-            self.logger.info("PHASE 1: LOGICAL CONSISTENCY VERIFICATION")
-            self.logger.info("-"*250)
-            logic_start = time.time()
-            logic_critiques = await self._verify_logical_consistency(chain_of_thought, draft_content)
-            logic_time = time.time() - logic_start
-            self.logger.info(f"Logical verification completed in {logic_time:.2f}s")
-            
-            # Task 2: Factual Verification
-            self.logger.info("\n" + "-"*250)
-            self.logger.info("PHASE 2: FACTUAL ACCURACY VERIFICATION")
-            self.logger.info("-"*250)
-            fact_start = time.time()
-            factual_issues = await self._verify_factual_accuracy(draft_content, context)
-            fact_time = time.time() - fact_start
-            self.logger.info(f"Factual verification completed in {fact_time:.2f}s")
-            
-            # Task 3: Hallucination Detection
-            self.logger.info("\n" + "-"*250)
-            self.logger.info("PHASE 3: HALLUCINATION DETECTION")
-            self.logger.info("-"*250)
-            halluc_start = time.time()
-            hallucination_issues = await self._detect_hallucinations(draft_content, context)
-            halluc_time = time.time() - halluc_start
-            self.logger.info(f"Hallucination detection completed in {halluc_time:.2f}s")
-            
-            # Combine all critiques
-            self.logger.info("\n" + "-"*250)
-            self.logger.info("COMBINING ALL CRITIQUES")
-            self.logger.info("-"*250)
-            critiques.extend(logic_critiques)
-            critiques.extend(factual_issues)
-            critiques.extend(hallucination_issues)
-            
-            # Assess overall critique severity
-            overall_assessment = self._assess_overall_quality(critiques)
-            
-            # ULTRA VERBOSE: Log final assessment details
-            self.logger.info("\n" + "="*250)
-            self.logger.info("FINAL CRITIC ASSESSMENT")
-            self.logger.info("="*250)
-            self.logger.info(f"TOTAL ISSUES FOUND: {len(critiques)}")
-            
-            # Break down by severity
-            critical_count = len([c for c in critiques if c.get('severity') == 'critical'])
-            high_count = len([c for c in critiques if c.get('severity') == 'high'])
-            medium_count = len([c for c in critiques if c.get('severity') == 'medium'])
-            low_count = len([c for c in critiques if c.get('severity') == 'low'])
-            
-            self.logger.info(f"CRITICAL: {critical_count}")
-            self.logger.info(f"HIGH: {high_count}")
-            self.logger.info(f"MEDIUM: {medium_count}")
-            self.logger.info(f"LOW: {low_count}")
-            
-            # Break down by type
-            logic_count = len([c for c in critiques if c.get('type') == 'logic_flaw'])
-            fact_count = len([c for c in critiques if c.get('type') == 'fact_contradiction'])
-            halluc_count = len([c for c in critiques if c.get('type') == 'hallucination'])
-            
-            self.logger.info(f"LOGICAL ISSUES: {logic_count}")
-            self.logger.info(f"FACTUAL ISSUES: {fact_count}")
-            self.logger.info(f"HALLUCINATION ISSUES: {halluc_count}")
-            
-            self.logger.info(f"OVERALL ASSESSMENT: {overall_assessment.upper()}")
-            
-            if critiques:
-                self.logger.info(f"ISSUE DETAILS:")
-                for i, issue in enumerate(critiques, 1):
-                    severity = issue.get('severity', 'unknown').upper()
-                    issue_type = issue.get('type', 'unknown').upper()
-                    desc = issue.get('description', 'no description')
-                    self.logger.info(f"   {i}. [{severity}] {issue_type}: {desc}...")
-            else:
-                self.logger.info(f"NO ISSUES DETECTED - DRAFT IS CLEAN!")
-            
-            self.logger.info("\n" + "="*250)
-            self.logger.info("CRITIC ANALYSIS COMPLETE")
-            self.logger.info("="*250)
-            
-            return AgentOutput(
-                success=True,
-                content={
-                    "draft_id": agent_input.metadata.get('draft_id', 'unknown'),
-                    "critiques": critiques,
-                    "overall_assessment": overall_assessment,
-                    "critique_summary": {
-                        "total_issues": len(critiques),
-                        "critical_issues": len([c for c in critiques if c.get('severity') == 'critical']),
-                        "high_issues": len([c for c in critiques if c.get('severity') == 'high']),
-                        "verification_categories": {
-                            "logical": len([c for c in critiques if c.get('type') == 'logic_flaw']),
-                            "factual": len([c for c in critiques if c.get('type') == 'fact_contradiction']),
-                            "hallucination": len([c for c in critiques if c.get('type') == 'hallucination'])
-                        }
+                self.logger.info("="*250)
+                self.logger.info("LLM INPUT - PARALLEL VERIFICATION")
+                self.logger.info("="*250)
+                # Format the structured input for logging (matching Strategist format)
+                try:
+                    log_input = {
+                        "query": query,
+                        "draft_to_critique": structured_draft_input,
+                        "retrieval_context": context if isinstance(context, list) else [],  # Show all retrieval results
+                        "total_context_sources": len(context) if isinstance(context, list) else len([line for line in context_str.split('\n') if line.startswith('[Source')]),
+                        "context_length": len(context_str)
                     }
-                },
-                metadata={
-                    "verification_scope": {
-                        "cot_steps_analyzed": len(chain_of_thought),
-                        "context_items_checked": len(context),
-                        "draft_length": len(draft_content)
+                    
+                    formatted_inputs = json.dumps(log_input, indent=2)
+                    self.logger.info(f"Verification inputs (structured format):\n{formatted_inputs}")
+                except:
+                    self.logger.info(f"Verification inputs: {base_inputs}")
+                self.logger.info("="*250)
+                
+                # Run all three verification chains in parallel
+                self.logger.info("Executing parallel verification chains...")
+                
+                # Create async tasks for parallel execution
+                async def run_chain_async(chain, inputs, chain_name):
+                    """Helper to run chain asynchronously with proper debugging and fail-fast."""
+                    self.logger.info("="*250)
+                    self.logger.info(f"CHAIN EXECUTION: {chain_name.upper()}")
+                    self.logger.info("="*250)
+                    
+                    # ============================================================
+                    # CRITICAL DEBUG SECTION - OUTSIDE TRY BLOCK
+                    # ============================================================
+                    
+                    # 1. Debug what the chain object actually is
+                    self.logger.info(f"🔍 CHAIN OBJECT DEBUG:")
+                    self.logger.info(f"   - Chain type: {type(chain)}")
+                    self.logger.info(f"   - Chain class: {chain.__class__.__name__}")
+                    self.logger.info(f"   - Has prompt: {hasattr(chain, 'prompt')}")
+                    self.logger.info(f"   - Has output_key: {hasattr(chain, 'output_key')}")
+                    if hasattr(chain, 'output_key'):
+                        self.logger.info(f"   - Output key value: {chain.output_key}")
+                    
+                    # 2. Debug the inputs
+                    self.logger.info(f"🔍 INPUTS DEBUG:")
+                    self.logger.info(f"   - Input type: {type(inputs)}")
+                    self.logger.info(f"   - Input keys: {list(inputs.keys())}")
+                    for key in inputs.keys():
+                        val_preview = str(inputs[key])  # Full value
+                        self.logger.info(f"   - {key}: {val_preview}...")
+                    
+                    # 3. Extract and validate expected variables OUTSIDE try block
+                    expected_vars = []
+                    if hasattr(chain, 'prompt') and hasattr(chain.prompt, 'input_variables'):
+                        expected_vars = chain.prompt.input_variables
+                        self.logger.info(f"🔍 TEMPLATE VARIABLES:")
+                        self.logger.info(f"   - Expected: {expected_vars}")
+                    else:
+                        self.logger.error(f"❌ CHAIN HAS NO PROMPT OR INPUT_VARIABLES!")
+                        self.logger.error(f"   - Chain attributes: {dir(chain)}")  # Show all attributes
+                        raise ValueError(f"Chain {chain_name} has no prompt.input_variables attribute!")
+                    
+                    # 4. Check variable matching OUTSIDE try block
+                    self.logger.info(f"🔍 VARIABLE MATCHING:")
+                    missing_vars = []
+                    available_vars = []
+                    for var in expected_vars:
+                        if var in inputs:
+                            self.logger.info(f"   ✓ {var} - FOUND in inputs")
+                            available_vars.append(var)
+                        else:
+                            self.logger.error(f"   ✗ {var} - MISSING from inputs!")
+                            missing_vars.append(var)
+                    
+                    # 5. Build call_kwargs OUTSIDE try block
+                    call_kwargs = {k: inputs[k] for k in expected_vars if k in inputs}
+                    
+                    # 6. FAIL FAST if there's a problem
+                    if not call_kwargs:
+                        self.logger.error(f"❌ FATAL: No matching variables found!")
+                        self.logger.error(f"   Chain expects: {expected_vars}")
+                        self.logger.error(f"   Inputs has: {list(inputs.keys())}")
+                        raise ValueError(f"Cannot invoke {chain_name}: no matching variables between template {expected_vars} and inputs {list(inputs.keys())}")
+                    
+                    if missing_vars:
+                        self.logger.error(f"❌ FATAL: Required variables missing!")
+                        self.logger.error(f"   Missing: {missing_vars}")
+                        raise ValueError(f"Cannot invoke {chain_name}: missing required variables {missing_vars}")
+                    
+                    # ============================================================
+                    # LOG THE ACTUAL PROMPT (for debugging)
+                    # ============================================================
+                    try:
+                        prompt_val = chain.prompt.format_prompt(**call_kwargs)
+                        messages = prompt_val.to_messages()
+                        self.logger.info(">>> ACTUAL COMPLETE PROMPT BEING SENT TO LLM <<<")
+                        self.logger.info("START_PROMPT" + "="*240)
+                        for msg in messages:
+                            self.logger.info(f"Message: {msg.content}")
+                        self.logger.info("END_PROMPT" + "="*242)
+                        self.logger.info(f"Total prompt length: {sum(len(m.content) for m in messages)} characters")
+                    except Exception as e:
+                        self.logger.error(f"Could not format prompt for logging: {e}")
+                    
+                    self.logger.info("="*250)
+                    
+                    # ============================================================
+                    # INVOKE THE CHAIN - NO FALLBACKS, FAIL FAST
+                    # ============================================================
+                    try:
+                        self.logger.info(f"📞 Calling {chain_name}.arun() with args: {sorted(call_kwargs.keys())}")
+                        
+                        # Build the explicit call based on exact variables
+                        if set(call_kwargs) == {"query", "draft", "cot"}:
+                            raw_output = await chain.arun(
+                                query=call_kwargs["query"],
+                                draft=call_kwargs["draft"],
+                                cot=call_kwargs["cot"]
+                            )
+                        elif set(call_kwargs) == {"query", "draft", "context"}:
+                            raw_output = await chain.arun(
+                                query=call_kwargs["query"],
+                                draft=call_kwargs["draft"],
+                                context=call_kwargs["context"]
+                            )
+                        elif set(call_kwargs) == {"query", "draft"}:
+                            raw_output = await chain.arun(
+                                query=call_kwargs["query"],
+                                draft=call_kwargs["draft"]
+                            )
+                        else:
+                            # NO FALLBACK - FAIL FAST
+                            raise ValueError(f"Unsupported argument combination: {set(call_kwargs)}. Add explicit support for this pattern.")
+                        
+                        # Wrap output
+                        raw_result = {chain.output_key: raw_output} if hasattr(chain,'output_key') else {'text': raw_output}
+                        
+                    except Exception as e:
+                        self.logger.error(f"❌ Chain {chain_name} execution FAILED!")
+                        self.logger.error(f"   Error: {e}")
+                        self.logger.error(f"   Error type: {type(e).__name__}")
+                        import traceback
+                        self.logger.error(f"   Traceback:\n{traceback.format_exc()}")
+                        raise  # FAIL FAST - no silent failures
+
+                    # ------------------------------------------------------------------
+                    # 4) Log FULL LLM response
+                    # ------------------------------------------------------------------
+                    self.logger.info("="*250)
+                    self.logger.info(f"LLM OUTPUT - {chain_name.upper()}")
+                    self.logger.info("="*250)
+                    self.logger.info(">>> ACTUAL COMPLETE RESPONSE FROM LLM <<<")
+                    self.logger.info("START_RESPONSE" + "="*236)
+                    self.logger.info(str(raw_output))
+                    self.logger.info("END_RESPONSE" + "="*238)
+                    self.logger.info(f"Total response length: {len(str(raw_output))} characters")
+
+                    return raw_result
+                
+                # Execute all three chains in parallel
+                logic_task = run_chain_async(self.logic_verification_chain, base_inputs, "Logic Verification")
+                fact_task = run_chain_async(self.fact_checking_chain, base_inputs, "Fact Checking")
+                hallucination_task = run_chain_async(self.hallucination_chain, base_inputs, "Hallucination Detection")
+                
+                # Wait for all chains to complete
+                try:
+                    logic_result, fact_result, hallucination_result = await asyncio.gather(
+                        logic_task, fact_task, hallucination_task
+                    )
+                except Exception as e:
+                    self.logger.error(f"Error running parallel chains: {e}")
+                    # Return empty results if chains fail
+                    logic_result = {'logic_analysis': '{"logic_issues": [], "logic_summary": "Chain failed", "areas_of_concern": []}'}
+                    fact_result = {'fact_analysis': '{"fact_issues": [], "fact_summary": "Chain failed", "verified_facts": []}'}
+                    hallucination_result = {'hallucination_analysis': '{"hallucinations": [], "hallucination_summary": "Chain failed"}'}
+                
+                self.logger.info("="*250)
+                self.logger.info("PARALLEL VERIFICATION RESULTS")
+                self.logger.info("="*250)
+                
+                # Debug what we actually got back
+                self.logger.info(f"Logic result type: {type(logic_result)}, keys: {logic_result.keys() if isinstance(logic_result, dict) else 'Not a dict'}")
+                self.logger.info(f"Fact result type: {type(fact_result)}, keys: {fact_result.keys() if isinstance(fact_result, dict) else 'Not a dict'}")
+                self.logger.info(f"Hallucination result type: {type(hallucination_result)}, keys: {hallucination_result.keys() if isinstance(hallucination_result, dict) else 'Not a dict'}")
+                
+                # Validate verification results
+                logic_text = str(logic_result.get('logic_analysis', ''))
+                fact_text = str(fact_result.get('fact_analysis', ''))
+                halluc_text = str(hallucination_result.get('hallucination_analysis', ''))
+                
+                # Detect if LLM is generating completely unrelated examples
+                unrelated_keywords = ['Tesla', 'OpenAI', 'Microsoft', 'Mars', 'planet', 'population', 'Q1 2023', 'vehicles', 'Event A', 'Person Z', 'Earth is flat']
+                
+                # Check if any result contains obviously unrelated content
+                for result_name, result_text in [("Logic", logic_text), ("Fact", fact_text), ("Hallucination", halluc_text)]:
+                    if any(keyword in result_text for keyword in unrelated_keywords):
+                        self.logger.warning(f"WARNING: {result_name} checker may have generated unrelated examples!")
+                        self.logger.warning(f"Found unrelated keywords in: {result_text}")
+                        self.logger.warning("This suggests the LLM is not analyzing the actual draft content")
+                
+                # Now run synthesis chain with all results
+                synthesis_inputs = {
+                    "logic_analysis": logic_result.get('logic_analysis', '{}'),
+                    "fact_analysis": fact_result.get('fact_analysis', '{}'),
+                    "hallucination_analysis": hallucination_result.get('hallucination_analysis', '{}')
+                }
+                
+                self.logger.info("="*250)
+                self.logger.info("LLM INPUT - SYNTHESIS CHAIN")
+                self.logger.info("="*250)
+                self.logger.info(">>> ACTUAL COMPLETE SYNTHESIS INPUTS <<<")
+                self.logger.info("START_SYNTHESIS_INPUT" + "="*229)
+                # Log ALL inputs without truncation
+                self.logger.info("LOGIC ANALYSIS:")
+                self.logger.info(synthesis_inputs['logic_analysis'])
+                self.logger.info("-" * 100)
+                self.logger.info("FACT ANALYSIS:")
+                self.logger.info(synthesis_inputs['fact_analysis'])
+                self.logger.info("-" * 100)
+                self.logger.info("HALLUCINATION ANALYSIS:")
+                self.logger.info(synthesis_inputs['hallucination_analysis'])
+                self.logger.info("END_SYNTHESIS_INPUT" + "="*231)
+                self.logger.info("="*250)
+                
+                # Use arun for proper variable substitution with ChatPromptTemplate
+                synthesis_result_text = await self.synthesis_chain.arun(**synthesis_inputs)
+                synthesis_result = {'text': synthesis_result_text}
+                
+                self.logger.info("="*250)
+                self.logger.info("LLM OUTPUT - SYNTHESIS CHAIN")
+                self.logger.info("="*250)
+                # Log the FULL synthesis result - NO TRUNCATION!
+                self.logger.info(">>> ACTUAL COMPLETE SYNTHESIS RESPONSE <<<")
+                self.logger.info("START_SYNTHESIS" + "="*235)
+                if isinstance(synthesis_result, dict):
+                    try:
+                        formatted_result = json.dumps(synthesis_result, indent=2)
+                        self.logger.info(formatted_result)  # Log the FULL formatted result
+                    except:
+                        self.logger.info(str(synthesis_result))  # Log as string if JSON fails
+                else:
+                    self.logger.info(str(synthesis_result))  # Log the FULL result
+                self.logger.info("END_SYNTHESIS" + "="*237)
+                self.logger.info(f"Total synthesis length: {len(str(synthesis_result))} characters")
+                self.logger.info("="*250)
+                
+                # Parse the final synthesized critique
+                self.logger.info(f"Attempting to parse synthesis result (type: {type(synthesis_result)})")
+                
+                # Extract the text from the synthesis result dict
+                if isinstance(synthesis_result, dict):
+                    json_text = synthesis_result.get("text", "")
+                else:
+                    json_text = str(synthesis_result)
+                
+                if not json_text or not json_text.strip():
+                    self.logger.warning("Synthesis returned empty text response!")
+                    raise json.JSONDecodeError("Empty response", str(json_text), 0)
+                
+                # Try to extract JSON if it's wrapped in markdown or other text
+                json_text = json_text.strip()
+                if "```json" in json_text:
+                    # Extract JSON from markdown code block
+                    json_text = json_text.split("```json")[1].split("```")[0].strip()
+                    self.logger.info(f"Extracted JSON from markdown: {json_text}")
+                elif "```" in json_text:
+                    # Extract from generic code block
+                    json_text = json_text.split("```")[1].split("```")[0].strip()
+                    self.logger.info(f"Extracted JSON from code block: {json_text}")
+                
+                # Fix double brace issue that sometimes occurs
+                if json_text.startswith('{{') and json_text.endswith('}}'):
+                    json_text = json_text[1:-1]
+                    self.logger.info("Fixed double brace issue in JSON")
+                
+                final_critique = json.loads(json_text)
+                critiques = self._convert_json_to_critiques(final_critique)
+                overall_assessment = final_critique.get("overall_assessment", "Draft requires revision")
+                severity_score = final_critique.get("severity_score", 0.5)
+                
+                self.logger.info(f"Parallel verification complete! Found {len(critiques)} issues through independent analysis")
+                
+            except json.JSONDecodeError as e:
+                self.logger.error(f"JSON parsing failed: {e}")
+                self.logger.error(f"Raw synthesis result: '{json_text if 'json_text' in locals() else 'N/A'}'")
+                
+                # Fallback to empty critiques
+                critiques = []
+                overall_assessment = "Failed to parse critique - JSON parsing error"
+                severity_score = 0.5
+            except Exception as e:
+                self.logger.error(f"Unexpected error parsing critique: {e}")
+                critiques = []
+                overall_assessment = "Failed to parse critique - unexpected error"
+                severity_score = 0.5
+            
+            # Create formatted JSON output according to specification
+            formatted_output = {
+                "draft_id": draft["draft_id"],
+                "critiques": [
+                    {
+                        "step_ref": c.get("step_ref"),
+                        "type": c.get("type", "logic_flaw"),
+                        "severity": c.get("severity", "medium"),
+                        "description": c.get("description", ""),
+                        "claim": c.get("claim")
                     }
-                },
-                processing_time=0.0,  # Set by parent class
-                agent_role=self.agent_role
+                    for c in critiques
+                ],
+                "overall_assessment": overall_assessment
+            }
+            
+            # Log the JSON output
+            self.logger.info("="*250)
+            self.logger.info("CRITIC OUTPUT (JSON)")
+            self.logger.info("="*250)
+            self.logger.info(json.dumps(formatted_output, indent=2))
+            self.logger.info("="*250)
+            
+            # Update state
+            state["critiques"] = critiques
+            state["workflow_status"] = "debating"
+            
+            # Log execution
+            processing_time = time.time() - start_time
+            log_agent_execution(
+                state=state,
+                agent_name="Critic",
+                input_summary=f"Draft: {draft['draft_id']}, Round: {state['current_round']}",
+                output_summary=f"Found {len(critiques)} issues, severity: {severity_score:.2f}",
+                processing_time=processing_time,
+                success=True
             )
             
-        except Exception as e:
-            self.logger.error(f"Critic failed: {str(e)}")
-            raise e
-    
-    async def _verify_logical_consistency(
-        self, 
-        chain_of_thought: List[Dict[str, Any]], 
-        draft_content: str
-    ) -> List[Dict[str, Any]]:
-        """Verify logical flow and consistency in reasoning"""
-        
-        logical_issues = []
-        
-        if not chain_of_thought:
-            logical_issues.append({
-                "type": "logic_flaw",
-                "severity": "high",
-                "description": "No Chain-of-Thought provided for verification",
-                "step_ref": None
-            })
-            return logical_issues
-        
-        try:
-            # Check each reasoning step for logical validity
-            for i, step in enumerate(chain_of_thought):
-                step_issues = await self._analyze_reasoning_step(step, i, chain_of_thought)
-                logical_issues.extend(step_issues)
+            self.logger.info(f"Critique completed:")
+            self.logger.info(f"  - Total issues: {len(critiques)}")
+            self.logger.info(f"  - Overall assessment: {overall_assessment}")
+            self.logger.info(f"  - Severity score: {severity_score:.2f}")
             
-            # Check overall logical flow
-            flow_issues = await self._analyze_logical_flow(chain_of_thought, draft_content)
-            logical_issues.extend(flow_issues)
-            
-            self.logger.debug(f"Logical verification found {len(logical_issues)} issues")
+            # Log critical issues
+            critical_issues = [c for c in critiques if c.get("severity") == "critical"]
+            if critical_issues:
+                self.logger.warning(f"  - CRITICAL issues: {len(critical_issues)}")
+                for issue in critical_issues:  # All critical issues
+                    self.logger.warning(f"    • {issue['description']}")
             
         except Exception as e:
-            self.logger.error(f"Logical verification failed: {str(e)}")
-            logical_issues.append({
-                "type": "logic_flaw",
-                "severity": "medium",
-                "description": f"Logical verification failed due to error: {str(e)}",
-                "step_ref": None
-            })
+            self.logger.error(f"Critique failed: {str(e)}")
+            state["error_messages"].append(f"Critic agent error: {str(e)}")
+            state["workflow_status"] = "failed"
+            
+            log_agent_execution(
+                state=state,
+                agent_name="Critic",
+                input_summary=f"Draft critique attempt",
+                output_summary=f"Error: {str(e)}",
+                processing_time=time.time() - start_time,
+                success=False
+            )
         
-        return logical_issues
+        return state
     
-    async def _analyze_reasoning_step(
-        self, 
-        step: Dict[str, Any], 
-        step_index: int, 
-        all_steps: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
-        """Analyze a single reasoning step for logical issues"""
+    def _convert_json_to_critiques(self, final_critique: Dict) -> List[Critique]:
+        """Convert the JSON output from chained pipeline to Critique objects"""
+        critiques = []
         
-        issues = []
-        step_num = step.get('step', step_index + 1)
-        step_thought = step.get('thought', '')
+        for c in final_critique.get("critiques", []):
+            critiques.append(Critique(
+                type=c.get("type", "logic_flaw"),
+                severity=c.get("severity", "medium"),
+                description=c.get("description", ""),
+                step_ref=c.get("step_ref"),
+                claim=c.get("claim")
+            ))
         
-        # Check for empty or trivial steps
-        if len(step_thought.strip()) < 20:
-            issues.append({
-                "type": "logic_flaw",
-                "severity": "medium",
-                "step_ref": step_num,
-                "description": f"Step {step_num} is too brief or lacks substance"
-            })
-            return issues
+        return critiques
+    
+    def _parse_issues(self, response: str, default_type: str) -> List[Critique]:
+        """Parse issues from chain response"""
+        critiques = []
         
-        # Use LLM to analyze logical validity
-        if self.llm_client:
-            try:
-                previous_context = ""
-                if step_index > 0:
-                    prev_steps = all_steps[:step_index]
-                    previous_context = "\n".join([f"Step {s.get('step', i+1)}: {s.get('thought', '')}" for i, s in enumerate(prev_steps)])
-                
-                prompt = f"""
-                Analyze the logical validity of the following reasoning step:
-
-                Previous steps context:
-                {previous_context}
-
-                Current step to analyze:
-                Step {step_num}: {step_thought}
-
-                Check for:
-                1. Logical fallacies or invalid inferences
-                2. Unsupported leaps in reasoning
-                3. Contradictions with previous steps
-                4. Missing crucial logical connections
-
-                If you find issues, respond in this format:
-                ISSUE: [brief description]
-                SEVERITY: [critical/high/medium/low]
-                EXPLANATION: [detailed explanation]
-
-                If no significant logical issues, respond: "NO_ISSUES"
-                """
-                
-                response = await self._call_llm(prompt, temperature=0.1)
-                
-                # ULTRA VERBOSE: Log evaluation decision
-                self.logger.info(f"LOGICAL STEP {step_num} EVALUATION:")
-                if response and "NO_ISSUES" not in response.upper():
-                    self.logger.info(f"ISSUES DETECTED in step {step_num}")
-                    # Parse LLM response for issues
-                    parsed_issues = self._parse_llm_critique(response, step_num, "logic_flaw")
-                    self.logger.info(f"PARSED {len(parsed_issues)} logical issues from response")
-                    for issue in parsed_issues:
-                        self.logger.info(f"   • {issue.get('severity', 'unknown').upper()}: {issue.get('description', 'no description')}")
-                    issues.extend(parsed_issues)
-                else:
-                    self.logger.info(f"NO LOGICAL ISSUES found in step {step_num}")
+        for line in response.split("\n"):
+            if line.startswith("ISSUE:"):
+                parts = line.replace("ISSUE:", "").split("|")
+                if len(parts) >= 2:
+                    # Parse components
+                    severity = "medium"  # default
+                    description = ""
+                    step_ref = None
+                    claim = None
                     
-            except Exception as e:
-                self.logger.warning(f"️ LLM-based step analysis failed: {str(e)}")
-        
-        return issues
-    
-    async def _analyze_logical_flow(
-        self, 
-        chain_of_thought: List[Dict[str, Any]], 
-        draft_content: str
-    ) -> List[Dict[str, Any]]:
-        """Analyze overall logical flow from CoT to draft"""
-        
-        issues = []
-        
-        if not self.llm_client:
-            return issues
-        
-        try:
-            # Create summary of reasoning chain
-            cot_summary = "\n".join([
-                f"Step {step.get('step', i+1)}: {step.get('thought', '')}"
-                for i, step in enumerate(chain_of_thought)
-            ])
-            
-            prompt = f"""
-            Analyze the logical flow from reasoning steps to final draft:
-
-======= REASONING CHAIN START =======
-{cot_summary}
-======= REASONING CHAIN END =======
-
-======= FINAL DRAFT START =======
-{draft_content}
-======= FINAL DRAFT END =======
-
-            Check for:
-            1. Does the draft logically follow from the reasoning chain?
-            2. Are there major gaps between reasoning and conclusions?
-            3. Does the draft contradict any reasoning steps?
-            4. Are key reasoning insights missing from the draft?
-
-            If you find significant flow issues, respond in this format:
-            ISSUE: [brief description]
-            SEVERITY: [critical/high/medium/low]
-            EXPLANATION: [detailed explanation]
-
-            If the flow is generally sound, respond: "NO_MAJOR_ISSUES"
-            """
-            
-            # ULTRA VERBOSE: Log the full prompt being sent to LLM
-            self.logger.info(f"\n" + "="*250)
-            self.logger.info(f"LOGICAL FLOW ANALYSIS - FULL PROMPT TO LLM")
-            self.logger.info(f"="*250)
-            self.logger.info(f"PROMPT CONTENT:")
-            self.logger.info(f"{prompt}")
-            self.logger.info(f"="*250)
-            
-            response = await self._call_llm(prompt, temperature=0.1)
-            
-            self.logger.info(f"\nLLM RESPONSE FOR LOGICAL FLOW:")
-            self.logger.info(f"{response}")
-            self.logger.info(f"="*250)
-            
-            # ULTRA VERBOSE: Log flow evaluation decision
-            self.logger.info(f"LOGICAL FLOW EVALUATION:")
-            if response and "NO_MAJOR_ISSUES" not in response.upper():
-                self.logger.info(f"LOGICAL FLOW ISSUES DETECTED")
-                parsed_issues = self._parse_llm_critique(response, None, "logic_flaw")
-                self.logger.info(f"PARSED {len(parsed_issues)} flow issues from response")
-                for issue in parsed_issues:
-                    self.logger.info(f"   • {issue.get('severity', 'unknown').upper()}: {issue.get('description', 'no description')}")
-                issues.extend(parsed_issues)
-            else:
-                self.logger.info(f"LOGICAL FLOW IS SOUND")
-                
-        except Exception as e:
-            self.logger.warning(f"️ Logical flow analysis failed: {str(e)}")
-        
-        return issues
-    
-    async def _verify_factual_accuracy(
-        self, 
-        draft_content: str, 
-        context: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
-        """Verify factual claims against provided context"""
-        
-        factual_issues = []
-        
-        if not context:
-            self.logger.info("No context provided for fact-checking")
-            return factual_issues
-        
-        try:
-            # Extract key factual claims from draft
-            claims = self._extract_factual_claims(draft_content)
-            
-            # ULTRA VERBOSE: Log extracted claims
-            self.logger.info(f"FACTUAL CLAIMS EXTRACTION:")
-            self.logger.info(f"EXTRACTED {len(claims)} factual claims from draft:")
-            for i, claim in enumerate(claims, 1):
-                self.logger.info(f"   {i}. '{claim}'")
-            
-            if not claims:
-                self.logger.info("️ NO EXPLICIT FACTUAL CLAIMS FOUND for verification")
-                return factual_issues
-            
-            # Verify each claim against context
-            for claim in claims:
-                verification_result = await self._verify_single_claim(claim, context)
-                if verification_result:
-                    factual_issues.append(verification_result)
-            
-            self.logger.debug(f"Fact-checking found {len(factual_issues)} issues")
-            
-        except Exception as e:
-            self.logger.error(f"Factual verification failed: {str(e)}")
-            factual_issues.append({
-                "type": "fact_contradiction",
-                "severity": "medium",
-                "description": f"Fact-checking failed due to error: {str(e)}",
-                "claim": None
-            })
-        
-        return factual_issues
-    
-    def _extract_factual_claims(self, content: str) -> List[str]:
-        """Extract specific factual claims from content"""
-        claims = []
-        
-        # Look for specific patterns that indicate factual claims
-        patterns = [
-            r"The value is (\d+\.?\d*)",
-            r"The result is (\w+)",
-            r"According to (.+?),",
-            r"The formula is (.+?)[\.\n]",
-            r"(\w+) equals (\w+)",
-            r"The answer is (.+?)[\.\n]"
-        ]
-        
-        for pattern in patterns:
-            matches = re.findall(pattern, content, re.IGNORECASE)
-            for match in matches:
-                if isinstance(match, tuple):
-                    claim = " ".join(match).strip()
-                else:
-                    claim = match.strip()
-                
-                if len(claim) > 5:  # Filter out very short matches
-                    claims.append(claim)
-        
-        # Also extract sentences with definitive statements
-        sentences = re.split(r'[.!?]+', content)
-        for sentence in sentences:
-            sentence = sentence.strip()
-            if any(indicator in sentence.lower() for indicator in ['is', 'equals', 'equals to', 'the value', 'the result']):
-                if 20 < len(sentence) < 200:  # Reasonable length
-                    claims.append(sentence)
-        
-        return list(set(claims))  # Remove duplicates
-    
-    async def _verify_single_claim(
-        self, 
-        claim: str, 
-        context: List[Dict[str, Any]]
-    ) -> Dict[str, Any] | None:
-        """Verify a single claim against context"""
-        
-        if not self.llm_client:
-            return None
-        
-        try:
-            # Create context summary for verification
-            context_text = "\n".join([
-                f"Source {i+1}: {item.get('text', item.get('content', ''))}"
-                for i, item in enumerate(context[:5])  # Limit context to prevent overflow
-            ])
-            
-            # ULTRA VERBOSE: Show exactly what context is being used for verification
-            self.logger.info(f"\n--- FACT-CHECKING CLAIM AGAINST CONTEXT ---")
-            self.logger.info(f"Claim: '{claim}'")
-            self.logger.info(f"Context sources ({len(context)} total, showing first 5):")
-            self.logger.info(f"'{context_text}'")
-            
-            prompt = f"""
-            Verify the following claim against the provided context:
-
-======= CLAIM TO VERIFY START =======
-{claim}
-======= CLAIM TO VERIFY END =======
-
-======= CONTEXT SOURCES START =======
-{context_text}
-======= CONTEXT SOURCES END =======
-
-            Determine:
-            1. Is this claim explicitly supported by the context?
-            2. Is this claim contradicted by the context?
-            3. Is this claim not mentioned in the context at all?
-
-            Respond in this format:
-            VERIFICATION: [SUPPORTED/CONTRADICTED/NOT_MENTIONED]
-            EVIDENCE: [specific quote from context if applicable]
-            CONFIDENCE: [high/medium/low]
-
-            If CONTRADICTED, also include:
-            SEVERITY: [critical/high/medium/low]
-            """
-            
-            # ULTRA VERBOSE: Log the full fact-check prompt
-            self.logger.info(f"\n" + "="*250)
-            self.logger.info(f"FACT-CHECK ANALYSIS - FULL PROMPT TO LLM")
-            self.logger.info(f"="*250)
-            self.logger.info(f"CLAIM: '{claim}'")
-            self.logger.info(f"PROMPT CONTENT:")
-            self.logger.info(f"{prompt}")
-            self.logger.info(f"="*250)
-            
-            response = await self._call_llm(prompt, temperature=0.1)
-            
-            self.logger.info(f"\nLLM RESPONSE FOR FACT-CHECK:")
-            self.logger.info(f"{response}")
-            self.logger.info(f"="*250)
-            
-            # ULTRA VERBOSE: Log fact-check evaluation
-            self.logger.info(f"FACT-CHECK EVALUATION for claim: '{claim}'")
-            if response and "CONTRADICTED" in response.upper():
-                self.logger.info(f"FACTUAL CONTRADICTION DETECTED")
-                # Parse the contradiction details
-                severity = "high"  # Default
-                evidence = ""
-                
-                lines = response.split('\n')
-                for line in lines:
-                    if line.startswith('EVIDENCE:'):
-                        evidence = line[9:].strip()
-                    elif line.startswith('SEVERITY:'):
-                        severity = line[9:].strip().lower()
-                
-                self.logger.info(f"CONTRADICTION: Severity={severity.upper()}, Evidence='{evidence}'")
-                return {
-                    "type": "fact_contradiction",
-                    "severity": severity,
-                    "claim": claim,
-                    "description": f"Claim contradicted by provided context: {evidence}"
-                }
-            else:
-                self.logger.info(f"FACT-CHECK PASSED for claim")
-            
-        except Exception as e:
-            self.logger.warning(f"️ Single claim verification failed: {str(e)}")
-        
-        return None
-    
-    async def _detect_hallucinations(
-        self, 
-        draft_content: str, 
-        context: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
-        """Detect hallucinated information not supported by context"""
-        
-        hallucination_issues = []
-        
-        if not self.llm_client or not context:
-            return hallucination_issues
-        
-        try:
-            # Create comprehensive context summary
-            context_summary = self._create_context_summary(context)
-            
-            # ULTRA VERBOSE: Show exactly what's being checked for hallucinations
-            self.logger.info(f"\n--- HALLUCINATION DETECTION INPUT ---")
-            self.logger.info(f"Draft content ({len(draft_content)} chars): '{draft_content}'")
-            self.logger.info(f"Context summary ({len(context_summary)} chars): '{context_summary}'")
-            
-            prompt = f"""
-            Analyze the draft for potential hallucinations - information that appears to be made up or not supported by the provided context.
-
-            DRAFT CONTENT:
-            {draft_content}
-
-            AVAILABLE CONTEXT:
-            {context_summary}
-
-            Look for:
-            1. Specific facts, figures, or formulas not in the context
-            2. References to concepts not mentioned in the context  
-            3. Made-up examples or case studies
-            4. Invented technical terms or jargon
-            5. Fabricated historical details or citations
-
-            For each potential hallucination, respond in this format:
-            HALLUCINATION: [specific content that appears fabricated]
-            SEVERITY: [critical/high/medium/low]
-            EXPLANATION: [why this appears to be hallucinated]
-
-            If no clear hallucinations are detected, respond: "NO_HALLUCINATIONS_DETECTED"
-            """
-            
-            response = await self._call_llm(prompt, temperature=0.1)
-            
-            # ULTRA VERBOSE: Log hallucination evaluation
-            self.logger.info(f"HALLUCINATION DETECTION EVALUATION:")
-            # Check if response contains actual hallucination reports (not just the "no hallucinations" phrase)
-            has_severity = "SEVERITY:" in response.upper() if response else False
-            has_hallucination_tag = "HALLUCINATION:" in response.upper() if response else False
-            
-            if response and (has_severity or has_hallucination_tag):
-                self.logger.info(f"HALLUCINATIONS DETECTED")
-                parsed_issues = self._parse_llm_critique(response, None, "hallucination")
-                self.logger.info(f"PARSED {len(parsed_issues)} hallucination issues from response")
-                for issue in parsed_issues:
-                    self.logger.info(f"   • {issue.get('severity', 'unknown').upper()}: {issue.get('description', 'no description')}")
-                hallucination_issues.extend(parsed_issues)
-            else:
-                self.logger.info(f"NO HALLUCINATIONS DETECTED")
-            
-            self.logger.debug(f"Hallucination detection found {len(hallucination_issues)} issues")
-            
-        except Exception as e:
-            self.logger.error(f"Hallucination detection failed: {str(e)}")
-        
-        return hallucination_issues
-    
-    def _create_context_summary(self, context: List[Dict[str, Any]]) -> str:
-        """Create a summary of available context for hallucination detection"""
-        if not context:
-            return "No context provided."
-        
-        summaries = []
-        for i, item in enumerate(context[:8]):  # Limit to prevent prompt overflow
-            text = item.get('text', item.get('content', ''))
-            score = item.get('score', 'N/A')
-            
-            summary = f"Context {i+1} (Relevance: {score}):\n{text}"
-            summaries.append(summary)
-        
-        return "\n\n".join(summaries)
-    
-    def _parse_llm_critique(
-        self, 
-        response: str, 
-        step_ref: int | None, 
-        issue_type: str
-    ) -> List[Dict[str, Any]]:
-        """Parse LLM response into structured critique format"""
-        
-        issues = []
-        
-        try:
-            # ULTRA VERBOSE: Log what we're trying to parse
-            self.logger.info(f"PARSING LLM RESPONSE:")
-            self.logger.info(f"Response length: {len(response)} chars")
-            self.logger.info(f"Looking for SEVERITY: {('SEVERITY:' in response.upper())}")
-            self.logger.info(f"Looking for HALLUCINATION: {('HALLUCINATION:' in response.upper())}")
-            
-            # Handle different response formats
-            if "SEVERITY:" in response.upper():
-                # Format: explanatory text with SEVERITY: embedded
-                issue = {"type": issue_type}
-                
-                if step_ref is not None:
-                    issue["step_ref"] = step_ref
-                
-                lines = response.strip().split('\n')
-                description_parts = []
-                
-                for line in lines:
-                    line = line.strip()
-                    
-                    if line.startswith('ISSUE:') or line.startswith('HALLUCINATION:'):
-                        description_parts.append(line.split(':', 1)[1].strip())
-                    elif line.startswith('SEVERITY:'):
-                        severity = line[9:].strip().lower()
-                        if severity in self.severity_levels:
-                            issue["severity"] = severity
-                        else:
-                            issue["severity"] = "medium"
-                        self.logger.info(f"Found severity: {severity}")
-                    elif line.startswith('EXPLANATION:'):
-                        explanation = line[12:].strip()
-                        description_parts.append(explanation)
-                    elif line and not line.startswith('CONFIDENCE:') and len(line) > 20:
-                        # Include substantial descriptive lines
-                        description_parts.append(line)
-                
-                # Combine description parts
-                if description_parts:
-                    issue["description"] = " - ".join(description_parts[:2])  # Limit to first 2 parts
-                else:
-                    issue["description"] = "Issue detected but description unclear"
-                
-                if not issue.get("severity"):
-                    issue["severity"] = "medium"  # Default
-                    
-                issues.append(issue)
-                self.logger.info(f"Created issue: {issue.get('severity', 'unknown').upper()} - {issue.get('description', '')}")
-            
-            else:
-                # Original format: Split response into individual issues
-                issue_blocks = re.split(r'\n(?=ISSUE:|HALLUCINATION:)', response)
-                
-                for block in issue_blocks:
-                    if not block.strip():
-                        continue
-                    
-                    issue = {"type": issue_type}
-                    
-                    if step_ref is not None:
-                        issue["step_ref"] = step_ref
-                    
-                    lines = block.strip().split('\n')
-                    for line in lines:
-                        line = line.strip()
+                    if len(parts) >= 3:
+                        # Full format
+                        ref_or_claim = parts[0].strip()
+                        severity = parts[1].strip().lower()
+                        description = parts[2].strip()
                         
-                        if line.startswith('ISSUE:') or line.startswith('HALLUCINATION:'):
-                            issue["description"] = line.split(':', 1)[1].strip()
-                        elif line.startswith('SEVERITY:'):
-                            severity = line[9:].strip().lower()
-                            if severity in self.severity_levels:
-                                issue["severity"] = severity
-                            else:
-                                issue["severity"] = "medium"  # Default
-                        elif line.startswith('EXPLANATION:'):
-                            explanation = line[12:].strip()
-                            if "description" in issue:
-                                issue["description"] += f" - {explanation}"
-                            else:
-                                issue["description"] = explanation
-                    
-                    # Only add issues with valid descriptions
-                    if "description" in issue:
-                        issues.append(issue)
-            
-        except Exception as e:
-            self.logger.warning(f"️ Failed to parse LLM critique: {str(e)}")
-            
-            # Fallback: create a single issue from raw response
-            if response and len(response) > 10:
-                issues.append({
-                    "type": issue_type,
-                    "severity": "medium",
-                    "description": response,
-                    "step_ref": step_ref
-                })
-        
-        return issues
-    
-    def _assess_overall_quality(self, critiques: List[Dict[str, Any]]) -> str:
-        """Assess overall quality based on critique severity"""
-        
-        if not critiques:
-            return "acceptable"
-        
-        # Count issues by severity
-        critical_count = len([c for c in critiques if c.get('severity') == 'critical'])
-        high_count = len([c for c in critiques if c.get('severity') == 'high'])
-        
-        if critical_count > 0:
-            return "major_revisions_required"
-        elif high_count > 2:
-            return "significant_revisions_required" 
-        elif high_count > 0 or len(critiques) > 3:
-            return "minor_revisions_suggested"
-        else:
-            return "acceptable_with_minor_issues"
-    
-    async def _call_llm(self, prompt: str, temperature: float) -> str:
-        """
-        Call LLM with error handling, retry logic, proper async interface support, and ultra-verbose debugging.
-        
-        Handles different LLM client types:
-        - LangChain clients with ainvoke method (Cerebras, Gemini)
-        - OpenAI client with generate_async method
-        - Other clients with synchronous generate method
-        
-        Includes retry logic for server-side errors (up to 3 attempts).
-        """
-        # ULTRA VERBOSE: Log the exact prompt being sent
-        self.logger.info("\n" + "="*250)
-        self.logger.info("CRITIC LLM CALL START")
-        self.logger.info("="*250)
-        self.logger.info(f"Temperature: {temperature}")
-        self.logger.info(f"\nPROMPT:")
-        self.logger.info("-"*250)
-        self.logger.info(prompt)
-        self.logger.info("-"*250)
-        
-        async def _llm_operation():
-            if hasattr(self.llm_client, 'get_llm_client'):
-                llm = self.llm_client.get_llm_client()
-                # Check if the underlying client has ainvoke (LangChain compatibility)
-                if hasattr(llm, 'ainvoke'):
-                    response = await llm.ainvoke(prompt, temperature=temperature)
-                    return response.content if hasattr(response, 'content') else str(response)
-                else:
-                    # For raw clients (like OpenAI), use the wrapper's async method
-                    if hasattr(self.llm_client, 'generate_async'):
-                        response = await self.llm_client.generate_async(prompt, temperature=temperature)
-                        return str(response)
+                        # Determine if it's a step ref or claim
+                        if ref_or_claim.isdigit():
+                            step_ref = int(ref_or_claim)
+                        elif ref_or_claim.upper() == "NA":
+                            step_ref = None
+                        elif default_type == "fact_contradiction":
+                            claim = ref_or_claim
+                        elif default_type == "hallucination":
+                            # For hallucinations, no step ref
+                            step_ref = None
                     else:
-                        # Last resort: synchronous generate
-                        response = self.llm_client.generate(prompt, temperature=temperature)
-                        return str(response)
-            else:
-                # Direct client interface - check for async support first
-                if hasattr(self.llm_client, 'generate_async'):
-                    response = await self.llm_client.generate_async(prompt, temperature=temperature)
-                    return str(response)
-                else:
-                    # Fallback to synchronous generate (should not be called with await, but handle gracefully)
-                    response = self.llm_client.generate(prompt, temperature=temperature)
-                    return str(response)
+                        # Partial format
+                        description = " | ".join(parts).strip()
+                    
+                    # Validate severity
+                    if severity not in ["low", "medium", "high", "critical"]:
+                        severity = "medium"
+                    
+                    critiques.append(Critique(
+                        type=default_type,
+                        severity=severity,
+                        description=description,
+                        step_ref=step_ref,
+                        claim=claim
+                    ))
         
+        return critiques
+    
+    def _parse_assessment(self, response: str) -> tuple:
+        """Parse overall assessment from response"""
+        assessment = "Draft requires revision"
+        score = 0.5
+        
+        for line in response.split("\n"):
+            if line.startswith("ASSESSMENT:"):
+                assessment = line.replace("ASSESSMENT:", "").strip()
+            elif line.startswith("SCORE:"):
+                try:
+                    score = float(line.replace("SCORE:", "").strip())
+                except:
+                    pass
+        
+        return assessment, score
+    
+    def _format_cot(self, chain_of_thought: List[Dict]) -> str:
+        """Format Chain of Thought for critique"""
+        if not chain_of_thought:
+            return "No explicit chain of thought provided"
+        
+        lines = []
+        for step in chain_of_thought:
+            lines.append(f"Step {step['step']}: {step['thought']}")
+        
+        return "\n".join(lines)
+    
+    def _format_context(self, retrieval_results: List[Dict]) -> str:
+        """Format context for fact checking"""
+        if not retrieval_results:
+            return "No context available"
+        
+        context_parts = []
+        for i, result in enumerate(retrieval_results, 1):  # All results
+            # Provide complete context for comprehensive fact-checking (no truncation)
+            content = result.get('content', '')
+            context_parts.append(f"[Source {i}]: {content}")
+        
+        return "\n\n".join(context_parts)
+    
+    def _format_critiques(self, critiques: List[Critique]) -> str:
+        """Format critiques for assessment"""
+        if not critiques:
+            return "No issues found"
+        
+        lines = []
+        for c in critiques:
+            lines.append(f"- [{c['severity'].upper()}] {c['type']}: {c['description']}")
+        
+        return "\n".join(lines)
+    
+    # Tool implementations
+    def _verify_calculation(self, calculation: str) -> str:
+        """Verify a mathematical calculation"""
         try:
-            # Use retry mechanism for server-side errors
-            response_text = await self._retry_with_backoff(_llm_operation, max_retries=3, base_delay=1.0)
-            
-            # ULTRA VERBOSE: Log the exact response received
-            self.logger.info(f"\nLLM RESPONSE:")
-            self.logger.info("-"*250)
-            self.logger.info(response_text)
-            self.logger.info("-"*250)
-            self.logger.info("\n" + "="*250)
-            self.logger.info("CRITIC LLM CALL COMPLETE")
-            self.logger.info("="*250)
-            
-            return response_text
-            
-        except Exception as e:
-            self.logger.error(f"LLM call failed in critic agent after all retries: {str(e)}")
-            self.logger.info("=== CRITIC LLM CALL FAILED ===")
-            return "" 
+            # Simple eval for basic calculations (in production, use safer methods)
+            result = eval(calculation)
+            return f"Calculation verified: {calculation} = {result}"
+        except:
+            return f"Cannot verify calculation: {calculation}"
+    
+    def _check_formula(self, formula: str) -> str:
+        """Check if a formula is correctly stated"""
+        # In production, this would check against a formula database
+        return f"Formula check: {formula} - needs manual verification"
+    
+    def _verify_reference(self, reference: str) -> str:
+        """Verify a reference or citation"""
+        # In production, this would check against source documents
+        return f"Reference check: {reference} - needs context verification"

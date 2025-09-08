@@ -1,309 +1,516 @@
 """
-Tutor Agent - Intelligent User Interaction Manager
+Tutor Agent - LangChain Implementation
 
-Manages direct interaction with users, transforming Q&A into dynamic, personalized learning experiences.
+Intelligent tutor that manages user interaction and learning experience.
 """
 
 import time
-import logging
-from typing import Dict, Any, List, Optional
-from datetime import datetime, timedelta
+import json
+from typing import Dict, Any, List
+from langchain.prompts import ChatPromptTemplate
+from langchain.chains import LLMChain
+from pydantic import BaseModel, Field
 
-from ai_agents.agents.base_agent import BaseAgent, AgentInput, AgentOutput, AgentRole
+from ai_agents.state import WorkflowState, log_agent_execution
+from ai_agents.utils import create_langchain_llm
 
 
-class TutorAgent(BaseAgent):
+class TutorInteraction(BaseModel):
+    """Structured tutor interaction"""
+    interaction_type: str = Field(description="Type: guide, test, discipline, or standard")
+    guide_question: str = Field(description="Optional guiding question before answer")
+    quiz_questions: List[Dict[str, Any]] = Field(description="Optional quiz questions")
+    cooldown_message: str = Field(description="Optional cooldown message")
+    learning_tips: List[str] = Field(description="Learning tips for the topic")
+
+
+class TutorAgent:
     """
-    Tutor Agent - Manages user interaction lifecycle
+    Intelligent Tutor using LangChain chains.
     
-    Responsibilities:
-    - Guide: Present contextual guidance before answers
-    - Analyze: Monitor user behavior patterns
-    - Test: Generate comprehension assessments
-    - Discipline: Enforce learning-focused interactions
+    Manages:
+    1. Guiding questions to activate thinking
+    2. Pattern detection for homework copying
+    3. Dynamic quiz generation
+    4. Learning habit enforcement
     """
     
-    def __init__(self, config, llm_client=None, logger=None):
-        super().__init__(agent_role=AgentRole.TUTOR, config=config, llm_client=llm_client, logger=logger)
+    def __init__(self, context):
+        self.context = context
+        self.logger = context.logger.getChild("tutor")
+        self.llm_client = context.llm_client
+        self.llm = create_langchain_llm(self.llm_client)
         
-        # User session tracking
-        self.user_sessions = {}
-        
-        # Behavioral analysis thresholds
+        # Behavior thresholds
         self.similarity_threshold = 0.8
-        self.consecutive_similar_limit = 3
-        self.comprehension_threshold = 0.6
-        self.cooldown_duration_minutes = 15
+        self.consecutive_similar_threshold = 3
+        self.quiz_pass_threshold = 0.6
         
-    async def process(self, agent_input: AgentInput) -> AgentOutput:
-        """Process tutor interaction request"""
+        # Setup chains
+        self._setup_chains()
+    
+    def _setup_chains(self):
+        """Setup LangChain chains for tutoring tasks"""
+        
+        # Guide question generation chain
+        self.guide_chain = LLMChain(
+            llm=self.llm,
+            prompt=ChatPromptTemplate.from_messages([
+                ("system", """You are a Socratic tutor preparing students to learn.
+                Generate thought-provoking questions that activate prior knowledge."""),
+                ("human", """Query: {query}
+
+Answer Summary: {answer_summary}
+
+Generate a brief guiding question to ask BEFORE showing the answer.
+The question should:
+- Activate relevant prior knowledge
+- Be thought-provoking but not frustrating
+- Take less than 30 seconds to consider
+
+Format: QUESTION: [your question]""")
+            ])
+        )
+        
+        # Pattern analysis chain
+        self.pattern_analysis_chain = LLMChain(
+            llm=self.llm,
+            prompt=ChatPromptTemplate.from_messages([
+                ("system", """Analyze if the user is genuinely learning or just copying homework."""),
+                ("human", """Current Query: {current_query}
+
+Previous Queries:
+{previous_queries}
+
+Analyze:
+1. SIMILARITY: Are these essentially the same question? (0-1 score)
+2. PATTERN: Is this homework copying behavior? (yes/no)
+3. RECOMMENDATION: What should we do? (continue/test/warn)
+
+Format:
+SIMILARITY: X.XX
+PATTERN: yes/no
+RECOMMENDATION: [action]""")
+            ])
+        )
+        
+        # Quiz generation chain
+        self.quiz_chain = LLMChain(
+            llm=self.llm,
+            prompt=ChatPromptTemplate.from_messages([
+                ("system", """Generate educational quiz questions to test understanding."""),
+                ("human", """Topic: {query}
+
+Key Concepts from Answer:
+{key_concepts}
+
+Generate 2 multiple-choice questions that test understanding of core concepts.
+
+For each question provide:
+QUESTION_1: [question text]
+OPTIONS_1: A) [option] B) [option] C) [option] D) [option]
+CORRECT_1: [A/B/C/D]
+EXPLANATION_1: [why this is correct]
+
+QUESTION_2: [question text]
+OPTIONS_2: A) [option] B) [option] C) [option] D) [option]
+CORRECT_2: [A/B/C/D]
+EXPLANATION_2: [why this is correct]""")
+            ])
+        )
+        
+        # Learning tips chain
+        self.tips_chain = LLMChain(
+            llm=self.llm,
+            prompt=ChatPromptTemplate.from_messages([
+                ("system", """Generate personalized learning tips based on the topic."""),
+                ("human", """Query: {query}
+
+Answer Provided: {answer_summary}
+
+User Interaction Type: {interaction_type}
+
+Generate 3 specific, actionable learning tips for mastering this topic.
+
+Format each tip on a new line starting with "TIP:".""")
+            ])
+        )
+    
+    async def __call__(self, state: WorkflowState) -> WorkflowState:
+        """Execute tutor interaction"""
+        start_time = time.time()
+        
         try:
-            session_id = agent_input.session_id
-            query = agent_input.query
-            metadata = agent_input.metadata
+            self.logger.info("="*250)
+            self.logger.info("TUTOR AGENT - LEARNING INTERACTION")
+            self.logger.info("="*250)
             
-            # Extract final answer from Reporter
-            final_answer = metadata.get("final_answer", {})
-            conversation_history = metadata.get("conversation_history", [])
+            query = state["query"]
+            final_answer = state["final_answer"]
+            conversation_history = state.get("conversation_history", [])
             
-            # Initialize or update user session
-            self._update_user_session(session_id, query, conversation_history)
-            
-            # Determine current interaction state
-            interaction_state = self._analyze_user_behavior(session_id, query)
-            
-            # Generate appropriate response based on state
-            if interaction_state == "cooldown":
-                response = self._generate_cooldown_response(session_id)
-            elif interaction_state == "test":
-                response = self._generate_test_interaction(session_id, final_answer)
-            else:  # guide or normal
-                response = self._generate_guided_response(session_id, final_answer, query)
-            
-            return AgentOutput(
-                success=True,
-                content=response,
-                metadata={
-                    "interaction_state": interaction_state,
-                    "session_metrics": self._get_session_metrics(session_id)
-                },
-                processing_time=time.time(),
-                agent_role=self.agent_role
+            # Determine interaction type
+            interaction_type = await self._determine_interaction_type(
+                query, conversation_history
             )
+            
+            self.logger.info(f"Interaction type: {interaction_type}")
+            
+            # Generate appropriate interaction elements
+            interaction = {
+                "interaction_type": interaction_type,
+                "elements": []
+            }
+            
+            # Add guiding question if appropriate
+            if interaction_type in ["guide", "standard"]:
+                guide_question = await self._generate_guide_question(query, final_answer)
+                if guide_question:
+                    interaction["elements"].append({
+                        "type": "guide_question",
+                        "content": guide_question
+                    })
+            
+            # Add the answer
+            interaction["elements"].append({
+                "type": "answer",
+                "content": final_answer
+            })
+            
+            # Add quiz if testing
+            if interaction_type == "test":
+                quiz = await self._generate_quiz(query, final_answer)
+                if quiz:
+                    interaction["elements"].append({
+                        "type": "quiz",
+                        "content": quiz
+                    })
+            
+            # Add cooldown if needed
+            if interaction_type == "discipline":
+                cooldown_message = self._generate_cooldown_message()
+                interaction["elements"].append({
+                    "type": "cooldown",
+                    "content": cooldown_message
+                })
+            
+            # Add learning tips
+            tips = await self._generate_learning_tips(query, final_answer, interaction_type)
+            if tips:
+                interaction["elements"].append({
+                    "type": "tips",
+                    "content": tips
+                })
+            
+            # Create formatted JSON output according to specification
+            formatted_output = []
+            for element in interaction["elements"]:
+                if element["type"] == "guide_question":
+                    formatted_output.append({
+                        "type": "text",
+                        "content": element["content"]
+                    })
+                elif element["type"] == "answer":
+                    formatted_output.append({
+                        "type": "answer",
+                        "content": element["content"]
+                    })
+                elif element["type"] == "quiz":
+                    formatted_output.append({
+                        "type": "quiz",
+                        "content": element["content"]
+                    })
+                elif element["type"] == "cooldown":
+                    formatted_output.append({
+                        "type": "cooldown_message",
+                        "content": element["content"]
+                    })
+                elif element["type"] == "tips":
+                    # Include tips as text
+                    for tip in element["content"]:
+                        formatted_output.append({
+                            "type": "text",
+                            "content": f"💡 {tip}"
+                        })
+            
+            # Log the JSON output
+            self.logger.info("="*250)
+            self.logger.info("TUTOR OUTPUT (JSON)")
+            self.logger.info("="*250)
+            self.logger.info(json.dumps(formatted_output, indent=2))
+            self.logger.info("="*250)
+            
+            # Update state
+            state["tutor_interaction"] = interaction
+            state["workflow_status"] = "tutoring"
+            
+            # Log execution
+            processing_time = time.time() - start_time
+            log_agent_execution(
+                state=state,
+                agent_name="Tutor",
+                input_summary=f"Query: {query}",
+                output_summary=f"Interaction: {interaction_type}, {len(interaction['elements'])} elements",
+                processing_time=processing_time,
+                success=True
+            )
+            
+            self.logger.info(f"Tutor interaction prepared:")
+            self.logger.info(f"  - Type: {interaction_type}")
+            self.logger.info(f"  - Elements: {[e['type'] for e in interaction['elements']]}")
             
         except Exception as e:
-            self.logger.error(f"Tutor processing failed: {e}")
-            return AgentOutput(
-                success=False,
-                content={},
-                metadata={},
-                processing_time=time.time(),
-                agent_role=self.agent_role,
-                error_message=str(e)
+            self.logger.error(f"Tutor interaction failed: {str(e)}")
+            state["error_messages"].append(f"Tutor agent error: {str(e)}")
+            
+            # Provide basic interaction as fallback
+            state["tutor_interaction"] = {
+                "interaction_type": "standard",
+                "elements": [{
+                    "type": "answer",
+                    "content": state["final_answer"]
+                }]
+            }
+            
+            log_agent_execution(
+                state=state,
+                agent_name="Tutor",
+                input_summary=f"Interaction attempt",
+                output_summary=f"Error: {str(e)}, using fallback",
+                processing_time=time.time() - start_time,
+                success=False
             )
+        
+        return state
     
-    def _update_user_session(self, session_id: str, query: str, history: List[Dict]):
-        """Update user session tracking"""
-        if session_id not in self.user_sessions:
-            self.user_sessions[session_id] = {
-                "queries": [],
-                "state": "guide",
-                "test_scores": [],
-                "cooldown_until": None,
-                "created_at": datetime.now()
+    async def _determine_interaction_type(
+        self,
+        query: str,
+        conversation_history: List[Dict]
+    ) -> str:
+        """Determine appropriate interaction type based on patterns"""
+        
+        # Extract recent queries from history
+        recent_queries = self._extract_recent_queries(conversation_history)
+        
+        if not recent_queries:
+            return "guide"  # First interaction
+        
+        # Check for repetitive patterns
+        try:
+            # Log the ACTUAL pattern analysis prompt
+            pattern_inputs = {
+                'current_query': query,
+                'previous_queries': "\n".join(recent_queries)  # All recent queries
             }
-        
-        session = self.user_sessions[session_id]
-        session["queries"].append({
-            "query": query,
-            "timestamp": datetime.now(),
-            "vector": self._vectorize_query(query)  # Simplified - would use actual embedding
-        })
-        
-        # Keep only recent queries (last 10)
-        if len(session["queries"]) > 10:
-            session["queries"] = session["queries"][-10:]
-    
-    def _analyze_user_behavior(self, session_id: str, current_query: str) -> str:
-        """Analyze user behavior to determine interaction state"""
-        session = self.user_sessions.get(session_id, {})
-        
-        # Check cooldown status
-        cooldown_until = session.get("cooldown_until")
-        if cooldown_until and datetime.now() < cooldown_until:
-            return "cooldown"
-        
-        # Analyze query similarity patterns
-        queries = session.get("queries", [])
-        if len(queries) >= self.consecutive_similar_limit:
-            recent_queries = queries[-self.consecutive_similar_limit:]
-            similarity_count = self._count_similar_queries(recent_queries)
             
-            if similarity_count >= self.consecutive_similar_limit - 1:
-                # Switch to test mode
-                session["state"] = "test"
-                return "test"
-        
-        return session.get("state", "guide")
-    
-    def _count_similar_queries(self, queries: List[Dict]) -> int:
-        """Count similar queries in the list"""
-        # Simplified similarity check - in production would use actual vector similarity
-        if len(queries) < 2:
-            return 0
-        
-        similar_count = 0
-        for i in range(1, len(queries)):
-            if self._calculate_similarity(queries[i]["query"], queries[i-1]["query"]) > self.similarity_threshold:
-                similar_count += 1
-        
-        return similar_count
-    
-    def _calculate_similarity(self, query1: str, query2: str) -> float:
-        """Calculate query similarity (simplified implementation)"""
-        # Simplified Jaccard similarity - in production would use vector similarity
-        words1 = set(query1.lower().split())
-        words2 = set(query2.lower().split())
-        
-        if not words1 and not words2:
-            return 1.0
-        
-        intersection = words1.intersection(words2)
-        union = words1.union(words2)
-        
-        return len(intersection) / len(union) if union else 0.0
-    
-    def _vectorize_query(self, query: str) -> List[float]:
-        """Vectorize query for similarity analysis (simplified)"""
-        # Simplified - in production would use actual embedding model
-        return [hash(word) % 100 / 100.0 for word in query.split()[:10]]
-    
-    def _generate_guided_response(self, session_id: str, final_answer: Dict, query: str) -> Dict:
-        """Generate guided learning response"""
-        return {
-            "interaction_type": "guided_learning",
-            "elements": [
-                {
-                    "type": "guidance",
-                    "content": self._generate_guidance_text(query, final_answer)
-                },
-                {
-                    "type": "answer",
-                    "content": final_answer
-                },
-                {
-                    "type": "reflection_prompt",
-                    "content": self._generate_reflection_prompt(final_answer)
-                }
-            ]
-        }
-    
-    def _generate_test_interaction(self, session_id: str, final_answer: Dict) -> Dict:
-        """Generate comprehension test"""
-        quiz_questions = self._generate_quiz_questions(final_answer)
-        
-        return {
-            "interaction_type": "comprehension_test",
-            "elements": [
-                {
-                    "type": "test_intro",
-                    "content": "I notice you've asked similar questions recently. Let's check your understanding with a quick quiz:"
-                },
-                {
-                    "type": "answer",
-                    "content": final_answer
-                },
-                {
-                    "type": "quiz",
-                    "content": quiz_questions
-                }
-            ]
-        }
-    
-    def _generate_cooldown_response(self, session_id: str) -> Dict:
-        """Generate cooldown message"""
-        session = self.user_sessions[session_id]
-        cooldown_until = session.get("cooldown_until")
-        remaining_time = cooldown_until - datetime.now() if cooldown_until else timedelta(0)
-        
-        return {
-            "interaction_type": "cooldown",
-            "elements": [
-                {
-                    "type": "cooldown_message",
-                    "content": f"It seems you need more time to review the material. Please take {remaining_time.seconds // 60} more minutes to study the provided resources before asking new questions."
-                },
-                {
-                    "type": "study_resources",
-                    "content": self._get_study_recommendations(session_id)
-                }
-            ]
-        }
-    
-    def _generate_guidance_text(self, query: str, final_answer: Dict) -> str:
-        """Generate contextual guidance text"""
-        # Simplified guidance generation
-        topic_keywords = self._extract_topic_keywords(query)
-        
-        if any(keyword in query.lower() for keyword in ["lagrange", "optimization", "constraint"]):
-            return "Before diving into this optimization problem, recall that Lagrange multipliers help us find extrema of functions subject to constraints. The key insight is that at the optimal point, the gradients must be parallel."
-        elif any(keyword in query.lower() for keyword in ["circuit", "resistance", "voltage"]):
-            return "Let's approach this circuit analysis step by step. Remember Ohm's law and Kirchhoff's rules as our fundamental tools."
-        else:
-            return "Let's work through this problem systematically, building on the fundamental concepts."
-    
-    def _generate_reflection_prompt(self, final_answer: Dict) -> str:
-        """Generate reflection prompt based on answer content"""
-        return "Take a moment to consider: What was the key insight that made this solution work? How might you apply this approach to similar problems?"
-    
-    def _generate_quiz_questions(self, final_answer: Dict) -> Dict:
-        """Generate quiz questions based on final answer"""
-        # Simplified quiz generation - in production would use LLM
-        return {
-            "questions": [
-                {
-                    "id": 1,
-                    "question": "What is the main concept demonstrated in this solution?",
-                    "type": "multiple_choice",
-                    "options": ["A) Basic algebra", "B) Advanced calculus", "C) The core principle from the answer", "D) Memorization"],
-                    "correct": "C"
-                }
-            ]
-        }
-    
-    def _extract_topic_keywords(self, query: str) -> List[str]:
-        """Extract topic keywords from query"""
-        # Simplified keyword extraction
-        return [word.lower() for word in query.split() if len(word) > 3]
-    
-    def _get_study_recommendations(self, session_id: str) -> List[str]:
-        """Get personalized study recommendations"""
-        return [
-            "Review the fundamental concepts covered in the recent answers",
-            "Practice similar problems with different parameters",
-            "Focus on understanding the underlying principles rather than memorizing steps"
-        ]
-    
-    def _get_session_metrics(self, session_id: str) -> Dict:
-        """Get session performance metrics"""
-        session = self.user_sessions.get(session_id, {})
-        return {
-            "total_queries": len(session.get("queries", [])),
-            "current_state": session.get("state", "guide"),
-            "average_test_score": sum(session.get("test_scores", [])) / max(len(session.get("test_scores", [])), 1),
-            "session_duration": (datetime.now() - session.get("created_at", datetime.now())).total_seconds()
-        }
-    
-    def process_quiz_response(self, session_id: str, quiz_response: Dict) -> Dict:
-        """Process user's quiz response and update state"""
-        session = self.user_sessions.get(session_id, {})
-        
-        # Calculate score (simplified)
-        score = self._calculate_quiz_score(quiz_response)
-        session.setdefault("test_scores", []).append(score)
-        
-        if score < self.comprehension_threshold:
-            # Trigger cooldown
-            session["cooldown_until"] = datetime.now() + timedelta(minutes=self.cooldown_duration_minutes)
-            session["state"] = "cooldown"
+            try:
+                prompt_value = self.pattern_analysis_chain.prompt.format_prompt(**pattern_inputs)
+                messages = prompt_value.to_messages()
+                self.logger.info(">>> ACTUAL PATTERN ANALYSIS PROMPT <<<")
+                self.logger.info("START_PROMPT" + "="*240)
+                for i, msg in enumerate(messages):
+                    self.logger.info(f"Message {i+1}: {msg.content}")
+                self.logger.info("END_PROMPT" + "="*242)
+            except Exception as e:
+                self.logger.error(f"Could not log pattern prompt: {e}")
             
-            return {
-                "result": "needs_review",
-                "score": score,
-                "message": "Your score indicates you need more time to review the material."
-            }
-        else:
-            # Reset to normal state
-            session["state"] = "guide"
-            return {
-                "result": "passed",
-                "score": score,
-                "message": "Great job! You can continue asking questions."
-            }
+            # Use arun for proper variable substitution
+            pattern_response = await self.pattern_analysis_chain.arun(**pattern_inputs)
+            
+            # Parse response
+            similarity = 0.0
+            pattern = "no"
+            recommendation = "continue"
+            
+            for line in pattern_response.split("\n"):
+                if line.startswith("SIMILARITY:"):
+                    try:
+                        similarity = float(line.replace("SIMILARITY:", "").strip())
+                    except:
+                        pass
+                elif line.startswith("PATTERN:"):
+                    pattern = line.replace("PATTERN:", "").strip().lower()
+                elif line.startswith("RECOMMENDATION:"):
+                    recommendation = line.replace("RECOMMENDATION:", "").strip().lower()
+            
+            # Determine interaction type
+            if pattern == "yes" or similarity > self.similarity_threshold:
+                if recommendation == "test":
+                    return "test"
+                elif recommendation == "warn":
+                    return "discipline"
+            
+            return "standard"
+            
+        except Exception as e:
+            self.logger.error(f"Pattern analysis failed: {e}")
+            return "standard"
     
-    def _calculate_quiz_score(self, quiz_response: Dict) -> float:
-        """Calculate quiz score"""
-        # Simplified scoring - in production would be more sophisticated
-        correct_answers = quiz_response.get("correct_count", 0)
-        total_questions = quiz_response.get("total_questions", 1)
-        return correct_answers / total_questions 
+    async def _generate_guide_question(self, query: str, answer: Dict) -> str:
+        """Generate a guiding question"""
+        try:
+            answer_summary = answer.get("introduction", "")  # Full introduction
+            
+            # Log the ACTUAL guide prompt
+            guide_inputs = {
+                'query': query,
+                'answer_summary': answer_summary
+            }
+            
+            try:
+                prompt_value = self.guide_chain.prompt.format_prompt(**guide_inputs)
+                messages = prompt_value.to_messages()
+                self.logger.info(">>> ACTUAL GUIDE PROMPT <<<")
+                self.logger.info("START_GUIDE_PROMPT" + "="*233)
+                for i, msg in enumerate(messages):
+                    self.logger.info(f"Message {i+1}: {msg.content}")
+                self.logger.info("END_GUIDE_PROMPT" + "="*235)
+            except Exception as e:
+                self.logger.error(f"Could not log guide prompt: {e}")
+            
+            # Use arun for proper substitution
+            response = await self.guide_chain.arun(**guide_inputs)
+            
+            # Parse question
+            for line in response.split("\n"):
+                if line.startswith("QUESTION:"):
+                    return line.replace("QUESTION:", "").strip()
+            
+            return ""
+            
+        except Exception as e:
+            self.logger.error(f"Guide question generation failed: {e}")
+            return ""
+    
+    async def _generate_quiz(self, query: str, answer: Dict) -> Dict[str, Any]:
+        """Generate quiz questions"""
+        try:
+            # Extract key concepts from answer
+            key_concepts = self._extract_key_concepts(answer)
+            
+            # Log the ACTUAL quiz prompt
+            quiz_inputs = {
+                'query': query,
+                'key_concepts': key_concepts
+            }
+            
+            try:
+                prompt_value = self.quiz_chain.prompt.format_prompt(**quiz_inputs)
+                messages = prompt_value.to_messages()
+                self.logger.info(">>> ACTUAL QUIZ PROMPT <<<")
+                self.logger.info("START_QUIZ_PROMPT" + "="*234)
+                for i, msg in enumerate(messages):
+                    self.logger.info(f"Message {i+1}: {msg.content}")
+                self.logger.info("END_QUIZ_PROMPT" + "="*236)
+            except Exception as e:
+                self.logger.error(f"Could not log quiz prompt: {e}")
+            
+            # Use arun for proper substitution
+            response = await self.quiz_chain.arun(**quiz_inputs)
+            
+            # Parse quiz questions
+            quiz = {"questions": []}
+            
+            for q_num in [1, 2]:
+                question_data = {}
+                
+                for line in response.split("\n"):
+                    if line.startswith(f"QUESTION_{q_num}:"):
+                        question_data["question"] = line.replace(f"QUESTION_{q_num}:", "").strip()
+                    elif line.startswith(f"OPTIONS_{q_num}:"):
+                        question_data["options"] = line.replace(f"OPTIONS_{q_num}:", "").strip()
+                    elif line.startswith(f"CORRECT_{q_num}:"):
+                        question_data["correct"] = line.replace(f"CORRECT_{q_num}:", "").strip()
+                    elif line.startswith(f"EXPLANATION_{q_num}:"):
+                        question_data["explanation"] = line.replace(f"EXPLANATION_{q_num}:", "").strip()
+                
+                if "question" in question_data:
+                    quiz["questions"].append(question_data)
+            
+            return quiz if quiz["questions"] else None
+            
+        except Exception as e:
+            self.logger.error(f"Quiz generation failed: {e}")
+            return None
+    
+    async def _generate_learning_tips(
+        self,
+        query: str,
+        answer: Dict,
+        interaction_type: str
+    ) -> List[str]:
+        """Generate personalized learning tips"""
+        try:
+            answer_summary = str(answer)  # Full answer
+            
+            # Log the ACTUAL tips prompt
+            tips_inputs = {
+                'query': query,
+                'answer_summary': answer_summary,
+                'interaction_type': interaction_type
+            }
+            
+            try:
+                prompt_value = self.tips_chain.prompt.format_prompt(**tips_inputs)
+                messages = prompt_value.to_messages()
+                self.logger.info(">>> ACTUAL TIPS PROMPT <<<")
+                self.logger.info("START_TIPS_PROMPT" + "="*234)
+                for i, msg in enumerate(messages):
+                    self.logger.info(f"Message {i+1}: {msg.content}")
+                self.logger.info("END_TIPS_PROMPT" + "="*236)
+            except Exception as e:
+                self.logger.error(f"Could not log tips prompt: {e}")
+            
+            # Use arun for proper substitution
+            response = await self.tips_chain.arun(**tips_inputs)
+            
+            # Parse tips
+            tips = []
+            for line in response.split("\n"):
+                if line.startswith("TIP:"):
+                    tips.append(line.replace("TIP:", "").strip())
+            
+            return tips  # All tips
+            
+        except Exception as e:
+            self.logger.error(f"Tips generation failed: {e}")
+            return []
+    
+    def _extract_recent_queries(self, history: List[Dict]) -> List[str]:
+        """Extract recent queries from conversation history"""
+        queries = []
+        
+        for entry in history:
+            if entry.get("agent") == "Retrieve":
+                input_text = entry.get("input", "")
+                if "Query:" in input_text:
+                    query = input_text.split("Query:")[1].split(",")[0].strip()
+                    queries.append(query)
+        
+        return queries
+    
+    def _extract_key_concepts(self, answer: Dict) -> str:
+        """Extract key concepts from answer"""
+        concepts = []
+        
+        if "key_takeaways" in answer:
+            concepts.append(answer["key_takeaways"])
+        
+        if "step_by_step_solution" in answer:
+            # Extract first few lines as concepts
+            lines = answer["step_by_step_solution"].split("\n")  # All lines
+            concepts.extend(lines)
+        
+        return "\n".join(concepts)  # All concepts - no truncation
+    
+    def _generate_cooldown_message(self) -> str:
+        """Generate cooldown message for discipline mode"""
+        return (
+            "It seems you might be struggling with this topic. "
+            "I recommend taking a break to review the provided materials thoroughly. "
+            "Understanding the concepts is more important than getting quick answers. "
+            "Try working through some practice problems on your own first, "
+            "then come back if you have specific questions about your approach."
+        )
+
