@@ -19,7 +19,7 @@ from .CRUD import get_messages
 import httpx
 from starlette.responses import StreamingResponse
 
-from backend.constants import TimeoutConfig, ServiceConfig
+from constants import TimeoutConfig, ServiceConfig
 from machine_learning.constants import ModelConfig
 from machine_learning.rag_system.llm_clients.gemini_client import GeminiClient
 from machine_learning.rag_system.llm_clients.cerebras_client import CerebrasClient
@@ -745,10 +745,16 @@ async def query_agents_system_streaming(
     try:
         # Import here to avoid circular imports
         import sys
+        import os
 
-        sys.path.append("/home/chloe_wei/WatAIOliver/machine_learning")
+        # Add machine_learning directory to Python path
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        machine_learning_path = os.path.join(project_root, "machine_learning")
+        if machine_learning_path not in sys.path:
+            sys.path.append(machine_learning_path)
 
-        from ai_agents.orchestrator import MultiAgentOrchestrator
+        from ai_agents.workflow import MultiAgentWorkflow, create_workflow
+        from ai_agents.state import AgentContext
         from ai_agents.config import SpeculativeAIConfig
         from rag_system.llm_clients.cerebras_client import CerebrasClient
         from rag_system.llm_clients.gemini_client import GeminiClient
@@ -756,7 +762,7 @@ async def query_agents_system_streaming(
         from rag_system.llm_clients.anthropic_client import AnthropicClient
         from rag_system.app.config import get_settings
 
-        # Initialize orchestrator with legitimate RAG service
+        # Initialize workflow with legitimate RAG service
         config = SpeculativeAIConfig()
 
         # Get RAG settings first
@@ -867,11 +873,12 @@ async def query_agents_system_streaming(
 
         rag_service = RAGServiceWrapper(rag_settings)
 
-        orchestrator = MultiAgentOrchestrator(
-            config=config,
-            rag_service=rag_service,
+        # Create the workflow using the new architecture
+        workflow = create_workflow(
             llm_client=llm_client,
-            logger=ai_agents_logger.getChild("orchestrator"),
+            rag_service=rag_service,
+            config=config,
+            logger=ai_agents_logger.getChild("workflow"),
         )
 
         metadata = {
@@ -880,13 +887,13 @@ async def query_agents_system_streaming(
             "streaming_mode": True,
         }
 
-        ai_agents_logger.info("=== STARTING CEREBRAS STREAMING ORCHESTRATOR ===")
+        ai_agents_logger.info("=== STARTING CEREBRAS STREAMING WORKFLOW ===")
 
         # Track streaming chunks for conversion to agent system format
         is_streaming_content = False
         accumulated_content = ""
 
-        async for chunk in orchestrator.process_query_streaming(
+        async for chunk in workflow.execute_with_content_streaming(
             query=query,
             course_id=course_id,
             session_id=conversation_id,
@@ -895,7 +902,7 @@ async def query_agents_system_streaming(
             course_prompt=course_prompt,
         ):
             ai_agents_logger.debug(
-                f"=== ORCHESTRATOR CHUNK: {chunk.get('status', 'unknown')} ==="
+                f"=== WORKFLOW CHUNK: {chunk.get('status', 'unknown')} ==="
             )
 
             if chunk.get("status") == "streaming" and chunk.get("content"):
@@ -929,20 +936,21 @@ async def query_agents_system_streaming(
                     f"=== STREAMING COMPLETE: {len(accumulated_content)} chars ==="
                 )
 
-                # Format the accumulated content as a structured agent response
-                final_answer = {
-                    "introduction": "Here's the solution to your problem:",
-                    "step_by_step_solution": accumulated_content,
-                    "key_takeaways": "This response was generated using Cerebras streaming.",
-                    "important_notes": "Response streamed directly from the agent system.",
-                }
+                # Get the full response from the workflow
+                response = chunk.get("response", {})
+                final_answer = response.get("answer", {})
+                
+                # If we streamed content, use that as the complete answer
+                if accumulated_content:
+                    # Parse the streamed content to extract sections
+                    final_answer = _parse_streamed_content(accumulated_content)
 
                 yield {
                     "success": True,
                     "answer": final_answer,
-                    "metadata": chunk.get("metadata", {}),
-                    "processing_time": chunk.get("metadata", {}).get(
-                        "processing_time", 0
+                    "metadata": response.get("metadata", {}),
+                    "processing_time": response.get("metadata", {}).get(
+                        "total_processing_time", 0
                     ),
                 }
                 break
@@ -951,9 +959,15 @@ async def query_agents_system_streaming(
                 # Forward progress updates
                 yield chunk
 
-            elif chunk.get("success") == False:
+            elif chunk.get("status") == "error":
                 # Handle errors
-                yield chunk
+                yield {
+                    "success": False,
+                    "error": {
+                        "type": "processing_error",
+                        "message": chunk.get("error", "Unknown error")
+                    }
+                }
                 break
 
     except Exception as e:
@@ -962,7 +976,7 @@ async def query_agents_system_streaming(
 
         ai_agents_logger = logging.getLogger("ai_agents.streaming")
 
-        ai_agents_logger.error(f"=== STREAMING ORCHESTRATOR ERROR ===")
+        ai_agents_logger.error(f"=== STREAMING WORKFLOW ERROR ===")
         ai_agents_logger.error(f"Exception: {str(e)}")
         import traceback
 
@@ -972,9 +986,64 @@ async def query_agents_system_streaming(
             "success": False,
             "error": {
                 "type": "streaming_error",
-                "message": f"Failed to query streaming orchestrator: {str(e)}",
+                "message": f"Failed to query streaming workflow: {str(e)}",
             },
         }
+
+
+def _parse_streamed_content(content: str) -> dict:
+    """Parse streamed content into structured sections"""
+    sections = {
+        "introduction": "",
+        "step_by_step_solution": "",
+        "key_takeaways": "",
+        "important_notes": ""
+    }
+    
+    # Split content by section headers
+    current_section = None
+    lines = content.split('\n')
+    current_content = []
+    
+    for line in lines:
+        # Check for section headers
+        if line.strip().startswith('## Introduction'):
+            if current_section and current_content:
+                sections[current_section] = '\n'.join(current_content).strip()
+            current_section = 'introduction'
+            current_content = []
+        elif line.strip().startswith('## Step-by-Step Solution'):
+            if current_section and current_content:
+                sections[current_section] = '\n'.join(current_content).strip()
+            current_section = 'step_by_step_solution'
+            current_content = []
+        elif line.strip().startswith('## Key Takeaways'):
+            if current_section and current_content:
+                sections[current_section] = '\n'.join(current_content).strip()
+            current_section = 'key_takeaways'
+            current_content = []
+        elif line.strip().startswith('## Important Notes'):
+            if current_section and current_content:
+                sections[current_section] = '\n'.join(current_content).strip()
+            current_section = 'important_notes'
+            current_content = []
+        elif current_section:
+            # Add content to current section
+            current_content.append(line)
+        elif not current_section and line.strip():
+            # No section header found yet, treat as step_by_step_solution
+            current_section = 'step_by_step_solution'
+            current_content.append(line)
+    
+    # Save the last section
+    if current_section and current_content:
+        sections[current_section] = '\n'.join(current_content).strip()
+    
+    # If no sections were found, put everything in step_by_step_solution
+    if not any(sections.values()):
+        sections['step_by_step_solution'] = content
+    
+    return sections
 
 
 def format_agents_response(answer_data: dict) -> str:

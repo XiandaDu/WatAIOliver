@@ -80,12 +80,14 @@ class LLMClientAdapter(Runnable):
         yield result
 
 
-def create_langchain_llm(llm_client) -> Runnable:
+def create_langchain_llm(llm_client, temperature: float = None, streaming: bool = False) -> Runnable:
     """
     Create a LangChain-compatible Runnable from our LLM clients.
     
     Args:
         llm_client: Our custom LLM client (GeminiClient, CerebrasClient, etc.)
+        temperature: Override temperature setting (optional)
+        streaming: Whether to enable streaming (for compatible clients)
         
     Returns:
         A LangChain Runnable that can be used in chains
@@ -95,10 +97,18 @@ def create_langchain_llm(llm_client) -> Runnable:
         native_llm = llm_client.get_llm_client()
         # Check if it's already a Runnable
         if isinstance(native_llm, Runnable):
+            # For temperature override, we might need to reconfigure
+            if temperature is not None and hasattr(native_llm, 'temperature'):
+                native_llm.temperature = temperature
+            # For streaming, LangChain LLMs handle this via astream method
             return native_llm
     
     # Otherwise, wrap in our adapter
-    return LLMClientAdapter(llm_client)
+    adapter = LLMClientAdapter(llm_client)
+    # Pass temperature to adapter if needed
+    if temperature is not None and hasattr(adapter, 'temperature'):
+        adapter.temperature = temperature
+    return adapter
 
 
 async def perform_rag_retrieval(

@@ -13,30 +13,47 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 import json
+import os
 
-# Path for optional per-request log file
-LOG_FILE = "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/logs/ai_agents.log"
+# Configure logging FIRST, before any imports that might use logging
+LOG_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "logs", "ai_agents.log")
 
+# Remove any existing handlers to avoid duplicates
+root_logger = logging.getLogger()
+root_logger.handlers.clear()
+
+# Create file handler with proper formatting
+file_handler = logging.FileHandler(LOG_FILE, mode='a')
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+
+# Create console handler
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+
+# Configure root logger
+root_logger.setLevel(logging.INFO)
+root_logger.addHandler(file_handler)
+root_logger.addHandler(console_handler)
+
+# Now import the modules that use logging
 from ai_agents.workflow import create_workflow, MultiAgentWorkflow
 from ai_agents.state import AgentContext
-
-
-# Configure console-only logging (no file handlers)
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-
-# Ensure no accidental file handlers are present on the root logger
-for h in list(logging.getLogger().handlers):
-    if isinstance(h, logging.FileHandler):
-        logging.getLogger().removeHandler(h)
 
 # Suppress noisy library logs
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
+# Get service logger
 logger = logging.getLogger("langgraph.service")
+
+# Ensure all ai_agents loggers use the same handlers
+for logger_name in ["ai_agents", "ai_agents.streaming", "langgraph", "langgraph.workflow"]:
+    specific_logger = logging.getLogger(logger_name)
+    specific_logger.setLevel(logging.INFO)
+    # Ensure it propagates to root logger
+    specific_logger.propagate = True
 
 
 # Global workflow instance

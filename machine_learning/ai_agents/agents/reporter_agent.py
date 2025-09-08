@@ -6,7 +6,7 @@ Synthesizes verified debate results into polished final answers.
 
 import time
 import json
-from typing import Dict, Any, List
+from typing import Dict, Any, List, AsyncGenerator
 from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
 from pydantic import BaseModel, Field
@@ -540,4 +540,135 @@ Provide quality indicators:
                 sources.add(source)
         
         return list(sources)
+    
+    async def process_streaming(self, state: WorkflowState) -> Any:
+        """
+        Stream the final answer synthesis for Cerebras in Problem-Solving mode.
+        
+        This method streams the final reporter response directly to the frontend
+        instead of collecting the full response first.
+        """
+        import asyncio
+        from typing import AsyncGenerator
+        
+        try:
+            # Extract debate results from state
+            draft = state.get("draft", {})
+            draft_content = draft.get("content", "")
+            chain_of_thought = state.get("chain_of_thought", [])
+            critiques = state.get("critiques", [])
+            retrieval_results = state.get("retrieval_results", [])
+            original_query = state.get("query", "")
+            moderator_decision = state.get("moderator_decision", "approved")
+            
+            self.logger.info(f"Reporter streaming final answer for debate status: {moderator_decision}")
+            
+            # Stream based on debate outcome
+            if moderator_decision in ["approved", "conditionally_approved"]:
+                async for chunk in self._stream_approved_answer(
+                    original_query, draft_content, chain_of_thought, critiques, retrieval_results
+                ):
+                    yield chunk
+            else:
+                # For deadlock or other cases, use non-streaming synthesis
+                # Call the main __call__ method to get the final answer
+                result = await self.__call__(state)
+                answer = result.get("final_answer", {})
+                
+                # Stream the pre-formatted response
+                full_text = self._format_answer_for_streaming(answer)
+                chunk_size = 20
+                for i in range(0, len(full_text), chunk_size):
+                    yield full_text[i:i+chunk_size]
+                    await asyncio.sleep(0.01)
+                    
+        except Exception as e:
+            self.logger.error(f"Streaming reporter failed: {str(e)}")
+            yield f"Error generating response: {str(e)}"
+    
+    async def _stream_approved_answer(
+        self, 
+        query: str, 
+        draft_content: str, 
+        chain_of_thought: List[Dict[str, Any]], 
+        remaining_critiques: List[Dict[str, Any]], 
+        context: List[Dict[str, Any]]
+    ) -> AsyncGenerator[str, None]:
+        """Stream the synthesis of an approved answer"""
+        import asyncio
+        
+        try:
+            # Build prompt for streaming synthesis
+            cot_summary = self._format_cot(chain_of_thought)
+            minor_issues = self._format_issues(remaining_critiques)
+            
+            prompt = f"""
+            You are a senior academic writer tasked with synthesizing verified debate results into a polished final answer.
+            
+            ORIGINAL QUERY:
+            {query}
+            
+            VERIFIED DRAFT CONTENT:
+            {draft_content}
+            
+            REASONING PROCESS:
+            {cot_summary}
+            
+            MINOR REMAINING ISSUES TO ADDRESS:
+            {minor_issues}
+            
+            Please synthesize this into a final, polished answer using this structure:
+            
+            ## INTRODUCTION
+            [Brief context-setting introduction that acknowledges the question and previews the approach]
+            
+            ## STEP-BY-STEP SOLUTION
+            [Clear, logical progression through the solution, incorporating insights from the reasoning process]
+            
+            ## KEY TAKEAWAYS
+            [Important concepts, principles, or insights that generalize beyond this specific question]
+            
+            ## IMPORTANT NOTES
+            [Any limitations, assumptions, or areas requiring caution - address minor issues transparently]
+            
+            Requirements:
+            - Use proper LaTeX syntax for math - inline: $f(x) = x^2$, display: $$f(x) = x^2$$
+            - Create proper flow with logical transitions between concepts
+            - Use academic writing style: clear, professional, and educational
+            - Don't mention sources or documents - present information naturally
+            - Integrate minor issues seamlessly without ignoring them
+            - Maintain educational value and clear explanations
+            """
+            
+            # Stream the LLM response directly using LangChain's streaming
+            llm = create_langchain_llm(self.llm_client, temperature=0.3, streaming=True)
+            
+            # Use LangChain's async streaming
+            async for chunk in llm.astream(prompt):
+                if hasattr(chunk, 'content'):
+                    yield chunk.content
+                else:
+                    yield str(chunk)
+                
+        except Exception as e:
+            self.logger.error(f"Streaming approved answer failed: {str(e)}")
+            yield f"Error: {str(e)}"
+    
+    def _format_answer_for_streaming(self, answer: Dict[str, Any]) -> str:
+        """Format a structured answer into a single text for streaming"""
+        parts = []
+        
+        if answer.get('introduction'):
+            parts.append(f"## Introduction\n{answer['introduction']}\n")
+        
+        if answer.get('step_by_step_solution'):
+            parts.append(f"## Step-by-Step Solution\n{answer['step_by_step_solution']}\n")
+        
+        if answer.get('key_takeaways'):
+            parts.append(f"## Key Takeaways\n{answer['key_takeaways']}\n")
+        
+        if answer.get('important_notes'):
+            parts.append(f"## Important Notes\n{answer['important_notes']}\n")
+        
+        return "\n".join(parts)
 

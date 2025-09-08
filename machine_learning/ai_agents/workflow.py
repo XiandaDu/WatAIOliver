@@ -5,7 +5,7 @@ Main workflow that orchestrates all agents using LangGraph.
 """
 
 import logging
-from typing import Dict, Any, List, Literal
+from typing import Dict, Any, List, Literal, AsyncGenerator, Optional
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 
@@ -332,6 +332,112 @@ class MultiAgentWorkflow:
                 "edges": str(self.workflow.edges)
             }
         }
+    
+    async def execute_with_content_streaming(
+        self,
+        query: str,
+        course_id: str,
+        session_id: str,
+        metadata: Optional[Dict[str, Any]] = None,
+        heavy_model: Optional[str] = None,
+        course_prompt: Optional[str] = None,
+        max_rounds: int = 3
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """
+        Execute workflow with streaming of final content.
+        
+        This method runs all agent stages normally but streams the final reporter response
+        content directly instead of collecting it completely first.
+        """
+        try:
+            self.logger.info("="*250)
+            self.logger.info("STARTING STREAMING WORKFLOW EXECUTION")
+            self.logger.info("="*250)
+            self.logger.info(f"Query: {query[:100]}...")
+            self.logger.info(f"Course: {course_id}")
+            
+            # Initialize state
+            initial_state = initialize_state(
+                query=query,
+                course_id=course_id,
+                session_id=session_id,
+                metadata=metadata,
+                course_prompt=course_prompt,
+                max_rounds=max_rounds
+            )
+            
+            # Run the workflow up to reporter stage
+            config = {"configurable": {"thread_id": session_id}}
+            
+            # Track if we've reached reporter stage
+            reached_reporter = False
+            final_state = None
+            
+            # Stream execution for real-time updates
+            async for event in self.app.astream(initial_state, config):
+                for node, state_update in event.items():
+                    # Yield progress updates for non-reporter stages
+                    if node != "reporter":
+                        yield {
+                            "status": "in_progress",
+                            "stage": node,
+                            "message": f"Processing: {node}",
+                            "state": state_update.get("workflow_status", "processing")
+                        }
+                    else:
+                        # We've reached the reporter stage - stream its content
+                        reached_reporter = True
+                        self.logger.info("=== STREAMING REPORTER CONTENT ===")
+                        
+                        # Get the current state for reporter
+                        current_state = await self.app.aget_state(config)
+                        state_data = current_state.values
+                        
+                        # Create reporter instance if needed
+                        from ai_agents.agents.reporter_agent import ReporterAgent
+                        reporter = ReporterAgent(self.context)
+                        
+                        # Stream the reporter's response
+                        full_content = ""
+                        async for chunk in reporter.process_streaming(state_data):
+                            if chunk:
+                                full_content += chunk
+                                yield {
+                                    "status": "streaming",
+                                    "content": chunk
+                                }
+                        
+                        # Store the final answer in state
+                        state_data["final_answer"] = {
+                            "content": full_content,
+                            "streamed": True
+                        }
+                        final_state = state_data
+            
+            # If we didn't reach reporter (shouldn't happen), get final state
+            if not final_state:
+                final_state_obj = await self.app.aget_state(config)
+                final_state = final_state_obj.values
+            
+            # Format and yield final completion
+            response = self._format_final_response(final_state)
+            
+            self.logger.info("="*250)
+            self.logger.info("STREAMING WORKFLOW COMPLETED")
+            self.logger.info("="*250)
+            
+            yield {
+                "status": "complete",
+                "response": response
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Streaming workflow execution failed: {str(e)}")
+            yield {
+                "status": "error",
+                "error": str(e),
+                "message": "An error occurred during processing"
+            }
 
 
 # Convenience function for creating workflow
