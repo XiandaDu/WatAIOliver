@@ -9,7 +9,6 @@ import json
 from typing import Dict, Any, List
 from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
-from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
 from ai_agents.state import WorkflowState, log_agent_execution
@@ -51,10 +50,10 @@ class ReporterAgent:
         self.synthesis_chain = LLMChain(
             llm=self.llm,
             prompt=ChatPromptTemplate.from_messages([
-                SystemMessage(content="""You are an expert educator synthesizing verified solutions.
+                ("system", """You are an expert educator synthesizing verified solutions.
                 Create clear, pedagogically valuable final answers.
                 Write in a professional, educational tone."""),
-                HumanMessage(content="""Query: {query}
+                ("human", """Query: {query}
 
 Verified Draft:
 {draft}
@@ -86,9 +85,17 @@ Ensure the answer is:
         self.fallback_chain = LLMChain(
             llm=self.llm,
             prompt=ChatPromptTemplate.from_messages([
-                SystemMessage(content="""You are handling an incomplete or problematic solution.
-                Be transparent about limitations while providing the best possible answer."""),
-                HumanMessage(content="""Query: {query}
+                ("system", """You are handling an incomplete or problematic solution.
+
+CRITICAL INSTRUCTIONS:
+1. Write actual, concrete content - NOT template placeholders
+2. Do NOT use variables like {{query}}, {{reason}}, {{issues}}, {{draft}}
+3. Use the actual query, reason, issues, and draft provided below
+4. Be transparent about limitations while providing a real answer
+5. Write in complete sentences without placeholder text
+
+You must provide a real, readable answer."""),
+                ("human", """Query: {query}
 
 Best Available Draft:
 {draft}
@@ -99,17 +106,21 @@ Unresolved Issues:
 Status: {status}
 Reason: {reason}
 
+IMPORTANT: Write a real answer using the actual information above. Do NOT use placeholder variables.
+
 Create a transparent answer that:
-1. Provides the verified portions of the solution
-2. Clearly indicates areas of uncertainty
-3. Explains what couldn't be fully resolved
+1. Provides the verified portions of the solution based on the actual draft
+2. Clearly indicates areas of uncertainty based on the actual issues
+3. Explains what couldn't be fully resolved using the actual status and reason
 4. Suggests how to get better answers
 
 Format as:
-INTRODUCTION: [Context and limitations]
-PARTIAL_SOLUTION: [What we can provide]
-UNRESOLVED_AREAS: [What remains uncertain]
-RECOMMENDATIONS: [Next steps for the user]""")
+INTRODUCTION: [Write actual context about the query and limitations]
+PARTIAL_SOLUTION: [Write what you can actually provide from the draft]
+UNRESOLVED_AREAS: [Write what actually remains uncertain from the issues]
+RECOMMENDATIONS: [Write actual next steps for the user]
+
+Remember: Use the actual content provided, not placeholder variables!""")
             ])
         )
         
@@ -117,8 +128,8 @@ RECOMMENDATIONS: [Next steps for the user]""")
         self.quality_assessment_chain = LLMChain(
             llm=self.llm,
             prompt=ChatPromptTemplate.from_messages([
-                SystemMessage(content="""Assess the quality indicators of the final answer."""),
-                HumanMessage(content="""Answer Content:
+                ("system", """Assess the quality indicators of the final answer."""),
+                ("human", """Answer Content:
 {answer}
 
 Debate Metrics:
@@ -261,14 +272,30 @@ Provide quality indicators:
         cot_str = self._format_cot(draft["chain_of_thought"])
         
         # Generate synthesis
-        response = await self.synthesis_chain.arun(
-            query=query,
-            draft=draft["content"],
-            cot=cot_str,
-            minor_issues=minor_issues_str,
-            status="converged",
-            quality_score=convergence_score
-        )
+        synthesis_inputs = {
+            'query': query,
+            'draft': draft["content"],
+            'cot': cot_str,
+            'minor_issues': minor_issues_str,
+            'status': "converged",
+            'quality_score': convergence_score
+        }
+        
+        # Log the ACTUAL synthesis prompt
+        try:
+            prompt_value = self.synthesis_chain.prompt.format_prompt(**synthesis_inputs)
+            messages = prompt_value.to_messages()
+            self.logger.info(">>> ACTUAL REPORTER SYNTHESIS PROMPT <<<")
+            self.logger.info("START_SYNTHESIS_PROMPT" + "="*229)
+            for i, msg in enumerate(messages):
+                self.logger.info(f"Message {i+1}: {msg.content}")
+            self.logger.info("END_SYNTHESIS_PROMPT" + "="*231)
+            self.logger.info(f"Total prompt length: {sum(len(msg.content) for msg in messages)} characters")
+        except Exception as e:
+            self.logger.error(f"Could not log synthesis prompt: {e}")
+        
+        # Use arun for proper variable substitution
+        response = await self.synthesis_chain.arun(**synthesis_inputs)
         
         # Parse response into structured format
         answer = self._parse_synthesis(response)
@@ -300,13 +327,28 @@ Provide quality indicators:
         reason = reason_map.get(status, "Unknown termination reason")
         
         # Generate fallback synthesis
-        response = await self.fallback_chain.arun(
-            query=query,
-            draft=draft["content"] if draft else "No draft available",
-            issues=issues_str,
-            status=status,
-            reason=reason
-        )
+        fallback_inputs = {
+            'query': query,
+            'draft': draft["content"] if draft else "No draft available",
+            'issues': issues_str,
+            'status': status,
+            'reason': reason
+        }
+        
+        # Log the ACTUAL fallback prompt
+        try:
+            prompt_value = self.fallback_chain.prompt.format_prompt(**fallback_inputs)
+            messages = prompt_value.to_messages()
+            self.logger.info(">>> ACTUAL REPORTER FALLBACK PROMPT <<<")
+            self.logger.info("START_FALLBACK_PROMPT" + "="*229)
+            for i, msg in enumerate(messages):
+                self.logger.info(f"Message {i+1}: {msg.content}")
+            self.logger.info("END_FALLBACK_PROMPT" + "="*231)
+        except Exception as e:
+            self.logger.error(f"Could not log fallback prompt: {e}")
+        
+        # Use arun for proper substitution
+        response = await self.fallback_chain.arun(**fallback_inputs)
         
         # Parse response
         answer = self._parse_fallback(response)
@@ -332,12 +374,27 @@ Provide quality indicators:
             issues_resolved = f"{resolved_issues}/{total_issues}"
             
             # Get quality assessment
-            response = await self.quality_assessment_chain.arun(
-                answer=str(answer),
-                rounds=rounds,
-                convergence_score=convergence_score,
-                issues_resolved=issues_resolved
-            )
+            quality_inputs = {
+                'answer': str(answer),
+                'rounds': rounds,
+                'convergence_score': convergence_score,
+                'issues_resolved': issues_resolved
+            }
+            
+            # Log the ACTUAL quality assessment prompt
+            try:
+                prompt_value = self.quality_assessment_chain.prompt.format_prompt(**quality_inputs)
+                messages = prompt_value.to_messages()
+                self.logger.info(">>> ACTUAL QUALITY ASSESSMENT PROMPT <<<")
+                self.logger.info("START_QUALITY_PROMPT" + "="*229)
+                for i, msg in enumerate(messages):
+                    self.logger.info(f"Message {i+1}: {msg.content}")
+                self.logger.info("END_QUALITY_PROMPT" + "="*231)
+            except Exception as e:
+                self.logger.error(f"Could not log quality prompt: {e}")
+            
+            # Use arun for proper substitution
+            response = await self.quality_assessment_chain.arun(**quality_inputs)
             
             # Parse indicators
             indicators = {}
@@ -453,13 +510,12 @@ Provide quality indicators:
             return "None"
         
         lines = []
-        for issue in issues[:5]:
+        for issue in issues:  # All issues
             severity = issue.get("severity", "").upper()
-            desc = issue.get("description", "")[:100]
+            desc = issue.get("description", "")  # Keep full description - no truncation
             lines.append(f"- [{severity}] {desc}")
         
-        if len(issues) > 5:
-            lines.append(f"- ... and {len(issues) - 5} more issues")
+        # Remove arbitrary limit - show all issues
         
         return "\n".join(lines)
     

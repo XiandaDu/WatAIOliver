@@ -11,9 +11,9 @@ import re
 from typing import List, Dict, Any
 from datetime import datetime
 from langchain.prompts import ChatPromptTemplate
-from langchain.chains import LLMChain
+from langchain.chains import LLMChain, TransformChain, SequentialChain
 from langchain.output_parsers import PydanticOutputParser
-from langchain_core.messages import HumanMessage, SystemMessage
+# Messages handled via tuple format in ChatPromptTemplate
 from pydantic import BaseModel, Field
 
 from ai_agents.state import WorkflowState, DraftContent, ChainOfThought, log_agent_execution
@@ -51,65 +51,156 @@ class StrategistAgent:
         self._setup_chains()
         
     def _setup_chains(self):
-        """Setup LangChain chains for draft generation"""
+        """Setup CHAINED LangChain workflow for draft generation"""
         
         # Parser for structured output
         self.output_parser = PydanticOutputParser(pydantic_object=DraftOutput)
         
-        # Main draft generation chain
+        # NEW: Context Analysis Chain (Step 1)
+        # Analyzes the context to identify key information
+        self.context_analysis_chain = LLMChain(
+            llm=self.llm,
+            prompt=ChatPromptTemplate.from_messages([
+                ("system", """Analyze the retrieved course content to identify specific lesson information."""),
+                ("human", """Query: {query}
+
+Retrieved Course Content:
+{context}
+
+Carefully analyze the retrieved context and extract:
+1. SPECIFIC LESSON TOPICS covered (e.g., "Branch Prediction", "Cache Design", "RISC-V Processor Design")  
+2. KEY TECHNICAL CONCEPTS with details (algorithms, formulas, architectures)
+3. CONCRETE EXAMPLES and code snippets present in the context
+4. DIAGRAMS or visual content described
+5. Overall lesson focus and learning objectives
+
+Output as JSON:
+{{
+    "key_topics": ["List specific topics from the context"],
+    "technical_concepts": ["List specific algorithms, formulas, or technical details"],
+    "examples_present": ["List concrete examples found in context"], 
+    "lesson_focus": "What the main lesson was about based on context",
+    "context_quality": "high/medium/low",
+    "suggested_approach": "How to organize this content to answer the query"
+}}""")
+            ]),
+            output_key="context_insights"
+        )
+        
+        # Main draft generation chain (Step 2)
+        # NOW USES context insights from Step 1!
         self.draft_generation_chain = LLMChain(
             llm=self.llm,
             prompt=ChatPromptTemplate.from_messages([
-                SystemMessage(content="""You are an expert problem solver and educator.
-                Generate comprehensive, well-structured solutions with clear step-by-step reasoning.
-                
-                CRITICAL INSTRUCTIONS:
-                1. Use the ACTUAL context provided to answer the query
-                2. DO NOT output template placeholders like {query}, {context}, etc.
-                3. Generate REAL, SPECIFIC content based on the retrieved documents
-                4. Your output must be valid JSON
-                
-                {course_prompt}"""),
-                HumanMessage(content="""Query: {query}
+                ("system", """You are an expert problem solver and educator specializing in computer science and engineering.
 
-Context from retrieved documents:
+CRITICAL INSTRUCTIONS:
+1. You MUST answer based ONLY on the retrieved context provided below
+2. The context contains actual course materials - use EXACTLY what is in those retrieved documents
+3. DO NOT use your general knowledge about Newton's laws, physics, or any other topics
+4. DO NOT make up content that is not in the retrieved context
+5. If the query asks about "yesterday's lesson", summarize the topics that appear in the retrieved context
+6. Read the retrieved context carefully and base your entire answer on what you actually find there
+
+IMPORTANT: The retrieved context below contains the actual lesson content. Use it!
+
+{course_prompt}"""),
+                ("human", """Query: {query}
+
+RETRIEVED CONTEXT FROM COURSE MATERIALS:
 {context}
+
+CONTEXT ANALYSIS INSIGHTS:
+{context_insights}
 
 Previous feedback (if any): {feedback}
 
-Based on the query and context above, generate a SPECIFIC, DETAILED solution.
+MANDATORY INSTRUCTIONS:
+The context above contains actual course materials about computer science topics like Cache Design, RISC-V Processor Design, Performance Analysis, etc.
 
-IMPORTANT: Use the ACTUAL information from the context. Do NOT use placeholders.
+You MUST:
+1. Read the retrieved context carefully - it contains lesson content about computer architecture
+2. Identify the specific topics covered (like Cache Design, Processor Architecture, etc.)
+3. Answer the query using ONLY these topics from the retrieved context
+4. DO NOT mention Newton's laws, physics, or any content not in the retrieved context
 
-Your response MUST be valid JSON:
+EXAMPLE: If the context contains "Cache Design - 3C model of cache misses", then discuss cache design topics, NOT physics.
+
+Your response MUST be valid JSON using ONLY the retrieved context above:
 {{
-    "draft_content": "<Write the ACTUAL answer here based on the retrieved context>",
+    "draft_content": "<Summarize the actual lesson topics from the retrieved context - like Cache Design, RISC-V Architecture, Performance, etc. Do NOT mention topics not in the context>",
     "chain_of_thought": [
         {{
             "step": 1,
-            "thought": "<Your actual reasoning for this step>",
+            "thought": "<List the specific topics you found in the retrieved context (Cache Design, Processor Design, etc.)>",
+            "confidence": 0.9
+        }},
+        {{
+            "step": 2, 
+            "thought": "<Explain how these topics from the context answer the lesson query>",
             "confidence": 0.9
         }}
     ]
 }}
 
-Remember to:
-1. Break down the problem systematically
-2. Show all work and reasoning
-3. Consider edge cases
-4. Provide clear explanations
-5. Include relevant formulas, theorems, or principles""")
-            ])
+CRITICAL: Answer using the computer science topics in the context, NOT physics or other subjects.""")
+            ]),
+            output_key="draft_output"
+        )
+        
+        # NEW: Self-Assessment Chain (Step 3)
+        # The draft assesses its own quality!
+        self.self_assessment_chain = LLMChain(
+            llm=self.llm,
+            prompt=ChatPromptTemplate.from_messages([
+                ("system", """Assess the quality of the generated draft."""),
+                ("human", """Query: {query}
+
+Context Insights:
+{context_insights}
+
+Generated Draft:
+{draft_output}
+
+Assess the draft quality:
+1. Does it answer the query completely?
+2. Does it use the context effectively?
+3. Is the reasoning clear and logical?
+4. What could be improved?
+
+Output as JSON:
+{{
+    "completeness_score": <0.0-1.0>,
+    "context_usage_score": <0.0-1.0>,
+    "clarity_score": <0.0-1.0>,
+    "strengths": ["strength1", "strength2"],
+    "weaknesses": ["weakness1", "weakness2"],
+    "overall_quality": "high/medium/low"
+}}""")
+            ]),
+            output_key="quality_assessment"
+        )
+        
+        # CREATE THE SEQUENTIAL CHAIN - Connect all three steps!
+        self.draft_pipeline = SequentialChain(
+            chains=[
+                self.context_analysis_chain,
+                self.draft_generation_chain,
+                self.self_assessment_chain
+            ],
+            input_variables=["query", "context", "feedback", "course_prompt"],
+            output_variables=["draft_output", "quality_assessment"],
+            verbose=True  # See the chain in action!
         )
         
         # Chain for iterative refinement
         self.refinement_chain = LLMChain(
             llm=self.llm,
             prompt=ChatPromptTemplate.from_messages([
-                SystemMessage(content="""You are refining a draft solution based on feedback.
+                ("system", """You are refining a draft solution based on feedback.
                 Address the specific issues while maintaining the good parts.
                 DO NOT use template placeholders."""),
-                HumanMessage(content="""Original Query: {query}
+                ("human", """Original Query: {query}
 
 Previous Draft:
 {previous_draft}
@@ -164,14 +255,23 @@ Your response MUST be valid JSON:
             # Prepare context string
             context_str = self._format_context(context)
             self.logger.info(f"DEBUG: Formatted context length: {len(context_str)} chars")
-            self.logger.info(f"DEBUG: Context preview: {context_str[:200]}..." if context_str else "DEBUG: Empty context!")
+            self.logger.info(f"DEBUG: Context: {context_str}" if context_str else "DEBUG: Empty context!")
             
             # Choose chain based on whether we have feedback
             if feedback and state.get("draft"):
                 self.logger.info("Refining previous draft based on feedback")
-                self.logger.info(f"Feedback: {feedback[:200]}...")
+                self.logger.info(f"Feedback: {feedback}")
                 
                 # Use refinement chain
+                self.logger.info("="*250)
+                self.logger.info("LLM INPUT - REFINEMENT CHAIN")
+                self.logger.info("="*250)
+                self.logger.info(f"Query: {query}")
+                self.logger.info(f"Previous Draft: {state['draft']['content']}")
+                self.logger.info(f"Feedback: {feedback}")
+                self.logger.info(f"Context: {context_str}")
+                self.logger.info("="*250)
+                
                 response = await self.refinement_chain.arun(
                     query=query,
                     previous_draft=state["draft"]["content"],
@@ -179,17 +279,103 @@ Your response MUST be valid JSON:
                     context=context_str,
                     format_instructions=""  # We're using inline format instructions now
                 )
+                
+                self.logger.info("="*250)
+                self.logger.info("LLM OUTPUT - REFINEMENT CHAIN")
+                self.logger.info("="*250)
+                self.logger.info(f"Raw response: {response}")
+                self.logger.info("="*250)
             else:
                 self.logger.info("Generating initial draft solution")
+                self.logger.info("Running CHAINED pipeline: Context Analysis → Draft Generation → Self-Assessment")
                 
-                # Use main generation chain
-                response = await self.draft_generation_chain.arun(
-                    query=query,
-                    context=context_str,
-                    feedback=feedback or "No previous feedback",
-                    course_prompt=course_prompt,
-                    format_instructions=""  # We're using inline format instructions now
-                )
+                # Use the SEQUENTIAL PIPELINE!
+                try:
+                    pipeline_inputs = {
+                        "query": query,
+                        "context": context_str,
+                        "feedback": feedback or "No previous feedback",
+                        "course_prompt": course_prompt
+                    }
+                    
+                    self.logger.info("="*250)
+                    self.logger.info("LLM INPUT - DRAFT PIPELINE")
+                    self.logger.info("="*250)
+                    try:
+                        formatted_pipeline_inputs = json.dumps(pipeline_inputs, indent=2)
+                        self.logger.info(f"Pipeline inputs (formatted):\n{formatted_pipeline_inputs}")
+                    except:
+                        self.logger.info(f"Pipeline inputs: {pipeline_inputs}")
+                    self.logger.info("="*250)
+                    
+                    pipeline_results = self.draft_pipeline.invoke(pipeline_inputs)
+                    
+                    self.logger.info("="*250)
+                    self.logger.info("LLM OUTPUT - DRAFT PIPELINE")
+                    self.logger.info("="*250)
+                    try:
+                        formatted_pipeline_results = json.dumps(pipeline_results, indent=2)
+                        self.logger.info(f"Pipeline results (formatted):\n{formatted_pipeline_results}")
+                    except:
+                        self.logger.info(f"Pipeline results: {pipeline_results}")
+                    self.logger.info("="*250)
+                    
+                    # Extract draft and quality assessment
+                    response = pipeline_results.get("draft_output", "{}")
+                    quality = pipeline_results.get("quality_assessment", "{}")
+                    
+                    # Log the quality assessment
+                    try:
+                        quality_json = json.loads(quality)
+                        self.logger.info(f"Draft self-assessment: {quality_json.get('overall_quality', 'unknown')}")
+                        self.logger.info(f"  Completeness: {quality_json.get('completeness_score', 0):.2f}")
+                        self.logger.info(f"  Context usage: {quality_json.get('context_usage_score', 0):.2f}")
+                        self.logger.info(f"  Clarity: {quality_json.get('clarity_score', 0):.2f}")
+                    except:
+                        pass
+                        
+                except Exception as e:
+                    self.logger.warning(f"Pipeline failed, using direct generation: {e}")
+                    # Fallback to direct generation
+                    fallback_inputs = {
+                        "query": query,
+                        "context": context_str,
+                        "feedback": feedback or "No previous feedback",
+                        "course_prompt": course_prompt,
+                        "context_insights": json.dumps({
+                            "key_topics": ["Extracted from available context"],
+                            "relationships": "Available context provides relevant information for answering the query", 
+                            "suggested_approach": "Use the provided context to formulate a comprehensive response"
+                        })  # Meaningful insights for fallback
+                    }
+                    
+                    self.logger.info("="*250)
+                    self.logger.info("LLM INPUT - DIRECT GENERATION FALLBACK")
+                    self.logger.info("="*250)
+                    try:
+                        formatted_fallback_inputs = json.dumps(fallback_inputs, indent=2)
+                        self.logger.info(f"Fallback inputs (formatted):\n{formatted_fallback_inputs}")
+                    except:
+                        self.logger.info(f"Fallback inputs: {fallback_inputs}")
+                    self.logger.info("="*250)
+                    
+                    response = await self.draft_generation_chain.arun(
+                        query=query,
+                        context=context_str,
+                        feedback=feedback or "No previous feedback",
+                        course_prompt=course_prompt,
+                        context_insights=json.dumps({
+                            "key_topics": ["Extracted from available context"],
+                            "relationships": "Available context provides relevant information for answering the query",
+                            "suggested_approach": "Use the provided context to formulate a comprehensive response"
+                        })  # Meaningful insights for fallback
+                    )
+                    
+                    self.logger.info("="*250)
+                    self.logger.info("LLM OUTPUT - DIRECT GENERATION FALLBACK")
+                    self.logger.info("="*250)
+                    self.logger.info(f"Fallback response: {response}")
+                    self.logger.info("="*250)
             
             # Parse structured output
             draft_content = None
@@ -268,7 +454,8 @@ Your response MUST be valid JSON:
                 "chain_of_thought": [
                     {
                         "step": step["step"],
-                        "thought": step["thought"]
+                        "thought": step["thought"],
+                        "confidence": step["confidence"]  # Include confidence score
                     }
                     for step in chain_of_thought
                 ]
@@ -290,7 +477,7 @@ Your response MUST be valid JSON:
             log_agent_execution(
                 state=state,
                 agent_name="Strategist",
-                input_summary=f"Query: {query[:100]}, Round: {state['current_round']}",
+                input_summary=f"Query: {query}, Round: {state['current_round']}",
                 output_summary=f"Generated draft with {len(chain_of_thought)} CoT steps",
                 processing_time=processing_time,
                 success=True
@@ -301,8 +488,8 @@ Your response MUST be valid JSON:
             self.logger.info(f"  - Content length: {len(draft_content)} chars")
             self.logger.info(f"  - CoT steps: {len(chain_of_thought)}")
             
-            for i, step in enumerate(chain_of_thought[:3], 1):
-                self.logger.info(f"  Step {i}: {step['thought'][:100]}... (confidence: {step['confidence']:.2f})")
+            for i, step in enumerate(chain_of_thought, 1):  # All steps
+                self.logger.info(f"  Step {i}: {step['thought']} (confidence: {step['confidence']:.2f})")
             
         except Exception as e:
             self.logger.error(f"Draft generation failed: {str(e)}")
@@ -312,7 +499,7 @@ Your response MUST be valid JSON:
             log_agent_execution(
                 state=state,
                 agent_name="Strategist",
-                input_summary=f"Query: {state['query'][:100]}",
+                input_summary=f"Query: {state['query']}",
                 output_summary=f"Error: {str(e)}",
                 processing_time=time.time() - start_time,
                 success=False
@@ -327,7 +514,7 @@ Your response MUST be valid JSON:
             return "No context available."
         
         context_parts = []
-        for i, result in enumerate(retrieval_results[:5], 1):
+        for i, result in enumerate(retrieval_results, 1):  # All results
             # Handle both 'content' and 'text' fields for compatibility
             content = result.get('content', '') or result.get('text', '')
             score = result.get('score', 0.0)
@@ -421,7 +608,7 @@ This material appears to be from a computer architecture course focusing on RISC
         
         for line in lines:
             if line.strip() and not line.startswith('[Source') and len(line) > 20:
-                key_points.append(line.strip()[:200])  # Limit each point
+                key_points.append(line.strip())  # Keep full key point - no truncation
                 if len(key_points) >= 5:
                     break
         

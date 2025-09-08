@@ -14,19 +14,23 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 import json
 
+# Path for optional per-request log file
+LOG_FILE = "/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/logs/ai_agents.log"
+
 from ai_agents.workflow import create_workflow, MultiAgentWorkflow
 from ai_agents.state import AgentContext
 
 
-# Configure detailed logging
+# Configure console-only logging (no file handlers)
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('/Users/tianqinmeng/Desktop/Executable Projects/Oliver/WatAIOliver/logs/langgraph_agents.log'),
-        logging.StreamHandler()
-    ]
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
+
+# Ensure no accidental file handlers are present on the root logger
+for h in list(logging.getLogger().handlers):
+    if isinstance(h, logging.FileHandler):
+        logging.getLogger().removeHandler(h)
 
 # Suppress noisy library logs
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -187,6 +191,14 @@ async def process_query(request: QueryRequest):
     logger.info(f"Session: {request.session_id}")
     logger.info(f"Max Rounds: {request.max_debate_rounds}")
     
+    # Clear the per-request log file so each query starts fresh
+    try:
+        with open(LOG_FILE, "w"):
+            pass
+    except OSError:
+        # If the file can't be opened we just ignore; logging continues to console
+        pass
+
     try:
         # Process through workflow
         final_response = None

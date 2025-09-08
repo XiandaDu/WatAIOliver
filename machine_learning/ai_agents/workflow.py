@@ -98,18 +98,28 @@ class MultiAgentWorkflow:
         Determines next step based on moderator decision.
         """
         decision = state.get("moderator_decision", "pending")
+        current_round = state.get("current_round", 0)
+        max_rounds = state.get("max_rounds", 3)
+        convergence_score = state.get("convergence_score", 0.0)
         
-        self.logger.info(f"Routing from Moderator - Decision: {decision}")
+        self.logger.info("="*250)
+        self.logger.info("WORKFLOW ROUTING DECISION")
+        self.logger.info("="*250)
+        self.logger.info(f"Moderator decision: {decision}")
+        self.logger.info(f"Current round: {current_round} / {max_rounds}")
+        self.logger.info(f"Convergence score: {convergence_score:.3f}")
         
         if decision == "iterate":
-            # Continue debate loop
+            self.logger.info("→ ROUTING TO: STRATEGIST (continue iteration)")
+            self.logger.info("="*250)
             return "strategist"
         elif decision in ["converged", "abort_deadlock", "escalate_with_warning"]:
-            # Move to synthesis
+            self.logger.info(f"→ ROUTING TO: REPORTER (synthesis phase - {decision})")
+            self.logger.info("="*250)
             return "reporter"
         else:
-            # Unexpected state - end workflow
-            self.logger.error(f"Unexpected moderator decision: {decision}")
+            self.logger.error(f"→ ROUTING TO: END (unexpected decision: {decision})")
+            self.logger.info("="*250)
             return "end"
     
     async def process_query(
@@ -159,9 +169,63 @@ class MultiAgentWorkflow:
             
             # Stream execution for real-time updates
             async for event in self.app.astream(initial_state, config):
-                # Log each node execution
+                # Log each node execution with detailed state information
                 for node, state_update in event.items():
-                    self.logger.info(f"Node executed: {node}")
+                    self.logger.info("="*250)
+                    self.logger.info(f"STATE TRANSITION - NODE: {node.upper()}")
+                    self.logger.info("="*250)
+                    
+                    # Log key state changes
+                    if "workflow_status" in state_update:
+                        self.logger.info(f"Status: {state_update['workflow_status']}")
+                    
+                    if "current_round" in state_update:
+                        self.logger.info(f"Current round: {state_update['current_round']} / {state_update.get('max_rounds', 'unknown')}")
+                    
+                    if "moderator_decision" in state_update:
+                        self.logger.info(f"Moderator decision: {state_update['moderator_decision']}")
+                        if "convergence_score" in state_update:
+                            self.logger.info(f"Convergence score: {state_update['convergence_score']}")
+                    
+                    if "error_messages" in state_update and state_update["error_messages"]:
+                        self.logger.warning(f"Errors accumulated: {len(state_update['error_messages'])}")
+                        for i, error in enumerate(state_update["error_messages"][-3:], 1):  # Last 3 errors
+                            self.logger.warning(f"  {i}. {error}")
+                    
+                    # Log agent-specific outputs
+                    if node == "retrieve" and "retrieval_results" in state_update:
+                        # retrieval_results is a list of RetrievalResult objects
+                        retrieval_results = state_update["retrieval_results"]
+                        if isinstance(retrieval_results, list):
+                            sources_count = len(retrieval_results)
+                        else:
+                            # Fallback if it's somehow a dict
+                            sources_count = len(retrieval_results.get("sources", []))
+                        quality_score = state_update.get("retrieval_quality_score", "unknown")
+                        self.logger.info(f"Retrieved {sources_count} sources, quality: {quality_score}")
+                    
+                    elif node == "strategist" and "draft" in state_update:
+                        draft_length = len(str(state_update["draft"].get("content", "")))
+                        self.logger.info(f"Generated draft: {draft_length} characters")
+                    
+                    elif node == "critic" and "critiques" in state_update:
+                        critique_count = len(state_update.get("critiques", []))
+                        severity_counts = {}
+                        for c in state_update.get("critiques", []):
+                            sev = c.get("severity", "unknown")
+                            severity_counts[sev] = severity_counts.get(sev, 0) + 1
+                        self.logger.info(f"Found {critique_count} critiques: {dict(severity_counts)}")
+                    
+                    elif node == "reporter" and "final_answer" in state_update:
+                        answer_length = len(str(state_update["final_answer"]))
+                        self.logger.info(f"Synthesized final answer: {answer_length} characters")
+                    
+                    elif node == "tutor" and "tutor_interaction" in state_update:
+                        interaction_type = state_update["tutor_interaction"].get("interaction_type", "unknown")
+                        elements_count = len(state_update["tutor_interaction"].get("elements", []))
+                        self.logger.info(f"Prepared {interaction_type} interaction with {elements_count} elements")
+                    
+                    self.logger.info("="*250)
                     
                     # Yield intermediate updates
                     if isinstance(state_update, dict):

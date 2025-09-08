@@ -1,16 +1,17 @@
 """
-Critic Agent - LangChain Implementation
+Critic Agent - LangChain Implementation with PARALLEL VERIFICATION
 
 Critical verifier that performs ruthless, evidence-based review of drafts.
+Uses independent parallel verification for logic, facts, and hallucinations.
 """
 
 import time
 import json
+import asyncio
 from typing import List, Dict, Any
 from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
 from langchain.tools import Tool
-from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
 from ai_agents.state import WorkflowState, Critique, log_agent_execution
@@ -26,12 +27,14 @@ class CritiqueOutput(BaseModel):
 
 class CriticAgent:
     """
-    Critical Verifier using LangChain chains and tools.
+    Critical Verifier using LangChain chains with parallel execution.
     
-    Performs three types of verification:
-    1. Logical flow verification
-    2. Factual accuracy checking
-    3. Hallucination detection
+    Performs three INDEPENDENT types of verification in parallel:
+    1. Logical flow verification - checks reasoning coherence
+    2. Factual accuracy checking - verifies claims against context
+    3. Hallucination detection - identifies unsupported content
+    
+    All three run simultaneously and results are synthesized.
     """
     
     def __init__(self, context):
@@ -47,109 +50,293 @@ class CriticAgent:
         self._setup_tools()
     
     def _setup_chains(self):
-        """Setup LangChain chains for different verification tasks"""
+        """Setup INDEPENDENT LangChain chains for parallel verification"""
         
-        # Logic verification chain
+        # Independent Logic Verification Chain
         self.logic_verification_chain = LLMChain(
             llm=self.llm,
             prompt=ChatPromptTemplate.from_messages([
-                SystemMessage(content="""You are a logic verifier. 
-                Examine the logical flow between steps in the solution.
-                Identify logical leaps, contradictions, or inconsistent reasoning."""),
-                HumanMessage(content="""Query: {query}
+                ("system", """You are a logic verifier that analyzes the ACTUAL content provided.
+                
+CRITICAL INSTRUCTIONS:
+1. You must read and analyze ONLY the actual draft content provided below
+2. Do NOT generate fake examples about "Event A caused Event B" or "X is the largest Y"
+3. Do NOT make up problems that don't exist in the actual draft
+4. Do NOT use template responses or placeholder critiques
+5. If there are NO actual logical issues in the draft, return an empty logic_issues array
 
-Solution Draft:
+Your job is to find REAL logical problems in the ACTUAL text provided."""),
+                ("human", """Query: {query}
+
+===============================================================================
+>>> SOLUTION DRAFT TO ANALYZE (ONLY THIS CONTENT CAN BE CRITICIZED) <<<
+===============================================================================
 {draft}
+===============================================================================
+>>> END OF DRAFT <<<
+===============================================================================
 
-Chain of Thought:
+>>> CHAIN OF THOUGHT TO ANALYZE <<<
+===============================================================================
 {cot}
+===============================================================================
+>>> END OF CHAIN OF THOUGHT <<<
+===============================================================================
 
-Identify ALL logical issues. For each issue provide:
-- Step reference number (if applicable)
-- Issue type: logic_flaw
-- Severity: low/medium/high/critical
-- Clear description
+CRITICAL: Analyze ONLY the draft and chain of thought above. Look for REAL logical issues such as:
+- Contradictory statements within the draft
+- Logical leaps in the reasoning chain
+- Assumptions that aren't supported by prior steps
+- Conclusions that don't follow from premises
 
-Format each issue EXACTLY as:
-ISSUE: [step_number_or_NA] | [severity] | [description]
+STEP REFERENCE INSTRUCTIONS:
+- The Chain of Thought above has numbered steps like "Step 1:", "Step 2:", etc.
+- When you find a logical issue, identify which step number it relates to
+- If the issue relates to "Step 3:", set step_ref to 3
+- If the issue spans multiple steps, use the primary step number
+- If the issue is not tied to a specific step, set step_ref to null
 
-Example:
-ISSUE: 2 | high | Logically jumps from identifying gradients to setting them equal without explaining the principle""")
-            ])
+Do NOT make up fake issues. Analyze only what is actually written in the draft above.
+
+Return valid JSON:
+{{
+    "logic_issues": [
+        {{
+            "step_ref": <step_number_from_CoT_or_null>,
+            "severity": "low/medium/high/critical",
+            "description": "<describe the actual logical problem found in the text>",
+            "problematic_content": "<exact quote from the actual draft>"
+        }}
+    ],
+    "logic_summary": "<summary based on actual analysis>",
+    "areas_of_concern": []
+}}
+
+If you find NO logical issues in the actual draft, return:
+{{
+    "logic_issues": [],
+    "logic_summary": "No significant logical issues found",
+    "areas_of_concern": []
+}}""")
+            ]),
+            output_key="logic_analysis"
         )
         
-        # Fact checking chain
+        # Independent Fact Checking Chain
         self.fact_checking_chain = LLMChain(
             llm=self.llm,
             prompt=ChatPromptTemplate.from_messages([
-                SystemMessage(content="""You are a fact checker.
-                Verify all claims, formulas, and statements against the provided context.
-                Flag any unsupported or contradicted claims."""),
-                HumanMessage(content="""Query: {query}
+                ("system", """You are a fact checker that verifies ACTUAL claims in the provided draft.
+                
+CRITICAL INSTRUCTIONS:
+1. Read the actual draft content carefully
+2. Identify specific factual claims made in the draft
+3. Check ONLY those actual claims against the provided context
+4. Do NOT generate fake fact-check examples like "X is the largest Y"
+5. Do NOT invent factual contradictions that don't exist
+6. If all facts in the draft are supported by the context, return empty fact_issues array
 
-Solution Draft:
+Focus on verifying REAL claims from the ACTUAL draft."""),
+                ("human", """Query: {query}
+
+===============================================================================
+>>> DRAFT TO ANALYZE (ONLY CONTENT FROM THIS SECTION CAN BE CRITICIZED) <<<
+===============================================================================
 {draft}
+===============================================================================
+>>> END OF DRAFT - DO NOT CRITICIZE CONTENT BELOW THIS LINE <<<
+===============================================================================
 
-Context from sources:
+>>> REFERENCE CONTEXT (USE ONLY TO VERIFY CLAIMS FROM DRAFT ABOVE) <<<
+===============================================================================
 {context}
+===============================================================================
+>>> END OF CONTEXT - THIS IS REFERENCE MATERIAL, NOT CONTENT TO CRITICIZE <<<
+===============================================================================
 
-Check EVERY factual claim. For each issue provide:
-- The specific claim being made
-- Issue type: fact_contradiction
-- Severity: low/medium/high/critical  
-- Description with evidence from context
+CRITICAL INSTRUCTIONS:
+1. ONLY analyze claims made in the DRAFT section above
+2. NEVER criticize or fact-check content from the CONTEXT section
+3. The CONTEXT is your reference material to verify DRAFT claims
+4. If you see content in CONTEXT, it is CORRECT - do not question it
+5. Only report issues where the DRAFT contradicts or lacks support from CONTEXT
 
-Format each issue EXACTLY as:
-ISSUE: [exact_claim_text] | [severity] | [description_with_evidence]
+WORKFLOW:
+1. Read the DRAFT section and identify factual claims
+2. For each DRAFT claim, check if it's supported by the CONTEXT
+3. Only flag DRAFT claims that contradict or lack support in CONTEXT
 
-Example:
-ISSUE: The resistance value is 5Ω | critical | The provided context explicitly states the resistance is 10Ω""")
-            ])
+STEP REFERENCE INSTRUCTIONS:
+- The Chain of Thought above has numbered steps like "Step 1:", "Step 2:", etc.
+- When you find a factual issue, identify which step number it relates to
+- If the issue relates to "Step 3:", set step_ref to 3
+- If the issue spans multiple steps, use the primary step number
+- If the issue is not tied to a specific step, set step_ref to null
+
+Return valid JSON:
+{{
+    "fact_issues": [
+        {{
+            "claim": "<exact claim found in the actual draft>",
+            "step_ref": <step_number_from_CoT_or_null>,
+            "severity": "low/medium/high/critical",
+            "description": "<why this claim is incorrect or unsupported based on context>"
+        }}
+    ],
+    "fact_summary": "<summary of fact-checking results>",
+    "verified_facts": ["<list of facts that were correctly stated>"]
+}}
+
+If the draft's claims are supported by context, return:
+{{
+    "fact_issues": [],
+    "fact_summary": "All facts verified against context",
+    "verified_facts": []
+}}""")
+            ]),
+            output_key="fact_analysis"
         )
         
-        # Hallucination detection chain
+        # Independent Hallucination Detection Chain
         self.hallucination_chain = LLMChain(
             llm=self.llm,
             prompt=ChatPromptTemplate.from_messages([
-                SystemMessage(content="""You are a hallucination detector.
-                Identify any content that is completely unsupported by context or irrelevant to the query."""),
-                HumanMessage(content="""Query: {query}
+                ("system", """You are a hallucination detector that identifies ACTUAL unsupported content.
+                
+CRITICAL INSTRUCTIONS:
+1. Read the actual draft content carefully
+2. Compare it against the provided context sources
+3. Identify content in the draft that has NO support in the context
+4. Do NOT make up fake hallucinations about "quantum tunneling" or "Mars colonies"
+5. Do NOT invent problems that don't exist in the actual draft
+6. If the draft is properly supported by context, return empty hallucinations array
 
-Solution Draft:
+Only flag content that is genuinely unsupported."""),
+                ("human", """Query: {query}
+
+===============================================================================
+>>> DRAFT TO CHECK FOR HALLUCINATIONS (ONLY THIS CONTENT CAN BE FLAGGED) <<<
+===============================================================================
 {draft}
+===============================================================================
+>>> END OF DRAFT - DO NOT FLAG CONTENT BELOW THIS LINE <<<
+===============================================================================
 
-Context:
+>>> REFERENCE CONTEXT (USE TO VERIFY DRAFT CLAIMS ARE SUPPORTED) <<<
+===============================================================================
 {context}
+===============================================================================
+>>> END OF CONTEXT - THIS IS REFERENCE MATERIAL, NOT CONTENT TO FLAG <<<
+===============================================================================
 
-Identify hallucinated or irrelevant content. For each issue:
-- Issue type: hallucination
-- Severity: low/medium/high/critical
-- Description of what is hallucinated
+CRITICAL INSTRUCTIONS:
+1. ONLY flag content from the DRAFT section above
+2. NEVER flag content from the CONTEXT section - it is reference material
+3. The CONTEXT is your source of truth to verify DRAFT claims
+4. Only flag DRAFT content that has NO support in the CONTEXT
 
-Format each issue EXACTLY as:
-ISSUE: NA | [severity] | [description_of_hallucination]
+WORKFLOW:
+1. Read the DRAFT section and identify major claims/concepts
+2. For each DRAFT claim, check if it appears anywhere in the CONTEXT
+3. Only flag DRAFT content that is completely absent from CONTEXT
+4. Do NOT flag reasonable inferences or explanations derived from CONTEXT
 
-Example:
-ISSUE: NA | medium | The draft mentions 'quantum tunneling' which is irrelevant to the classical circuit problem""")
-            ])
+STEP REFERENCE INSTRUCTIONS:
+- The Chain of Thought above has numbered steps like "Step 1:", "Step 2:", etc.
+- When you find a hallucination, identify which step number it relates to
+- If the issue relates to "Step 3:", set step_ref to 3
+- If the issue spans multiple steps, use the primary step number
+- If the issue is not tied to a specific step, set step_ref to null
+
+Return valid JSON:
+{{
+    "hallucinations": [
+        {{
+            "content": "<actual unsupported content from draft>",
+            "step_ref": <step_number_from_CoT_or_null>,
+            "severity": "low/medium/high/critical",
+            "reason": "<why this content is not supported by context>",
+            "suggested_fix": "<what should be there based on context>"
+        }}
+    ],
+    "hallucination_summary": "<summary of findings>"
+}}
+
+If the draft IS supported by context, return:
+{{
+    "hallucinations": [],
+    "hallucination_summary": "Draft content is supported by context"
+}}""")
+            ]),
+            output_key="hallucination_analysis"
         )
         
-        # Overall assessment chain
-        self.assessment_chain = LLMChain(
+        # Synthesis Chain - Combines all independent verification results
+        self.synthesis_chain = LLMChain(
             llm=self.llm,
             prompt=ChatPromptTemplate.from_messages([
-                SystemMessage(content="""Provide an overall assessment of the draft quality."""),
-                HumanMessage(content="""Based on these critiques:
-{critiques}
+                ("system", """You are a JSON extraction agent. Your ONLY job is to extract existing issues from analysis results.
 
-Provide:
-1. Overall assessment (one sentence)
-2. Severity score (0-1, where 1 is perfect)
+ABSOLUTE RULES:
+1. Look at the analysis results provided
+2. If ALL analysis results show empty arrays (like "fact_issues": [], "logic_issues": [], "hallucinations": []), then output empty critiques array
+3. NEVER generate example critiques like "Event A", "Person Z", "Mars colonies", etc.
+4. NEVER create fake problems that don't exist in the analysis results
+5. Only extract issues that are explicitly listed in the analysis results
+6. CRITICAL: Issues must be about problems found in the DRAFT, not about reference context being "wrong"
 
-Format:
-ASSESSMENT: [text]
-SCORE: [0.XX]""")
-            ])
+CONTEXT CONFUSION PREVENTION:
+- If an analysis mentions context content as problematic, IGNORE IT
+- Only extract issues where the DRAFT contradicts or lacks support from context
+- Context content is reference material and should NEVER be criticized
+
+If you see empty analysis results, you MUST output an empty critiques array."""),
+                ("human", """VERIFICATION ANALYSIS RESULTS:
+
+Logic Analysis:
+{logic_analysis}
+
+Fact-Checking Analysis:
+{fact_analysis}
+
+Hallucination Analysis:
+{hallucination_analysis}
+
+TASK: Read the analysis results above and extract ONLY the actual issues found.
+
+STEP 1: Check if all analysis results are empty:
+- If Logic Analysis shows "logic_issues": [] AND
+- If Fact Analysis shows "fact_issues": [] AND  
+- If Hallucination Analysis shows "hallucinations": []
+THEN output: {{"critiques": [], "overall_assessment": "No issues found", "severity_score": 0.1}}
+
+STEP 2: If any analysis found actual issues, extract them exactly as written.
+
+EXTRACTION RULES:
+- For logic_issues: use type="logic_flaw", extract step_ref, description. claim is null.
+- For fact_issues: use type="fact_contradiction", extract step_ref, description, claim.
+- For hallucinations: use type="hallucination", extract step_ref, description. claim is null.
+
+DO NOT GENERATE FAKE EXAMPLES. DO NOT USE TEMPLATES.
+
+Required JSON format:
+{{
+    "critiques": [
+        {{
+            "type": "logic_flaw/fact_contradiction/hallucination",
+            "severity": "low/medium/high/critical",
+            "description": "<EXACT description from analysis above>",
+            "step_ref": <step_ref_from_analysis_or_null>,
+            "claim": "<EXACT claim from analysis or null>"
+        }}
+    ],
+    "overall_assessment": "<based on ACTUAL findings>",
+    "severity_score": <0.0-1.0>
+}}
+
+Output ONLY the JSON. Do NOT create fake critiques.""")
+            ]),
+            output_key="final_critique"
         )
     
     def _setup_tools(self):
@@ -191,51 +378,326 @@ SCORE: [0.XX]""")
             
             self.logger.info(f"Critiquing draft: {draft['draft_id']}")
             
-            # Prepare inputs
-            draft_content = draft["content"]
-            cot_str = self._format_cot(draft["chain_of_thought"])
+            # Create structured input matching Strategist output format
+            structured_draft_input = {
+                "draft_id": draft["draft_id"],
+                "draft_content": draft["content"],
+                "chain_of_thought": draft["chain_of_thought"]
+            }
+            
             context_str = self._format_context(context)
             
-            # Run parallel verification chains
-            critiques = []
+            # RUN INDEPENDENT CHAINS IN PARALLEL
+            self.logger.info("Running PARALLEL critique pipeline...")
+            self.logger.info("  • Logic Verification (independent)")
+            self.logger.info("  • Fact Checking (independent)")  
+            self.logger.info("  • Hallucination Detection (independent)")
+            self.logger.info("  → All results combined in Synthesis")
             
-            # 1. Logic verification
-            self.logger.info("Performing logic verification...")
-            logic_response = await self.logic_verification_chain.arun(
-                query=query,
-                draft=draft_content,
-                cot=cot_str
-            )
-            logic_issues = self._parse_issues(logic_response, "logic_flaw")
-            critiques.extend(logic_issues)
-            
-            # 2. Fact checking
-            self.logger.info("Performing fact checking...")
-            fact_response = await self.fact_checking_chain.arun(
-                query=query,
-                draft=draft_content,
-                context=context_str
-            )
-            fact_issues = self._parse_issues(fact_response, "fact_contradiction")
-            critiques.extend(fact_issues)
-            
-            # 3. Hallucination detection
-            self.logger.info("Performing hallucination detection...")
-            hallucination_response = await self.hallucination_chain.arun(
-                query=query,
-                draft=draft_content,
-                context=context_str
-            )
-            hallucination_issues = self._parse_issues(hallucination_response, "hallucination")
-            critiques.extend(hallucination_issues)
-            
-            # Get overall assessment
-            critiques_str = self._format_critiques(critiques)
-            assessment_response = await self.assessment_chain.arun(
-                critiques=critiques_str
-            )
-            
-            overall_assessment, severity_score = self._parse_assessment(assessment_response)
+            # Execute all verification chains in parallel
+            try:
+                # Prepare inputs for all chains using structured format
+                base_inputs = {
+                    "query": query,
+                    "draft": draft["content"],
+                    "cot": self._format_cot(draft["chain_of_thought"]),
+                    "context": context_str
+                }
+                
+                self.logger.info("="*250)
+                self.logger.info("LLM INPUT - PARALLEL VERIFICATION")
+                self.logger.info("="*250)
+                # Format the structured input for logging (matching Strategist format)
+                try:
+                    log_input = {
+                        "query": query,
+                        "draft_to_critique": structured_draft_input,
+                        "retrieval_context": context if isinstance(context, list) else [],  # Show all retrieval results
+                        "total_context_sources": len(context) if isinstance(context, list) else len([line for line in context_str.split('\n') if line.startswith('[Source')]),
+                        "context_length": len(context_str)
+                    }
+                    
+                    formatted_inputs = json.dumps(log_input, indent=2)
+                    self.logger.info(f"Verification inputs (structured format):\n{formatted_inputs}")
+                except:
+                    self.logger.info(f"Verification inputs: {base_inputs}")
+                self.logger.info("="*250)
+                
+                # Run all three verification chains in parallel
+                self.logger.info("Executing parallel verification chains...")
+                
+                # Create async tasks for parallel execution
+                async def run_chain_async(chain, inputs, chain_name):
+                    """Helper to run chain asynchronously with proper debugging and fail-fast."""
+                    self.logger.info("="*250)
+                    self.logger.info(f"CHAIN EXECUTION: {chain_name.upper()}")
+                    self.logger.info("="*250)
+                    
+                    # ============================================================
+                    # CRITICAL DEBUG SECTION - OUTSIDE TRY BLOCK
+                    # ============================================================
+                    
+                    # 1. Debug what the chain object actually is
+                    self.logger.info(f"🔍 CHAIN OBJECT DEBUG:")
+                    self.logger.info(f"   - Chain type: {type(chain)}")
+                    self.logger.info(f"   - Chain class: {chain.__class__.__name__}")
+                    self.logger.info(f"   - Has prompt: {hasattr(chain, 'prompt')}")
+                    self.logger.info(f"   - Has output_key: {hasattr(chain, 'output_key')}")
+                    if hasattr(chain, 'output_key'):
+                        self.logger.info(f"   - Output key value: {chain.output_key}")
+                    
+                    # 2. Debug the inputs
+                    self.logger.info(f"🔍 INPUTS DEBUG:")
+                    self.logger.info(f"   - Input type: {type(inputs)}")
+                    self.logger.info(f"   - Input keys: {list(inputs.keys())}")
+                    for key in inputs.keys():
+                        val_preview = str(inputs[key])  # Full value
+                        self.logger.info(f"   - {key}: {val_preview}...")
+                    
+                    # 3. Extract and validate expected variables OUTSIDE try block
+                    expected_vars = []
+                    if hasattr(chain, 'prompt') and hasattr(chain.prompt, 'input_variables'):
+                        expected_vars = chain.prompt.input_variables
+                        self.logger.info(f"🔍 TEMPLATE VARIABLES:")
+                        self.logger.info(f"   - Expected: {expected_vars}")
+                    else:
+                        self.logger.error(f"❌ CHAIN HAS NO PROMPT OR INPUT_VARIABLES!")
+                        self.logger.error(f"   - Chain attributes: {dir(chain)}")  # Show all attributes
+                        raise ValueError(f"Chain {chain_name} has no prompt.input_variables attribute!")
+                    
+                    # 4. Check variable matching OUTSIDE try block
+                    self.logger.info(f"🔍 VARIABLE MATCHING:")
+                    missing_vars = []
+                    available_vars = []
+                    for var in expected_vars:
+                        if var in inputs:
+                            self.logger.info(f"   ✓ {var} - FOUND in inputs")
+                            available_vars.append(var)
+                        else:
+                            self.logger.error(f"   ✗ {var} - MISSING from inputs!")
+                            missing_vars.append(var)
+                    
+                    # 5. Build call_kwargs OUTSIDE try block
+                    call_kwargs = {k: inputs[k] for k in expected_vars if k in inputs}
+                    
+                    # 6. FAIL FAST if there's a problem
+                    if not call_kwargs:
+                        self.logger.error(f"❌ FATAL: No matching variables found!")
+                        self.logger.error(f"   Chain expects: {expected_vars}")
+                        self.logger.error(f"   Inputs has: {list(inputs.keys())}")
+                        raise ValueError(f"Cannot invoke {chain_name}: no matching variables between template {expected_vars} and inputs {list(inputs.keys())}")
+                    
+                    if missing_vars:
+                        self.logger.error(f"❌ FATAL: Required variables missing!")
+                        self.logger.error(f"   Missing: {missing_vars}")
+                        raise ValueError(f"Cannot invoke {chain_name}: missing required variables {missing_vars}")
+                    
+                    # ============================================================
+                    # LOG THE ACTUAL PROMPT (for debugging)
+                    # ============================================================
+                    try:
+                        prompt_val = chain.prompt.format_prompt(**call_kwargs)
+                        messages = prompt_val.to_messages()
+                        self.logger.info(">>> ACTUAL COMPLETE PROMPT BEING SENT TO LLM <<<")
+                        self.logger.info("START_PROMPT" + "="*240)
+                        for msg in messages:
+                            self.logger.info(f"Message: {msg.content}")
+                        self.logger.info("END_PROMPT" + "="*242)
+                        self.logger.info(f"Total prompt length: {sum(len(m.content) for m in messages)} characters")
+                    except Exception as e:
+                        self.logger.error(f"Could not format prompt for logging: {e}")
+                    
+                    self.logger.info("="*250)
+                    
+                    # ============================================================
+                    # INVOKE THE CHAIN - NO FALLBACKS, FAIL FAST
+                    # ============================================================
+                    try:
+                        self.logger.info(f"📞 Calling {chain_name}.arun() with args: {sorted(call_kwargs.keys())}")
+                        
+                        # Build the explicit call based on exact variables
+                        if set(call_kwargs) == {"query", "draft", "cot"}:
+                            raw_output = await chain.arun(
+                                query=call_kwargs["query"],
+                                draft=call_kwargs["draft"],
+                                cot=call_kwargs["cot"]
+                            )
+                        elif set(call_kwargs) == {"query", "draft", "context"}:
+                            raw_output = await chain.arun(
+                                query=call_kwargs["query"],
+                                draft=call_kwargs["draft"],
+                                context=call_kwargs["context"]
+                            )
+                        elif set(call_kwargs) == {"query", "draft"}:
+                            raw_output = await chain.arun(
+                                query=call_kwargs["query"],
+                                draft=call_kwargs["draft"]
+                            )
+                        else:
+                            # NO FALLBACK - FAIL FAST
+                            raise ValueError(f"Unsupported argument combination: {set(call_kwargs)}. Add explicit support for this pattern.")
+                        
+                        # Wrap output
+                        raw_result = {chain.output_key: raw_output} if hasattr(chain,'output_key') else {'text': raw_output}
+                        
+                    except Exception as e:
+                        self.logger.error(f"❌ Chain {chain_name} execution FAILED!")
+                        self.logger.error(f"   Error: {e}")
+                        self.logger.error(f"   Error type: {type(e).__name__}")
+                        import traceback
+                        self.logger.error(f"   Traceback:\n{traceback.format_exc()}")
+                        raise  # FAIL FAST - no silent failures
+
+                    # ------------------------------------------------------------------
+                    # 4) Log FULL LLM response
+                    # ------------------------------------------------------------------
+                    self.logger.info("="*250)
+                    self.logger.info(f"LLM OUTPUT - {chain_name.upper()}")
+                    self.logger.info("="*250)
+                    self.logger.info(">>> ACTUAL COMPLETE RESPONSE FROM LLM <<<")
+                    self.logger.info("START_RESPONSE" + "="*236)
+                    self.logger.info(str(raw_output))
+                    self.logger.info("END_RESPONSE" + "="*238)
+                    self.logger.info(f"Total response length: {len(str(raw_output))} characters")
+
+                    return raw_result
+                
+                # Execute all three chains in parallel
+                logic_task = run_chain_async(self.logic_verification_chain, base_inputs, "Logic Verification")
+                fact_task = run_chain_async(self.fact_checking_chain, base_inputs, "Fact Checking")
+                hallucination_task = run_chain_async(self.hallucination_chain, base_inputs, "Hallucination Detection")
+                
+                # Wait for all chains to complete
+                try:
+                    logic_result, fact_result, hallucination_result = await asyncio.gather(
+                        logic_task, fact_task, hallucination_task
+                    )
+                except Exception as e:
+                    self.logger.error(f"Error running parallel chains: {e}")
+                    # Return empty results if chains fail
+                    logic_result = {'logic_analysis': '{"logic_issues": [], "logic_summary": "Chain failed", "areas_of_concern": []}'}
+                    fact_result = {'fact_analysis': '{"fact_issues": [], "fact_summary": "Chain failed", "verified_facts": []}'}
+                    hallucination_result = {'hallucination_analysis': '{"hallucinations": [], "hallucination_summary": "Chain failed"}'}
+                
+                self.logger.info("="*250)
+                self.logger.info("PARALLEL VERIFICATION RESULTS")
+                self.logger.info("="*250)
+                
+                # Debug what we actually got back
+                self.logger.info(f"Logic result type: {type(logic_result)}, keys: {logic_result.keys() if isinstance(logic_result, dict) else 'Not a dict'}")
+                self.logger.info(f"Fact result type: {type(fact_result)}, keys: {fact_result.keys() if isinstance(fact_result, dict) else 'Not a dict'}")
+                self.logger.info(f"Hallucination result type: {type(hallucination_result)}, keys: {hallucination_result.keys() if isinstance(hallucination_result, dict) else 'Not a dict'}")
+                
+                # Validate verification results
+                logic_text = str(logic_result.get('logic_analysis', ''))
+                fact_text = str(fact_result.get('fact_analysis', ''))
+                halluc_text = str(hallucination_result.get('hallucination_analysis', ''))
+                
+                # Detect if LLM is generating completely unrelated examples
+                unrelated_keywords = ['Tesla', 'OpenAI', 'Microsoft', 'Mars', 'planet', 'population', 'Q1 2023', 'vehicles', 'Event A', 'Person Z', 'Earth is flat']
+                
+                # Check if any result contains obviously unrelated content
+                for result_name, result_text in [("Logic", logic_text), ("Fact", fact_text), ("Hallucination", halluc_text)]:
+                    if any(keyword in result_text for keyword in unrelated_keywords):
+                        self.logger.warning(f"WARNING: {result_name} checker may have generated unrelated examples!")
+                        self.logger.warning(f"Found unrelated keywords in: {result_text}")
+                        self.logger.warning("This suggests the LLM is not analyzing the actual draft content")
+                
+                # Now run synthesis chain with all results
+                synthesis_inputs = {
+                    "logic_analysis": logic_result.get('logic_analysis', '{}'),
+                    "fact_analysis": fact_result.get('fact_analysis', '{}'),
+                    "hallucination_analysis": hallucination_result.get('hallucination_analysis', '{}')
+                }
+                
+                self.logger.info("="*250)
+                self.logger.info("LLM INPUT - SYNTHESIS CHAIN")
+                self.logger.info("="*250)
+                self.logger.info(">>> ACTUAL COMPLETE SYNTHESIS INPUTS <<<")
+                self.logger.info("START_SYNTHESIS_INPUT" + "="*229)
+                # Log ALL inputs without truncation
+                self.logger.info("LOGIC ANALYSIS:")
+                self.logger.info(synthesis_inputs['logic_analysis'])
+                self.logger.info("-" * 100)
+                self.logger.info("FACT ANALYSIS:")
+                self.logger.info(synthesis_inputs['fact_analysis'])
+                self.logger.info("-" * 100)
+                self.logger.info("HALLUCINATION ANALYSIS:")
+                self.logger.info(synthesis_inputs['hallucination_analysis'])
+                self.logger.info("END_SYNTHESIS_INPUT" + "="*231)
+                self.logger.info("="*250)
+                
+                # Use arun for proper variable substitution with ChatPromptTemplate
+                synthesis_result_text = await self.synthesis_chain.arun(**synthesis_inputs)
+                synthesis_result = {'text': synthesis_result_text}
+                
+                self.logger.info("="*250)
+                self.logger.info("LLM OUTPUT - SYNTHESIS CHAIN")
+                self.logger.info("="*250)
+                # Log the FULL synthesis result - NO TRUNCATION!
+                self.logger.info(">>> ACTUAL COMPLETE SYNTHESIS RESPONSE <<<")
+                self.logger.info("START_SYNTHESIS" + "="*235)
+                if isinstance(synthesis_result, dict):
+                    try:
+                        formatted_result = json.dumps(synthesis_result, indent=2)
+                        self.logger.info(formatted_result)  # Log the FULL formatted result
+                    except:
+                        self.logger.info(str(synthesis_result))  # Log as string if JSON fails
+                else:
+                    self.logger.info(str(synthesis_result))  # Log the FULL result
+                self.logger.info("END_SYNTHESIS" + "="*237)
+                self.logger.info(f"Total synthesis length: {len(str(synthesis_result))} characters")
+                self.logger.info("="*250)
+                
+                # Parse the final synthesized critique
+                self.logger.info(f"Attempting to parse synthesis result (type: {type(synthesis_result)})")
+                
+                # Extract the text from the synthesis result dict
+                if isinstance(synthesis_result, dict):
+                    json_text = synthesis_result.get("text", "")
+                else:
+                    json_text = str(synthesis_result)
+                
+                if not json_text or not json_text.strip():
+                    self.logger.warning("Synthesis returned empty text response!")
+                    raise json.JSONDecodeError("Empty response", str(json_text), 0)
+                
+                # Try to extract JSON if it's wrapped in markdown or other text
+                json_text = json_text.strip()
+                if "```json" in json_text:
+                    # Extract JSON from markdown code block
+                    json_text = json_text.split("```json")[1].split("```")[0].strip()
+                    self.logger.info(f"Extracted JSON from markdown: {json_text}")
+                elif "```" in json_text:
+                    # Extract from generic code block
+                    json_text = json_text.split("```")[1].split("```")[0].strip()
+                    self.logger.info(f"Extracted JSON from code block: {json_text}")
+                
+                # Fix double brace issue that sometimes occurs
+                if json_text.startswith('{{') and json_text.endswith('}}'):
+                    json_text = json_text[1:-1]
+                    self.logger.info("Fixed double brace issue in JSON")
+                
+                final_critique = json.loads(json_text)
+                critiques = self._convert_json_to_critiques(final_critique)
+                overall_assessment = final_critique.get("overall_assessment", "Draft requires revision")
+                severity_score = final_critique.get("severity_score", 0.5)
+                
+                self.logger.info(f"Parallel verification complete! Found {len(critiques)} issues through independent analysis")
+                
+            except json.JSONDecodeError as e:
+                self.logger.error(f"JSON parsing failed: {e}")
+                self.logger.error(f"Raw synthesis result: '{json_text if 'json_text' in locals() else 'N/A'}'")
+                
+                # Fallback to empty critiques
+                critiques = []
+                overall_assessment = "Failed to parse critique - JSON parsing error"
+                severity_score = 0.5
+            except Exception as e:
+                self.logger.error(f"Unexpected error parsing critique: {e}")
+                critiques = []
+                overall_assessment = "Failed to parse critique - unexpected error"
+                severity_score = 0.5
             
             # Create formatted JSON output according to specification
             formatted_output = {
@@ -284,8 +746,8 @@ SCORE: [0.XX]""")
             critical_issues = [c for c in critiques if c.get("severity") == "critical"]
             if critical_issues:
                 self.logger.warning(f"  - CRITICAL issues: {len(critical_issues)}")
-                for issue in critical_issues[:2]:
-                    self.logger.warning(f"    • {issue['description'][:100]}...")
+                for issue in critical_issues:  # All critical issues
+                    self.logger.warning(f"    • {issue['description']}")
             
         except Exception as e:
             self.logger.error(f"Critique failed: {str(e)}")
@@ -302,6 +764,21 @@ SCORE: [0.XX]""")
             )
         
         return state
+    
+    def _convert_json_to_critiques(self, final_critique: Dict) -> List[Critique]:
+        """Convert the JSON output from chained pipeline to Critique objects"""
+        critiques = []
+        
+        for c in final_critique.get("critiques", []):
+            critiques.append(Critique(
+                type=c.get("type", "logic_flaw"),
+                severity=c.get("severity", "medium"),
+                description=c.get("description", ""),
+                step_ref=c.get("step_ref"),
+                claim=c.get("claim")
+            ))
+        
+        return critiques
     
     def _parse_issues(self, response: str, default_type: str) -> List[Critique]:
         """Parse issues from chain response"""
@@ -384,10 +861,10 @@ SCORE: [0.XX]""")
             return "No context available"
         
         context_parts = []
-        for i, result in enumerate(retrieval_results[:5], 1):
-            context_parts.append(
-                f"[Source {i}]: {result.get('content', '')[:500]}..."
-            )
+        for i, result in enumerate(retrieval_results, 1):  # All results
+            # Provide complete context for comprehensive fact-checking (no truncation)
+            content = result.get('content', '')
+            context_parts.append(f"[Source {i}]: {content}")
         
         return "\n\n".join(context_parts)
     

@@ -9,7 +9,6 @@ import json
 from typing import Dict, Any, List
 from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
-from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
 from ai_agents.state import WorkflowState, log_agent_execution
@@ -57,9 +56,9 @@ class TutorAgent:
         self.guide_chain = LLMChain(
             llm=self.llm,
             prompt=ChatPromptTemplate.from_messages([
-                SystemMessage(content="""You are a Socratic tutor preparing students to learn.
+                ("system", """You are a Socratic tutor preparing students to learn.
                 Generate thought-provoking questions that activate prior knowledge."""),
-                HumanMessage(content="""Query: {query}
+                ("human", """Query: {query}
 
 Answer Summary: {answer_summary}
 
@@ -77,8 +76,8 @@ Format: QUESTION: [your question]""")
         self.pattern_analysis_chain = LLMChain(
             llm=self.llm,
             prompt=ChatPromptTemplate.from_messages([
-                SystemMessage(content="""Analyze if the user is genuinely learning or just copying homework."""),
-                HumanMessage(content="""Current Query: {current_query}
+                ("system", """Analyze if the user is genuinely learning or just copying homework."""),
+                ("human", """Current Query: {current_query}
 
 Previous Queries:
 {previous_queries}
@@ -99,8 +98,8 @@ RECOMMENDATION: [action]""")
         self.quiz_chain = LLMChain(
             llm=self.llm,
             prompt=ChatPromptTemplate.from_messages([
-                SystemMessage(content="""Generate educational quiz questions to test understanding."""),
-                HumanMessage(content="""Topic: {query}
+                ("system", """Generate educational quiz questions to test understanding."""),
+                ("human", """Topic: {query}
 
 Key Concepts from Answer:
 {key_concepts}
@@ -124,8 +123,8 @@ EXPLANATION_2: [why this is correct]""")
         self.tips_chain = LLMChain(
             llm=self.llm,
             prompt=ChatPromptTemplate.from_messages([
-                SystemMessage(content="""Generate personalized learning tips based on the topic."""),
-                HumanMessage(content="""Query: {query}
+                ("system", """Generate personalized learning tips based on the topic."""),
+                ("human", """Query: {query}
 
 Answer Provided: {answer_summary}
 
@@ -250,7 +249,7 @@ Format each tip on a new line starting with "TIP:".""")
             log_agent_execution(
                 state=state,
                 agent_name="Tutor",
-                input_summary=f"Query: {query[:100]}",
+                input_summary=f"Query: {query}",
                 output_summary=f"Interaction: {interaction_type}, {len(interaction['elements'])} elements",
                 processing_time=processing_time,
                 success=True
@@ -299,10 +298,25 @@ Format each tip on a new line starting with "TIP:".""")
         
         # Check for repetitive patterns
         try:
-            pattern_response = await self.pattern_analysis_chain.arun(
-                current_query=query,
-                previous_queries="\n".join(recent_queries[:5])
-            )
+            # Log the ACTUAL pattern analysis prompt
+            pattern_inputs = {
+                'current_query': query,
+                'previous_queries': "\n".join(recent_queries)  # All recent queries
+            }
+            
+            try:
+                prompt_value = self.pattern_analysis_chain.prompt.format_prompt(**pattern_inputs)
+                messages = prompt_value.to_messages()
+                self.logger.info(">>> ACTUAL PATTERN ANALYSIS PROMPT <<<")
+                self.logger.info("START_PROMPT" + "="*240)
+                for i, msg in enumerate(messages):
+                    self.logger.info(f"Message {i+1}: {msg.content}")
+                self.logger.info("END_PROMPT" + "="*242)
+            except Exception as e:
+                self.logger.error(f"Could not log pattern prompt: {e}")
+            
+            # Use arun for proper variable substitution
+            pattern_response = await self.pattern_analysis_chain.arun(**pattern_inputs)
             
             # Parse response
             similarity = 0.0
@@ -336,12 +350,27 @@ Format each tip on a new line starting with "TIP:".""")
     async def _generate_guide_question(self, query: str, answer: Dict) -> str:
         """Generate a guiding question"""
         try:
-            answer_summary = answer.get("introduction", "")[:200]
+            answer_summary = answer.get("introduction", "")  # Full introduction
             
-            response = await self.guide_chain.arun(
-                query=query,
-                answer_summary=answer_summary
-            )
+            # Log the ACTUAL guide prompt
+            guide_inputs = {
+                'query': query,
+                'answer_summary': answer_summary
+            }
+            
+            try:
+                prompt_value = self.guide_chain.prompt.format_prompt(**guide_inputs)
+                messages = prompt_value.to_messages()
+                self.logger.info(">>> ACTUAL GUIDE PROMPT <<<")
+                self.logger.info("START_GUIDE_PROMPT" + "="*233)
+                for i, msg in enumerate(messages):
+                    self.logger.info(f"Message {i+1}: {msg.content}")
+                self.logger.info("END_GUIDE_PROMPT" + "="*235)
+            except Exception as e:
+                self.logger.error(f"Could not log guide prompt: {e}")
+            
+            # Use arun for proper substitution
+            response = await self.guide_chain.arun(**guide_inputs)
             
             # Parse question
             for line in response.split("\n"):
@@ -360,10 +389,25 @@ Format each tip on a new line starting with "TIP:".""")
             # Extract key concepts from answer
             key_concepts = self._extract_key_concepts(answer)
             
-            response = await self.quiz_chain.arun(
-                query=query,
-                key_concepts=key_concepts
-            )
+            # Log the ACTUAL quiz prompt
+            quiz_inputs = {
+                'query': query,
+                'key_concepts': key_concepts
+            }
+            
+            try:
+                prompt_value = self.quiz_chain.prompt.format_prompt(**quiz_inputs)
+                messages = prompt_value.to_messages()
+                self.logger.info(">>> ACTUAL QUIZ PROMPT <<<")
+                self.logger.info("START_QUIZ_PROMPT" + "="*234)
+                for i, msg in enumerate(messages):
+                    self.logger.info(f"Message {i+1}: {msg.content}")
+                self.logger.info("END_QUIZ_PROMPT" + "="*236)
+            except Exception as e:
+                self.logger.error(f"Could not log quiz prompt: {e}")
+            
+            # Use arun for proper substitution
+            response = await self.quiz_chain.arun(**quiz_inputs)
             
             # Parse quiz questions
             quiz = {"questions": []}
@@ -398,13 +442,28 @@ Format each tip on a new line starting with "TIP:".""")
     ) -> List[str]:
         """Generate personalized learning tips"""
         try:
-            answer_summary = str(answer)[:500]
+            answer_summary = str(answer)  # Full answer
             
-            response = await self.tips_chain.arun(
-                query=query,
-                answer_summary=answer_summary,
-                interaction_type=interaction_type
-            )
+            # Log the ACTUAL tips prompt
+            tips_inputs = {
+                'query': query,
+                'answer_summary': answer_summary,
+                'interaction_type': interaction_type
+            }
+            
+            try:
+                prompt_value = self.tips_chain.prompt.format_prompt(**tips_inputs)
+                messages = prompt_value.to_messages()
+                self.logger.info(">>> ACTUAL TIPS PROMPT <<<")
+                self.logger.info("START_TIPS_PROMPT" + "="*234)
+                for i, msg in enumerate(messages):
+                    self.logger.info(f"Message {i+1}: {msg.content}")
+                self.logger.info("END_TIPS_PROMPT" + "="*236)
+            except Exception as e:
+                self.logger.error(f"Could not log tips prompt: {e}")
+            
+            # Use arun for proper substitution
+            response = await self.tips_chain.arun(**tips_inputs)
             
             # Parse tips
             tips = []
@@ -412,7 +471,7 @@ Format each tip on a new line starting with "TIP:".""")
                 if line.startswith("TIP:"):
                     tips.append(line.replace("TIP:", "").strip())
             
-            return tips[:3]  # Limit to 3 tips
+            return tips  # All tips
             
         except Exception as e:
             self.logger.error(f"Tips generation failed: {e}")
@@ -440,10 +499,10 @@ Format each tip on a new line starting with "TIP:".""")
         
         if "step_by_step_solution" in answer:
             # Extract first few lines as concepts
-            lines = answer["step_by_step_solution"].split("\n")[:3]
+            lines = answer["step_by_step_solution"].split("\n")  # All lines
             concepts.extend(lines)
         
-        return "\n".join(concepts)[:500]
+        return "\n".join(concepts)  # All concepts - no truncation
     
     def _generate_cooldown_message(self) -> str:
         """Generate cooldown message for discipline mode"""

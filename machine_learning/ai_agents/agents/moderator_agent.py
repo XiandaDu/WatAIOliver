@@ -9,7 +9,7 @@ import json
 from typing import List, Dict, Any
 from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
-from langchain_core.messages import HumanMessage, SystemMessage
+# Messages handled via tuple format in ChatPromptTemplate
 from pydantic import BaseModel, Field
 
 from ai_agents.state import WorkflowState, log_agent_execution
@@ -42,8 +42,16 @@ class ModeratorAgent:
         self.llm = create_langchain_llm(self.llm_client)
         
         # Decision thresholds
-        self.convergence_threshold = 0.8
+        self.convergence_threshold = 0.3  # Converge if score < 0.3 (adjusted for actual scores)
         self.critical_severity_threshold = 2  # Max critical issues allowed
+        
+        # Explicit severity to score mapping (from planning docs)
+        self.severity_to_score = {
+            "low": 0.2,
+            "medium": 0.5,
+            "high": 0.8,
+            "critical": 1.0
+        }
         
         # Setup chains
         self._setup_chains()
@@ -55,15 +63,20 @@ class ModeratorAgent:
         self.decision_chain = LLMChain(
             llm=self.llm,
             prompt=ChatPromptTemplate.from_messages([
-                SystemMessage(content="""You are a debate moderator controlling the quality assurance process.
+                ("system", """You are a debate moderator controlling the quality assurance process.
                 Analyze critiques and make strategic decisions about the debate flow.
                 
                 Decision options:
-                - converged: Draft is acceptable (minor or no issues)
-                - iterate: Draft needs revision (fixable issues)
+                - converged: Draft is acceptable (ONLY low severity or no issues)
+                - iterate: Draft needs revision (medium, high, or critical issues found)
                 - abort_deadlock: Cannot converge after max attempts
-                - escalate_with_warning: Serious quality concerns"""),
-                HumanMessage(content="""Query: {query}
+                - escalate_with_warning: Serious quality concerns
+                
+                CRITICAL RULES:
+                - If ANY medium, high, or critical issues exist: ALWAYS choose 'iterate'
+                - Only choose 'converged' if ALL issues are low severity or no issues found
+                - Be strict about quality standards"""),
+                ("human", """Query: {query}
 
 Current Round: {current_round} / {max_rounds}
 
@@ -95,17 +108,37 @@ IMPORTANT: If DECISION is 'iterate', provide clear, specific feedback about what
         self.feedback_chain = LLMChain(
             llm=self.llm,
             prompt=ChatPromptTemplate.from_messages([
-                SystemMessage(content="""Generate concise, actionable feedback for draft revision."""),
-                HumanMessage(content="""Critical issues to address:
+                ("system", """Generate specific, actionable feedback for draft revision based on ACTUAL issues found.
+
+CRITICAL INSTRUCTIONS:
+1. Read the actual issues provided below carefully
+2. Generate feedback based ONLY on the real issues listed
+3. Do NOT use placeholder text like "[Specific concept X]" or "[Specific claim Y]"
+4. Provide concrete, actionable advice based on the actual problems
+5. If no real issues are provided, generate minimal feedback"""),
+                ("human", """ACTUAL Critical Issues Found:
 {critical_issues}
 
-High priority issues:
+ACTUAL High Priority Issues Found:
 {high_issues}
 
-Generate specific, prioritized feedback for the strategist.
-Focus on the most important issues that must be fixed.
+CRITICAL: You must generate PLAIN TEXT feedback, NOT code or templates.
 
-Format: Clear, numbered action items.""")
+TASK: Write specific feedback for the strategist in plain English.
+
+Requirements:
+1. Write actual feedback text, not Python code
+2. Reference the problems listed above specifically
+3. Provide concrete revision instructions
+4. Do NOT output code, variables, or programming syntax
+5. Write as if speaking to a human
+
+Example format:
+1. Fix the logical issue in step 2 by explaining why...
+2. Correct the factual error about... by checking the source material...
+3. Remove the unsupported claim about... since it's not in the context...
+
+Write ONLY plain text feedback, no code.""")
             ])
         )
     
@@ -133,23 +166,83 @@ Format: Clear, numbered action items.""")
             self.logger.info(f"  - Low: {severity_counts['low']}")
             
             # Prepare decision inputs
-            draft_summary = draft["content"][:500] if draft else "No draft"
+            draft_summary = draft["content"] if draft else "No draft"
+            
+            # Log critique formatting to debug truncation issues
+            self.logger.info(f"Formatting {len(critiques)} critiques for moderator input:")
+            for i, critique in enumerate(critiques):  # Show all critiques for debugging
+                desc_len = len(critique.get("description", ""))
+                self.logger.info(f"  Critique {i+1}: {critique.get('type')} - {critique.get('severity')} - {desc_len} chars")
+                # Show full description in logs - no truncation
+                if desc_len > 0:
+                    self.logger.info(f"    Full description: {critique.get('description', '')}")
+            
             critiques_str = self._format_critiques(critiques)
             has_previous = "Yes" if state.get("moderator_feedback") else "No"
             
             # Make decision
-            decision_response = await self.decision_chain.arun(
-                query=state["query"],
-                current_round=current_round,
-                max_rounds=max_rounds,
-                draft_summary=draft_summary,
-                critiques=critiques_str,
-                critical_count=severity_counts["critical"],
-                high_count=severity_counts["high"],
-                medium_count=severity_counts["medium"],
-                low_count=severity_counts["low"],
-                has_previous=has_previous
-            )
+            decision_inputs = {
+                "query": state["query"],
+                "current_round": current_round,
+                "max_rounds": max_rounds,
+                "draft_summary": draft_summary,
+                "critiques": critiques_str,
+                "critical_count": severity_counts["critical"],
+                "high_count": severity_counts["high"],
+                "medium_count": severity_counts["medium"],
+                "low_count": severity_counts["low"],
+                "has_previous": has_previous
+            }
+            
+            self.logger.info("="*250)
+            self.logger.info("LLM INPUT - MODERATOR DECISION CHAIN")
+            self.logger.info("="*250)
+            try:
+                formatted_inputs = json.dumps(decision_inputs, indent=2)
+                self.logger.info(f"Decision inputs (formatted):\n{formatted_inputs}")
+            except:
+                self.logger.info(f"Decision inputs: {decision_inputs}")
+            self.logger.info("="*250)
+            
+            # Log the ACTUAL prompt being sent to the LLM
+            try:
+                prompt_value = self.decision_chain.prompt.format_prompt(**decision_inputs)
+                messages = prompt_value.to_messages()
+                
+                self.logger.info(">>> ACTUAL COMPLETE PROMPT BEING SENT TO MODERATOR LLM <<<")
+                self.logger.info("START_PROMPT" + "="*240)
+                for msg in messages:
+                    # Check message type by its class name
+                    msg_type = type(msg).__name__
+                    if 'System' in msg_type:
+                        self.logger.info(f"System: {msg.content}")
+                    elif 'Human' in msg_type:
+                        self.logger.info(f"Human: {msg.content}")
+                    else:
+                        self.logger.info(f"{msg_type}: {msg.content}")
+                self.logger.info("END_PROMPT" + "="*242)
+                self.logger.info(f"Total prompt length: {sum(len(msg.content) for msg in messages)} characters")
+            except Exception as e:
+                self.logger.error(f"Could not log prompt: {e}")
+            
+            # Use arun for proper variable substitution with ChatPromptTemplate
+            decision_response = await self.decision_chain.arun(**decision_inputs)
+            
+            self.logger.info("="*250)
+            self.logger.info("LLM OUTPUT - MODERATOR DECISION CHAIN")
+            self.logger.info("="*250)
+            # Format the raw response nicely if it contains JSON
+            if "```json" in decision_response:
+                try:
+                    # Extract and format JSON
+                    json_part = decision_response.split("```json")[1].split("```")[0].strip()
+                    formatted_json = json.dumps(json.loads(json_part), indent=2)
+                    self.logger.info(f"Raw decision response:\n{formatted_json}")
+                except:
+                    self.logger.info(f"Raw decision response: {decision_response}")
+            else:
+                self.logger.info(f"Raw decision response: {decision_response}")
+            self.logger.info("="*250)
             
             # Parse decision
             decision, reasoning, feedback, convergence_score = self._parse_decision(decision_response)
@@ -216,10 +309,10 @@ Format: Clear, numbered action items.""")
             
             self.logger.info(f"Moderation decision:")
             self.logger.info(f"  - Decision: {decision}")
-            self.logger.info(f"  - Reasoning: {reasoning[:200]}...")
+            self.logger.info(f"  - Reasoning: {reasoning}")
             self.logger.info(f"  - Convergence score: {convergence_score:.2f}")
             if feedback:
-                self.logger.info(f"  - Feedback: {feedback[:200]}...")
+                self.logger.info(f"  - Feedback: {feedback}")
             
         except Exception as e:
             self.logger.error(f"Moderation failed: {str(e)}")
@@ -287,26 +380,52 @@ Format: Clear, numbered action items.""")
     ) -> str:
         """Apply hard rules to override LLM decision if needed"""
         
+        self.logger.info(f"Decision rule processing:")
+        self.logger.info(f"  LLM decision: {decision}")
+        self.logger.info(f"  Round: {current_round}/{max_rounds}")
+        self.logger.info(f"  Severity counts: {severity_counts}")
+        
         # Rule 1: Force deadlock if at max rounds
         if current_round >= max_rounds:
-            self.logger.info(f"Forcing deadlock: reached max rounds ({max_rounds})")
+            self.logger.warning(f"RULE 1 TRIGGERED: Forcing deadlock - reached max rounds ({max_rounds})")
             return "abort_deadlock"
         
         # Rule 2: Cannot converge with critical issues
         if decision == "converged" and severity_counts["critical"] > 0:
-            self.logger.warning(f"Overriding convergence: {severity_counts['critical']} critical issues remain")
+            self.logger.warning(f"RULE 2 TRIGGERED: Overriding convergence - {severity_counts['critical']} critical issues remain")
             return "iterate" if current_round < max_rounds else "escalate_with_warning"
         
         # Rule 3: Escalate if too many critical issues
         if severity_counts["critical"] >= self.critical_severity_threshold:
-            self.logger.warning(f"Escalating: {severity_counts['critical']} critical issues exceed threshold")
+            self.logger.warning(f"RULE 3 TRIGGERED: Escalating - {severity_counts['critical']} critical issues exceed threshold")
             return "escalate_with_warning"
         
-        # Rule 4: Force convergence if only low severity issues
-        if severity_counts["critical"] == 0 and severity_counts["high"] == 0 and severity_counts["medium"] <= 1:
-            self.logger.info("Forcing convergence: only minor issues remain")
+        # Rule 4: Calculate aggregate severity score
+        aggregate_score = 0.0
+        for severity, count in severity_counts.items():
+            aggregate_score += count * self.severity_to_score.get(severity, 0.5)
+        
+        # Log aggregate score calculation for debugging
+        self.logger.info(f"Aggregate severity score calculation:")
+        for severity, count in severity_counts.items():
+            if count > 0:
+                score_contribution = count * self.severity_to_score.get(severity, 0.5)
+                self.logger.info(f"  {count} {severity} × {self.severity_to_score.get(severity, 0.5)} = {score_contribution}")
+        self.logger.info(f"  Total aggregate score: {aggregate_score:.2f}")
+        self.logger.info(f"  Convergence threshold: {self.convergence_threshold}")
+        
+        # Rule 5: Force convergence if aggregate score is below threshold AND LLM agrees
+        if aggregate_score < self.convergence_threshold and decision == "converged":
+            self.logger.info(f"RULE 5 TRIGGERED: Allowing convergence - aggregate score {aggregate_score:.2f} < threshold {self.convergence_threshold} and LLM agrees")
             return "converged"
         
+        # Rule 6: Force convergence ONLY if no critical, high, or medium issues exist
+        if severity_counts["critical"] == 0 and severity_counts["high"] == 0 and severity_counts["medium"] == 0:
+            self.logger.info("RULE 6 TRIGGERED: Forcing convergence - only low-severity issues remain")
+            return "converged"
+        
+        # Rule 7: Respect LLM decision if no rules override
+        self.logger.info(f"NO RULES TRIGGERED: Respecting LLM decision '{decision}'")
         return decision
     
     async def _generate_detailed_feedback(self, critiques: List[Dict]) -> str:
@@ -318,7 +437,7 @@ Format: Clear, numbered action items.""")
         
         if not critical_issues and not high_issues:
             # Focus on medium issues
-            high_issues = [c for c in critiques if c.get("severity") == "medium"][:3]
+            high_issues = [c for c in critiques if c.get("severity") == "medium"]  # All medium issues
         
         # Format issues for feedback generation
         critical_str = self._format_critiques(critical_issues) if critical_issues else "None"
@@ -326,10 +445,49 @@ Format: Clear, numbered action items.""")
         
         # Generate feedback
         try:
-            feedback = await self.feedback_chain.arun(
-                critical_issues=critical_str,
-                high_issues=high_str
-            )
+            feedback_inputs = {
+                "critical_issues": critical_str,
+                "high_issues": high_str
+            }
+            
+            self.logger.info("="*250)
+            self.logger.info("LLM INPUT - MODERATOR FEEDBACK CHAIN")
+            self.logger.info("="*250)
+            try:
+                formatted_feedback_inputs = json.dumps(feedback_inputs, indent=2)
+                self.logger.info(f"Feedback inputs (formatted):\n{formatted_feedback_inputs}")
+            except:
+                self.logger.info(f"Feedback inputs: {feedback_inputs}")
+            self.logger.info("="*250)
+            
+            # Log the ACTUAL feedback prompt
+            feedback_inputs = {
+                'critical_issues': critical_str,
+                'high_issues': high_str
+            }
+            
+            try:
+                prompt_value = self.feedback_chain.prompt.format_prompt(**feedback_inputs)
+                messages = prompt_value.to_messages()
+                
+                self.logger.info(">>> ACTUAL COMPLETE FEEDBACK PROMPT <<<")
+                self.logger.info("START_FEEDBACK_PROMPT" + "="*230)
+                for i, msg in enumerate(messages):
+                    self.logger.info(f"Message {i+1}: {msg.content}")
+                self.logger.info("END_FEEDBACK_PROMPT" + "="*232)
+                self.logger.info(f"Total prompt length: {sum(len(msg.content) for msg in messages)} characters")
+            except Exception as e:
+                self.logger.error(f"Could not log feedback prompt: {e}")
+            
+            # Use arun for proper substitution
+            feedback = await self.feedback_chain.arun(**feedback_inputs)
+            
+            self.logger.info("="*250)
+            self.logger.info("LLM OUTPUT - MODERATOR FEEDBACK CHAIN")
+            self.logger.info("="*250)
+            self.logger.info(f"Generated feedback: {feedback}")
+            self.logger.info("="*250)
+            
             return feedback
         except Exception as e:
             self.logger.error(f"Failed to generate detailed feedback: {e}")
@@ -359,19 +517,19 @@ Format: Clear, numbered action items.""")
             return "No issues"
         
         lines = []
-        for i, c in enumerate(critiques[:5], 1):  # Limit to top 5
+        for i, c in enumerate(critiques, 1):  # All critiques
             severity = c.get("severity", "medium").upper()
             type_str = c.get("type", "issue")
-            desc = c.get("description", "")[:150]
+            desc = c.get("description", "")  # Keep full description - no truncation
             
             if c.get("step_ref"):
                 lines.append(f"{i}. [{severity}] Step {c['step_ref']}: {desc}")
             elif c.get("claim"):
-                lines.append(f"{i}. [{severity}] Claim '{c['claim'][:50]}...': {desc}")
+                claim_preview = c['claim']  # Full claim - no truncation
+                lines.append(f"{i}. [{severity}] Claim '{claim_preview}': {desc}")
             else:
                 lines.append(f"{i}. [{severity}] {type_str}: {desc}")
         
-        if len(critiques) > 5:
-            lines.append(f"... and {len(critiques) - 5} more issues")
+        # Show all critiques - no arbitrary limits
         
         return "\n".join(lines)
