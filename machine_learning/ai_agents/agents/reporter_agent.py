@@ -77,7 +77,12 @@ Ensure the answer is:
 - Clearly structured
 - Easy to understand
 - Educationally valuable
-- Accurate and complete""")
+- Accurate and complete
+
+- Critical Instructions:
+Your output should follow this format: Express your logic using mathematical language and logical symbols whenever possible, especially in mathematics and physics; (use abbreviations like s.t. frequently)
+Provide concise explanations in natural English (note: use only English under all circumstances); however, do not place explanations within the same paragraph as equations.
+Avoid unnecessarily complicating the problem. If you believe this question could be posed to a high school student or freshman, solve it using methods accessible to those students. For complex problems, use ample line breaks and expand your explanations.""")
             ])
         )
         
@@ -638,6 +643,12 @@ Provide quality indicators:
             - Don't mention sources or documents - present information naturally
             - Integrate minor issues seamlessly without ignoring them
             - Maintain educational value and clear explanations
+            
+            Your output should follow this format: Express your logic using mathematical language and logical symbols whenever possible, especially in mathematics and physics; (use abbreviations like s.t. frequently)
+
+            Provide concise explanations in natural English (note: use only English under all circumstances); however, do not place explanations within the same paragraph as equations.
+
+            Avoid unnecessarily complicating the problem. If you believe this question could be posed to a high school student or freshman, solve it using methods accessible to those students. For complex problems, use ample line breaks and expand your explanations.
             """
             
             # Stream the LLM response directly using LangChain's streaming

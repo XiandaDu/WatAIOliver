@@ -407,7 +407,12 @@ COMMON MISTAKES TO AVOID:
 "$\pi$" (single backslash, no spaces)
 "$[\pi, 3\pi]$" (proper LaTeX syntax)
 
-TASK: Transform the retrieved content into clean markdown with proper LaTeX math formatting. NO diagrams, NO Mermaid, NO HTML."""
+TASK: Transform the retrieved content into clean markdown with proper LaTeX math formatting. NO diagrams, NO Mermaid, NO HTML.
+
+Critical Instructions:
+Your output should follow this format: Express your logic using mathematical language and logical symbols whenever possible, especially in mathematics and physics; (use abbreviations like s.t. frequently)
+Provide concise explanations in natural English (note: use only English under all circumstances); however, do not place explanations within the same paragraph as equations.
+Avoid unnecessarily complicating the problem. If you believe this question could be posed to a high school student or freshman, solve it using methods accessible to those students. For complex problems, use ample line breaks and expand your explanations."""
 
     print("=== DEBUG RAG PROMPT ===")
     print("ORIGINAL PROMPT:", original_prompt)
