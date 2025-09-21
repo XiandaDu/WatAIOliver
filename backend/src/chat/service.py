@@ -19,7 +19,7 @@ from .CRUD import get_messages
 import httpx
 from starlette.responses import StreamingResponse
 
-from backend.constants import TimeoutConfig, ServiceConfig
+from constants import TimeoutConfig, ServiceConfig
 from machine_learning.constants import ModelConfig
 from machine_learning.rag_system.llm_clients.gemini_client import GeminiClient
 from machine_learning.rag_system.llm_clients.cerebras_client import CerebrasClient
@@ -294,50 +294,117 @@ async def get_most_recent_user_query(conversation_id: str) -> Optional[str]:
         return None
 
 
+class UnifiedRAGService:
+    """
+    Unified RAG service for both daily and multi-agent modes.
+    Ensures consistent behavior and score preservation across all modes.
+    """
+    
+    def __init__(self, logger=None):
+        import logging
+        self.logger = logger or logging.getLogger(__name__)
+    
+    async def query_async(self, course_id: str, question: str, rag_model: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Async query to RAG system - returns results with confidence scores.
+        Used by daily mode and can be used by any async context.
+        """
+        try:
+            self.logger.info(f"[UnifiedRAG] Querying course {course_id}: {question[:50]}...")
+            
+            async with httpx.AsyncClient(timeout=TimeoutConfig.RAG_QUERY_TIMEOUT) as client:
+                payload = {
+                    "course_id": course_id,
+                    "question": question,
+                }
+                if rag_model:
+                    payload["embedding_model"] = rag_model
+                
+                response = await client.post(
+                    f"http://{ServiceConfig.LOCALHOST}:{ServiceConfig.RAG_SYSTEM_PORT}/ask",
+                    json=payload,
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    sources = result.get('sources', [])
+                    
+                    # Log scores for debugging
+                    self.logger.info(f"[UnifiedRAG] Success - {len(sources)} sources found")
+                    for i, source in enumerate(sources[:3]):
+                        score = source.get('score', 'N/A')
+                        self.logger.info(f"  Source {i+1}: score={score}")
+                    
+                    return result
+                else:
+                    self.logger.error(f"[UnifiedRAG] HTTP {response.status_code}: {response.text}")
+                    return {
+                        "success": False,
+                        "error": f"RAG system error: {response.status_code}",
+                        "sources": []
+                    }
+        
+        except Exception as e:
+            self.logger.error(f"[UnifiedRAG] Exception: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "sources": []
+            }
+    
+    def query_sync(self, course_id: str, question: str, **kwargs) -> Dict[str, Any]:
+        """
+        Synchronous wrapper for multi-agent system.
+        Handles the async-to-sync conversion properly.
+        """
+        import asyncio
+        import concurrent.futures
+        
+        try:
+            # Use thread pool to run async code when event loop is already running
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(
+                    asyncio.run,
+                    self.query_async(course_id, question, kwargs.get('rag_model'))
+                )
+                return future.result(timeout=60)
+        except Exception as e:
+            self.logger.error(f"[UnifiedRAG] Sync wrapper error: {e}")
+            return {"success": False, "error": str(e), "sources": []}
+    
+    # Compatibility methods for multi-agent system
+    def answer_question(self, course_id: str, question: str, **kwargs):
+        """Compatibility method for multi-agent system"""
+        return self.query_sync(course_id, question, **kwargs)
+    
+    def answer_question_with_scores(self, course_id: str, question: str, **kwargs):
+        """Compatibility method - all queries now return scores"""
+        return self.query_sync(course_id, question, **kwargs)
+
+
+# Create global instance for easy access
+_unified_rag = UnifiedRAGService(logger)
+
+
+# Legacy compatibility function - redirects to unified service
 async def query_rag_system(
-    conversation_id: str,
+    conversation_id: str,  # Kept for compatibility but not used
     question: str,
     course_id: Optional[str] = None,
     rag_model: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """
-    Query the RAG system for relevant information based on the user's question.
+    Legacy function - now uses UnifiedRAGService.
+    Kept for backward compatibility.
     """
-    try:
-        if course_id:
-            target_course_id = course_id
-        else:
-            from src.course.CRUD import get_all_courses
-
-            courses = get_all_courses()
-            if not courses:
-                return None
-
-            target_course_id = str(courses[0]["course_id"])
-        async with httpx.AsyncClient(timeout=TimeoutConfig.RAG_QUERY_TIMEOUT) as client:
-            rag_payload = {
-                "course_id": target_course_id,
-                "question": question,
-            }
-            if rag_model:
-                rag_payload["embedding_model"] = rag_model
-
-            response = await client.post(
-                f"http://{ServiceConfig.LOCALHOST}:{ServiceConfig.RAG_SYSTEM_PORT}/ask",
-                json=rag_payload,
-            )
-
-            if response.status_code == 200:
-                return response.json()
-            else:
-                logger.error(
-                    f"RAG system returned {response.status_code}: {response.text}"
-                )
-                return None
-
-    except Exception as e:
-        logger.error(f"Error querying RAG system: {e}")
-        return None
+    if not course_id:
+        from src.course.CRUD import get_all_courses
+        courses = get_all_courses()
+        if not courses:
+            return None
+        course_id = str(courses[0]["course_id"])
+    
+    return await _unified_rag.query_async(course_id, question, rag_model)
 
 
 def enhance_prompt_with_rag_context(
@@ -407,7 +474,12 @@ COMMON MISTAKES TO AVOID:
 "$\pi$" (single backslash, no spaces)
 "$[\pi, 3\pi]$" (proper LaTeX syntax)
 
-TASK: Transform the retrieved content into clean markdown with proper LaTeX math formatting. NO diagrams, NO Mermaid, NO HTML."""
+TASK: Transform the retrieved content into clean markdown with proper LaTeX math formatting. NO diagrams, NO Mermaid, NO HTML.
+
+Critical Instructions:
+Your output should follow this format: Express your logic using mathematical language and logical symbols whenever possible, especially in mathematics and physics; (use abbreviations like s.t. frequently)
+Provide concise explanations in natural English (note: use only English under all circumstances); however, do not place explanations within the same paragraph as equations.
+Avoid unnecessarily complicating the problem. If you believe this question could be posed to a high school student or freshman, solve it using methods accessible to those students. For complex problems, use ample line breaks and expand your explanations."""
 
     print("=== DEBUG RAG PROMPT ===")
     print("ORIGINAL PROMPT:", original_prompt)
@@ -745,10 +817,16 @@ async def query_agents_system_streaming(
     try:
         # Import here to avoid circular imports
         import sys
+        import os
 
-        sys.path.append("/home/chloe_wei/WatAIOliver/machine_learning")
+        # Add machine_learning directory to Python path
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        machine_learning_path = os.path.join(project_root, "machine_learning")
+        if machine_learning_path not in sys.path:
+            sys.path.append(machine_learning_path)
 
-        from ai_agents.orchestrator import MultiAgentOrchestrator
+        from ai_agents.workflow import MultiAgentWorkflow, create_workflow
+        from ai_agents.state import AgentContext
         from ai_agents.config import SpeculativeAIConfig
         from rag_system.llm_clients.cerebras_client import CerebrasClient
         from rag_system.llm_clients.gemini_client import GeminiClient
@@ -756,7 +834,7 @@ async def query_agents_system_streaming(
         from rag_system.llm_clients.anthropic_client import AnthropicClient
         from rag_system.app.config import get_settings
 
-        # Initialize orchestrator with legitimate RAG service
+        # Initialize workflow with legitimate RAG service
         config = SpeculativeAIConfig()
 
         # Get RAG settings first
@@ -810,68 +888,15 @@ async def query_agents_system_streaming(
                 temperature=0.6,
             )
 
-        # Create a proper RAG service wrapper with required methods
-        class RAGServiceWrapper:
-            def __init__(self, settings):
-                self.settings = settings
+        # Use unified RAG service for consistency with daily mode
+        rag_service = UnifiedRAGService(logger=ai_agents_logger)
 
-            def answer_question(self, course_id: str, question: str, **kwargs):
-                """Answer question using the RAG system via HTTP call (synchronous wrapper)"""
-                import asyncio
-                import concurrent.futures
-
-                try:
-                    # Use thread pool to run async code when event loop is already running
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(
-                            asyncio.run,
-                            self._async_answer_question(course_id, question, **kwargs),
-                        )
-                        return future.result(timeout=60)  # 60 second timeout
-                except Exception as e:
-                    ai_agents_logger.error(f"Error in synchronous RAG wrapper: {e}")
-                    return {"success": False, "error": str(e)}
-
-            async def _async_answer_question(
-                self, course_id: str, question: str, **kwargs
-            ):
-                """Async implementation of answer_question"""
-                try:
-                    async with httpx.AsyncClient(
-                        timeout=TimeoutConfig.RAG_QUERY_TIMEOUT
-                    ) as client:
-                        rag_payload = {
-                            "course_id": course_id,
-                            "question": question,
-                        }
-
-                        response = await client.post(
-                            f"http://{ServiceConfig.LOCALHOST}:{ServiceConfig.RAG_SYSTEM_PORT}/ask",
-                            json=rag_payload,
-                        )
-
-                        if response.status_code == 200:
-                            return response.json()
-                        else:
-                            ai_agents_logger.error(
-                                f"RAG system returned {response.status_code}: {response.text}"
-                            )
-                            return {
-                                "success": False,
-                                "error": f"RAG system error: {response.status_code}",
-                            }
-
-                except Exception as e:
-                    ai_agents_logger.error(f"Error querying RAG system: {e}")
-                    return {"success": False, "error": str(e)}
-
-        rag_service = RAGServiceWrapper(rag_settings)
-
-        orchestrator = MultiAgentOrchestrator(
-            config=config,
-            rag_service=rag_service,
+        # Create the workflow using the new architecture
+        workflow = create_workflow(
             llm_client=llm_client,
-            logger=ai_agents_logger.getChild("orchestrator"),
+            rag_service=rag_service,
+            config=config,
+            logger=ai_agents_logger.getChild("workflow"),
         )
 
         metadata = {
@@ -880,13 +905,13 @@ async def query_agents_system_streaming(
             "streaming_mode": True,
         }
 
-        ai_agents_logger.info("=== STARTING CEREBRAS STREAMING ORCHESTRATOR ===")
+        ai_agents_logger.info("=== STARTING CEREBRAS STREAMING WORKFLOW ===")
 
         # Track streaming chunks for conversion to agent system format
         is_streaming_content = False
         accumulated_content = ""
 
-        async for chunk in orchestrator.process_query_streaming(
+        async for chunk in workflow.execute_with_content_streaming(
             query=query,
             course_id=course_id,
             session_id=conversation_id,
@@ -895,7 +920,7 @@ async def query_agents_system_streaming(
             course_prompt=course_prompt,
         ):
             ai_agents_logger.debug(
-                f"=== ORCHESTRATOR CHUNK: {chunk.get('status', 'unknown')} ==="
+                f"=== WORKFLOW CHUNK: {chunk.get('status', 'unknown')} ==="
             )
 
             if chunk.get("status") == "streaming" and chunk.get("content"):
@@ -929,20 +954,21 @@ async def query_agents_system_streaming(
                     f"=== STREAMING COMPLETE: {len(accumulated_content)} chars ==="
                 )
 
-                # Format the accumulated content as a structured agent response
-                final_answer = {
-                    "introduction": "Here's the solution to your problem:",
-                    "step_by_step_solution": accumulated_content,
-                    "key_takeaways": "This response was generated using Cerebras streaming.",
-                    "important_notes": "Response streamed directly from the agent system.",
-                }
+                # Get the full response from the workflow
+                response = chunk.get("response", {})
+                final_answer = response.get("answer", {})
+                
+                # If we streamed content, use that as the complete answer
+                if accumulated_content:
+                    # Parse the streamed content to extract sections
+                    final_answer = _parse_streamed_content(accumulated_content)
 
                 yield {
                     "success": True,
                     "answer": final_answer,
-                    "metadata": chunk.get("metadata", {}),
-                    "processing_time": chunk.get("metadata", {}).get(
-                        "processing_time", 0
+                    "metadata": response.get("metadata", {}),
+                    "processing_time": response.get("metadata", {}).get(
+                        "total_processing_time", 0
                     ),
                 }
                 break
@@ -951,9 +977,15 @@ async def query_agents_system_streaming(
                 # Forward progress updates
                 yield chunk
 
-            elif chunk.get("success") == False:
+            elif chunk.get("status") == "error":
                 # Handle errors
-                yield chunk
+                yield {
+                    "success": False,
+                    "error": {
+                        "type": "processing_error",
+                        "message": chunk.get("error", "Unknown error")
+                    }
+                }
                 break
 
     except Exception as e:
@@ -962,7 +994,7 @@ async def query_agents_system_streaming(
 
         ai_agents_logger = logging.getLogger("ai_agents.streaming")
 
-        ai_agents_logger.error(f"=== STREAMING ORCHESTRATOR ERROR ===")
+        ai_agents_logger.error(f"=== STREAMING WORKFLOW ERROR ===")
         ai_agents_logger.error(f"Exception: {str(e)}")
         import traceback
 
@@ -972,9 +1004,64 @@ async def query_agents_system_streaming(
             "success": False,
             "error": {
                 "type": "streaming_error",
-                "message": f"Failed to query streaming orchestrator: {str(e)}",
+                "message": f"Failed to query streaming workflow: {str(e)}",
             },
         }
+
+
+def _parse_streamed_content(content: str) -> dict:
+    """Parse streamed content into structured sections"""
+    sections = {
+        "introduction": "",
+        "step_by_step_solution": "",
+        "key_takeaways": "",
+        "important_notes": ""
+    }
+    
+    # Split content by section headers
+    current_section = None
+    lines = content.split('\n')
+    current_content = []
+    
+    for line in lines:
+        # Check for section headers
+        if line.strip().startswith('## Introduction'):
+            if current_section and current_content:
+                sections[current_section] = '\n'.join(current_content).strip()
+            current_section = 'introduction'
+            current_content = []
+        elif line.strip().startswith('## Step-by-Step Solution'):
+            if current_section and current_content:
+                sections[current_section] = '\n'.join(current_content).strip()
+            current_section = 'step_by_step_solution'
+            current_content = []
+        elif line.strip().startswith('## Key Takeaways'):
+            if current_section and current_content:
+                sections[current_section] = '\n'.join(current_content).strip()
+            current_section = 'key_takeaways'
+            current_content = []
+        elif line.strip().startswith('## Important Notes'):
+            if current_section and current_content:
+                sections[current_section] = '\n'.join(current_content).strip()
+            current_section = 'important_notes'
+            current_content = []
+        elif current_section:
+            # Add content to current section
+            current_content.append(line)
+        elif not current_section and line.strip():
+            # No section header found yet, treat as step_by_step_solution
+            current_section = 'step_by_step_solution'
+            current_content.append(line)
+    
+    # Save the last section
+    if current_section and current_content:
+        sections[current_section] = '\n'.join(current_content).strip()
+    
+    # If no sections were found, put everything in step_by_step_solution
+    if not any(sections.values()):
+        sections['step_by_step_solution'] = content
+    
+    return sections
 
 
 def format_agents_response(answer_data: dict) -> str:
