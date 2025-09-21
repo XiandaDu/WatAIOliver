@@ -243,6 +243,24 @@ Your response MUST be valid JSON:
             feedback = state.get("moderator_feedback")
             course_prompt = state.get("course_prompt", "")
             
+            # Check for tool calling opportunities
+            print(f"\n🤖 STRATEGIST AGENT - TOOL DETECTION PHASE")
+            print(f"🔍 Analyzing query for tool opportunities...")
+            
+            from ai_agents.utils import enhance_prompt_with_tools
+            from ai_agents.tools import get_tools_for_query
+            
+            relevant_tools = get_tools_for_query(query)
+            if relevant_tools:
+                tool_names = [tool.name for tool in relevant_tools]
+                print(f"🎯 STRATEGIST: Tools detected for query!")
+                print(f"📋 Available tools: {tool_names}")
+                state["available_tools"] = tool_names
+                print(f"💾 Added to state: available_tools = {tool_names}")
+            else:
+                print(f"❌ STRATEGIST: No tools needed for this query")
+                print(f"📝 Proceeding with standard agent workflow")
+            
             # Increment round counter
             state["current_round"] += 1
             
@@ -297,6 +315,33 @@ Your response MUST be valid JSON:
                         "feedback": feedback or "No previous feedback",
                         "course_prompt": course_prompt
                     }
+                    
+                    # Enhance course prompt with tool calling if tools are available
+                    if relevant_tools:
+                        tool_names = [tool.name for tool in relevant_tools]
+                        print(f"\n🔧 STRATEGIST: ENHANCING PROMPT WITH TOOLS")
+                        print(f"🛠️ Adding tool instructions for: {tool_names}")
+                        
+                        enhanced_course_prompt = f"""{course_prompt}
+
+TOOL CALLING ENHANCEMENT:
+You have access to the following tools for this query: {', '.join(tool_names)}
+- If the user's query involves calculations, use the 'calculate' tool
+- If current information is needed, use the 'search_web' tool  
+- If code execution would help, use the 'execute_python' tool
+- If weather information is requested, use the 'get_weather' tool
+
+When using tools, include the tool call in your draft_content using this format:
+Use [TOOL: tool_name(parameters)] when you need to call a tool.
+Example: [TOOL: calculate(expression="2^3 + sqrt(16)")] 
+
+Include tool usage in your chain_of_thought reasoning."""
+                        pipeline_inputs["course_prompt"] = enhanced_course_prompt
+                        print(f"✅ STRATEGIST: Enhanced prompt with {len(tool_names)} tools")
+                        print(f"📏 Original prompt length: {len(course_prompt)} chars")
+                        print(f"📏 Enhanced prompt length: {len(enhanced_course_prompt)} chars")
+                    else:
+                        print(f"📝 STRATEGIST: Using original prompt (no tools needed)")
                     
                     self.logger.info("="*250)
                     self.logger.info("LLM INPUT - DRAFT PIPELINE")

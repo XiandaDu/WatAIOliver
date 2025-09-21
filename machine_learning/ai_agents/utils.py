@@ -282,3 +282,75 @@ def format_rag_results_for_agents(rag_result: Dict[str, Any]) -> List[Dict[str, 
     
     return formatted_results
 
+
+def enhance_prompt_with_tools(prompt: str, query: str) -> tuple[str, list]:
+    """
+    Enhance prompt with tool calling capabilities using LangChain native tools.
+    
+    Args:
+        prompt: Original prompt 
+        query: User query to analyze for tool needs
+        
+    Returns:
+        Tuple of (enhanced_prompt, relevant_tools)
+    """
+    from .tools import get_tools_for_query, create_tool_calling_prompt_template
+    
+    # Get relevant tools for this query
+    relevant_tools = get_tools_for_query(query)
+    
+    if not relevant_tools:
+        return prompt, []
+    
+    # Create tool calling instructions
+    tool_instructions = create_tool_calling_prompt_template()
+    
+    # Enhance the original prompt
+    enhanced_prompt = f"""{tool_instructions}
+
+{prompt}
+
+TOOL USAGE FOR THIS QUERY:
+The following tools are available and relevant for your response:
+{', '.join([tool.name for tool in relevant_tools])}
+
+Use tools when they would improve the accuracy or completeness of your answer."""
+    
+    return enhanced_prompt, relevant_tools
+
+
+def create_tool_aware_agent(context, agent_class):
+    """
+    Create a tool-aware version of any agent class.
+    
+    This is a factory function that wraps existing agents with tool capabilities
+    while maintaining full LangChain/LangGraph compatibility.
+    """
+    class ToolAwareAgent(agent_class):
+        def __init__(self, context):
+            super().__init__(context)
+            self.tool_aware = True
+        
+        async def __call__(self, state):
+            # Get the query from state
+            query = state.get("query", "")
+            
+            # Check if tools would be useful
+            from .tools import get_tools_for_query
+            relevant_tools = get_tools_for_query(query)
+            
+            if relevant_tools:
+                # Enhance the state with tool information
+                state["available_tools"] = [tool.name for tool in relevant_tools]
+                state["tool_objects"] = relevant_tools
+                
+                # Log tool detection
+                if hasattr(self, 'logger'):
+                    self.logger.info(f"Detected relevant tools: {[tool.name for tool in relevant_tools]}")
+            
+            # Call the original agent
+            return await super().__call__(state)
+    
+    return ToolAwareAgent
+
+

@@ -404,7 +404,7 @@ COMMON MISTAKES TO AVOID:
 "$π$" or "$[π, 3π]$" (literal Greek letters cause red errors)
 "$ \pi $" (spaces inside math delimiters)  
 "$\\pi$" (double backslashes in output)
-"$\pi$" (single backslash, no spaces)
+"$\\pi$" (single backslash, no spaces)
 "$[\pi, 3\pi]$" (proper LaTeX syntax)
 
 TASK: Transform the retrieved content into clean markdown with proper LaTeX math formatting. NO diagrams, NO Mermaid, NO HTML.
@@ -414,6 +414,9 @@ Your output should follow this format: Express your logic using mathematical lan
 Provide concise explanations in natural English (note: use only English under all circumstances); however, do not place explanations within the same paragraph as equations.
 Avoid unnecessarily complicating the problem. If you believe this question could be posed to a high school student or freshman, solve it using methods accessible to those students. For complex problems, use ample line breaks and expand your explanations."""
 
+    # Add educational tools for Daily mode ONLY
+    enhanced_prompt = _add_daily_tools_to_prompt(enhanced_prompt, original_prompt)
+    
     print("=== DEBUG RAG PROMPT ===")
     print("ORIGINAL PROMPT:", original_prompt)
     print(
@@ -422,6 +425,176 @@ Avoid unnecessarily complicating the problem. If you believe this question could
     print("======================")
 
     return enhanced_prompt
+
+
+def _add_daily_tools_to_prompt(prompt: str, original_query: str = None) -> str:
+    """Add educational tool instructions to Daily mode prompt if relevant tools are detected"""
+    import logging
+    tools_logger = logging.getLogger("ai_agents.tools")
+    
+    try:
+        # Import here to avoid circular imports
+        from .daily_tool_integration import enhance_daily_prompt_with_tools
+        
+        # Use original query for tool detection
+        query_to_analyze = original_query if original_query else prompt
+        tools_logger.info(f"🔧 DAILY MODE: Enhancing prompt for query: '{query_to_analyze[:100]}{'...' if len(query_to_analyze) > 100 else ''}'")
+        
+        enhanced = enhance_daily_prompt_with_tools(query_to_analyze, prompt)
+        
+        if enhanced != prompt:
+            tools_logger.info(f"🔧 DAILY MODE: Prompt enhanced with tools (length: {len(prompt)} -> {len(enhanced)})")
+        else:
+            tools_logger.info("🔧 DAILY MODE: No tools needed - prompt unchanged")
+            
+        return enhanced
+        
+    except ImportError as e:
+        tools_logger.error(f"⚠️ Daily tool integration not available: {e}")
+        print(f"⚠️ Daily tool integration not available: {e}")
+        # Graceful fallback if tool integration not available
+        return prompt
+
+
+async def _process_daily_response_with_tools(response: StreamingResponse, llm_endpoint) -> StreamingResponse:
+    """
+    Process Daily mode streaming response with proper tool calling flow:
+    1. Extract LLM's initial response
+    2. Check for tool calls
+    3. Execute tools if found
+    4. Send tool results back to LLM for final response
+    5. Return the final response as streaming
+    """
+    import logging
+    tools_logger = logging.getLogger("ai_agents.tools")
+    
+    try:
+        from .daily_tool_integration import process_daily_response_with_tools, create_simple_llm_function
+        
+        # Collect the full response from the streaming response
+        chunks = []
+        async for chunk in response.body_iterator:
+            chunk_str = chunk.decode('utf-8') if isinstance(chunk, bytes) else chunk
+            chunks.append(chunk_str)
+        
+        raw_response = ''.join(chunks)
+        
+        # Extract actual content from streaming JSON format
+        import json
+        full_response = ""
+        for line in raw_response.split('\n'):
+            if line.startswith('data: '):
+                try:
+                    data = json.loads(line[6:])  # Remove 'data: ' prefix
+                    if 'content' in data:
+                        full_response += data['content']
+                except json.JSONDecodeError:
+                    continue
+        
+        print(f"\n🔄 DAILY MODE: Processing initial LLM response for tool calls")
+        print(f"📝 Initial response length: {len(full_response)} chars")
+        tools_logger.info(f"🔄 DAILY MODE: Processing initial LLM response (length: {len(full_response)} chars)")
+        
+        # Create a simple LLM function for tool result processing
+        simple_llm_call = create_simple_llm_function(llm_endpoint)
+        
+        # Process with proper tool calling flow
+        final_response = await process_daily_response_with_tools_async(full_response, simple_llm_call)
+        
+        if final_response != full_response:
+            tools_logger.info(f"🔄 DAILY MODE: Response enhanced with tool results (length: {len(full_response)} -> {len(final_response)})")
+        else:
+            tools_logger.info("🔄 DAILY MODE: No tool calls found - using original response")
+        
+        # Return as new streaming response in proper format
+        async def tool_processed_generator():
+            import json
+            # Split into chunks and yield as streaming JSON format
+            chunk_size = 50  # Adjust chunk size as needed
+            for i in range(0, len(final_response), chunk_size):
+                chunk = final_response[i:i + chunk_size]
+                yield f"data: {json.dumps({'content': chunk})}\n\n".encode('utf-8')
+        
+        return StreamingResponse(tool_processed_generator(), media_type="text/plain")
+        
+    except Exception as e:
+        tools_logger.error(f"⚠️ DAILY MODE: Tool processing error: {str(e)}")
+        print(f"⚠️ Tool processing error: {e}")
+        # Return original response on error
+        return response
+
+
+async def process_daily_response_with_tools_async(response: str, llm_function) -> str:
+    """
+    Async wrapper for the tool processing with proper LLM integration flow
+    """
+    import logging
+    from .daily_tool_integration import parse_daily_tool_calls, execute_daily_tool
+    
+    tools_logger = logging.getLogger("ai_agents.tools")
+    tools_logger.info(f"🔄 ASYNC TOOL PROCESSING - Response length: {len(response)} chars")
+    
+    print(f"\n🔄 ASYNC PROCESSING WITH PROPER TOOL FLOW")
+    
+    # Parse tool calls from the initial LLM response
+    tool_calls = parse_daily_tool_calls(response)
+    
+    if not tool_calls:
+        print(f"📝 No tool calls found - returning original response")
+        tools_logger.info("📝 No tool calls found in response")
+        return response
+    
+    print(f"🛠️ Found {len(tool_calls)} tool calls - executing them...")
+    tools_logger.info(f"🛠️ Processing {len(tool_calls)} tool calls: {[tc['tool'] for tc in tool_calls]}")
+    
+    # Execute all tools and collect results
+    tool_results = {}
+    for tool_call in tool_calls:
+        tool_name = tool_call["tool"]
+        params = tool_call["params"]
+        raw_call = tool_call["raw"]
+        
+        print(f"🚀 Executing tool: {tool_name} with params: {params}")
+        tool_result = execute_daily_tool(tool_name, params)
+        tool_results[raw_call] = tool_result
+        print(f"✅ Tool {tool_name} executed successfully")
+    
+    # Create a subtle prompt with tool results seamlessly integrated
+    tool_results_text = "\n\n".join([
+        f"{result}"
+        for call, result in tool_results.items()
+    ])
+    
+    follow_up_prompt = f"""I just executed a search tool for the user's query and got these results:
+
+{tool_results_text}
+
+Based on these search results, provide a helpful response to the user's original question. If the search found useful information, reference it naturally. If the search failed or found no results, acknowledge that and respond appropriately to help the user anyway."""
+
+    print(f"🔄 Sending tool results back to LLM for final response...")
+    tools_logger.info(f"🔄 Sending tool results back to LLM for final response")
+    
+    try:
+        # Get the final response from LLM with tool results
+        final_response = await llm_function(follow_up_prompt)
+        
+        print(f"🎯 RECEIVED FINAL RESPONSE FROM LLM")
+        tools_logger.info(f"🎯 DAILY TOOL FLOW COMPLETE - Final response generated")
+        return final_response
+        
+    except Exception as e:
+        error_msg = f"❌ ERROR getting final response from LLM: {str(e)}"
+        print(error_msg)
+        tools_logger.error(f"❌ ERROR in final LLM call: {str(e)}")
+        
+        # Fallback: manually integrate tool results into original response
+        print(f"🔧 FALLBACK: Manually integrating tool results...")
+        processed_response = response
+        for raw_call, tool_result in tool_results.items():
+            tool_result_formatted = f"\n\n**Tool Result:**\n{tool_result}\n\n"
+            processed_response = processed_response.replace(raw_call, tool_result_formatted)
+        
+        return processed_response
 
 
 async def generate_standard_rag_response(data: ChatRequest) -> StreamingResponse:
@@ -467,7 +640,11 @@ async def generate_standard_rag_response(data: ChatRequest) -> StreamingResponse
             course_id=data.course_id,
         )
 
-        return await llm_text_endpoint(modified_data)
+        # Get the LLM response
+        llm_response = await llm_text_endpoint(modified_data)
+        
+        # Process the response for tool calls in Daily mode
+        return await _process_daily_response_with_tools(llm_response, llm_text_endpoint)
 
     except Exception as e:
 
