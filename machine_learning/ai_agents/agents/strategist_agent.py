@@ -19,6 +19,15 @@ from pydantic import BaseModel, Field
 from ai_agents.state import WorkflowState, DraftContent, ChainOfThought, log_agent_execution
 from ai_agents.utils import create_langchain_llm
 
+# Import simple logger for backup logging
+try:
+    from ai_agents.simple_logger import simple_log
+except:
+    class SimpleLogFallback:
+        def info(self, msg, data=None): pass
+        def error(self, msg, data=None): pass
+    simple_log = SimpleLogFallback()
+
 
 class ChainOfThoughtStep(BaseModel):
     """Pydantic model for CoT step parsing"""
@@ -235,8 +244,15 @@ Your response MUST be valid JSON:
         
         try:
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info(f"STRATEGIST AGENT - ROUND {state['current_round'] + 1}")
+            simple_log.info(f"STRATEGIST AGENT - ROUND {state['current_round'] + 1}")
             self.logger.info("="*250)
+            simple_log.info("="*250)
+            simple_log.info("STRATEGIST START", {
+                "round": state['current_round'] + 1,
+                "query": state['query'][:50]
+            })
             
             query = state["query"]
             context = state["retrieval_results"]
@@ -248,29 +264,48 @@ Your response MUST be valid JSON:
             
             # Debug logging to see what we're getting
             self.logger.info(f"DEBUG: Retrieved context type: {type(context)}")
+            simple_log.info(f"DEBUG: Retrieved context type: {type(context)}")
             self.logger.info(f"DEBUG: Retrieved context length: {len(context) if context else 0}")
+            simple_log.info(f"DEBUG: Retrieved context length: {len(context) if context else 0}")
+            simple_log.info("STRATEGIST CONTEXT", {
+                "context_type": str(type(context)),
+                "context_length": len(context) if context else 0
+            })
             if context and len(context) > 0:
                 self.logger.info(f"DEBUG: First context item keys: {context[0].keys() if isinstance(context[0], dict) else 'Not a dict'}")
+                simple_log.info(f"DEBUG: First context item keys: {context[0].keys() if isinstance(context[0], dict) else 'Not a dict'}")
             
             # Prepare context string
             context_str = self._format_context(context)
             self.logger.info(f"DEBUG: Formatted context length: {len(context_str)} chars")
+            simple_log.info(f"DEBUG: Formatted context length: {len(context_str)} chars")
             self.logger.info(f"DEBUG: Context: {context_str}" if context_str else "DEBUG: Empty context!")
+            simple_log.info(f"DEBUG: Context: {context_str}" if context_str else "DEBUG: Empty context!")
             
             # Choose chain based on whether we have feedback
             if feedback and state.get("draft"):
                 self.logger.info("Refining previous draft based on feedback")
+                simple_log.info("Refining previous draft based on feedback")
                 self.logger.info(f"Feedback: {feedback}")
+                simple_log.info(f"Feedback: {feedback}")
                 
                 # Use refinement chain
                 self.logger.info("="*250)
+                simple_log.info("="*250)
                 self.logger.info("LLM INPUT - REFINEMENT CHAIN")
+                simple_log.info("LLM INPUT - REFINEMENT CHAIN")
                 self.logger.info("="*250)
+                simple_log.info("="*250)
                 self.logger.info(f"Query: {query}")
+                simple_log.info(f"Query: {query}")
                 self.logger.info(f"Previous Draft: {state['draft']['content']}")
+                simple_log.info(f"Previous Draft: {state['draft']['content']}")
                 self.logger.info(f"Feedback: {feedback}")
+                simple_log.info(f"Feedback: {feedback}")
                 self.logger.info(f"Context: {context_str}")
+                simple_log.info(f"Context: {context_str}")
                 self.logger.info("="*250)
+                simple_log.info("="*250)
                 
                 response = await self.refinement_chain.arun(
                     query=query,
@@ -281,13 +316,20 @@ Your response MUST be valid JSON:
                 )
                 
                 self.logger.info("="*250)
+                simple_log.info("="*250)
                 self.logger.info("LLM OUTPUT - REFINEMENT CHAIN")
+                simple_log.info("LLM OUTPUT - REFINEMENT CHAIN")
                 self.logger.info("="*250)
+                simple_log.info("="*250)
                 self.logger.info(f"Raw response: {response}")
+                simple_log.info(f"Raw response: {response}")
                 self.logger.info("="*250)
+                simple_log.info("="*250)
             else:
                 self.logger.info("Generating initial draft solution")
+                simple_log.info("Generating initial draft solution")
                 self.logger.info("Running CHAINED pipeline: Context Analysis → Draft Generation → Self-Assessment")
+                simple_log.info("Running CHAINED pipeline: Context Analysis → Draft Generation → Self-Assessment")
                 
                 # Use the SEQUENTIAL PIPELINE!
                 try:
@@ -299,26 +341,38 @@ Your response MUST be valid JSON:
                     }
                     
                     self.logger.info("="*250)
+                    simple_log.info("="*250)
                     self.logger.info("LLM INPUT - DRAFT PIPELINE")
+                    simple_log.info("LLM INPUT - DRAFT PIPELINE")
                     self.logger.info("="*250)
+                    simple_log.info("="*250)
                     try:
                         formatted_pipeline_inputs = json.dumps(pipeline_inputs, indent=2)
                         self.logger.info(f"Pipeline inputs (formatted):\n{formatted_pipeline_inputs}")
+                        simple_log.info(f"Pipeline inputs (formatted):\n{formatted_pipeline_inputs}")
                     except:
                         self.logger.info(f"Pipeline inputs: {pipeline_inputs}")
+                        simple_log.info(f"Pipeline inputs: {pipeline_inputs}")
                     self.logger.info("="*250)
+                    simple_log.info("="*250)
                     
                     pipeline_results = self.draft_pipeline.invoke(pipeline_inputs)
                     
                     self.logger.info("="*250)
+                    simple_log.info("="*250)
                     self.logger.info("LLM OUTPUT - DRAFT PIPELINE")
+                    simple_log.info("LLM OUTPUT - DRAFT PIPELINE")
                     self.logger.info("="*250)
+                    simple_log.info("="*250)
                     try:
                         formatted_pipeline_results = json.dumps(pipeline_results, indent=2)
                         self.logger.info(f"Pipeline results (formatted):\n{formatted_pipeline_results}")
+                        simple_log.info(f"Pipeline results (formatted):\n{formatted_pipeline_results}")
                     except:
                         self.logger.info(f"Pipeline results: {pipeline_results}")
+                        simple_log.info(f"Pipeline results: {pipeline_results}")
                     self.logger.info("="*250)
+                    simple_log.info("="*250)
                     
                     # Extract draft and quality assessment
                     response = pipeline_results.get("draft_output", "{}")
@@ -328,9 +382,13 @@ Your response MUST be valid JSON:
                     try:
                         quality_json = json.loads(quality)
                         self.logger.info(f"Draft self-assessment: {quality_json.get('overall_quality', 'unknown')}")
+                        simple_log.info(f"Draft self-assessment: {quality_json.get('overall_quality', 'unknown')}")
                         self.logger.info(f"  Completeness: {quality_json.get('completeness_score', 0):.2f}")
+                        simple_log.info(f"  Completeness: {quality_json.get('completeness_score', 0):.2f}")
                         self.logger.info(f"  Context usage: {quality_json.get('context_usage_score', 0):.2f}")
+                        simple_log.info(f"  Context usage: {quality_json.get('context_usage_score', 0):.2f}")
                         self.logger.info(f"  Clarity: {quality_json.get('clarity_score', 0):.2f}")
+                        simple_log.info(f"  Clarity: {quality_json.get('clarity_score', 0):.2f}")
                     except:
                         pass
                         
@@ -350,14 +408,20 @@ Your response MUST be valid JSON:
                     }
                     
                     self.logger.info("="*250)
+                    simple_log.info("="*250)
                     self.logger.info("LLM INPUT - DIRECT GENERATION FALLBACK")
+                    simple_log.info("LLM INPUT - DIRECT GENERATION FALLBACK")
                     self.logger.info("="*250)
+                    simple_log.info("="*250)
                     try:
                         formatted_fallback_inputs = json.dumps(fallback_inputs, indent=2)
                         self.logger.info(f"Fallback inputs (formatted):\n{formatted_fallback_inputs}")
+                        simple_log.info(f"Fallback inputs (formatted):\n{formatted_fallback_inputs}")
                     except:
                         self.logger.info(f"Fallback inputs: {fallback_inputs}")
+                        simple_log.info(f"Fallback inputs: {fallback_inputs}")
                     self.logger.info("="*250)
+                    simple_log.info("="*250)
                     
                     response = await self.draft_generation_chain.arun(
                         query=query,
@@ -372,10 +436,15 @@ Your response MUST be valid JSON:
                     )
                     
                     self.logger.info("="*250)
+                    simple_log.info("="*250)
                     self.logger.info("LLM OUTPUT - DIRECT GENERATION FALLBACK")
+                    simple_log.info("LLM OUTPUT - DIRECT GENERATION FALLBACK")
                     self.logger.info("="*250)
+                    simple_log.info("="*250)
                     self.logger.info(f"Fallback response: {response}")
+                    simple_log.info(f"Fallback response: {response}")
                     self.logger.info("="*250)
+                    simple_log.info("="*250)
             
             # Parse structured output
             draft_content = None
@@ -428,16 +497,13 @@ Your response MUST be valid JSON:
                     else:
                         raise ValueError("No valid JSON found in response")
             except Exception as e:
-                self.logger.warning(f"Failed to parse JSON output: {e}")
-                # Fallback: Generate proper answer from context
-                draft_content = self._generate_proper_answer(query, context_str)
-                chain_of_thought = self._generate_proper_cot(query, context_str)
+                self.logger.error(f"Failed to parse JSON output: {e}")
+                raise ValueError(f"LLM output parsing failed: {e}")
             
             # Ensure we have valid content
             if not draft_content or self._contains_template_placeholders(draft_content):
-                self.logger.warning("Invalid draft content - using fallback generation")
-                draft_content = self._generate_proper_answer(query, context_str)
-                chain_of_thought = self._generate_proper_cot(query, context_str)
+                self.logger.error("Invalid draft content with template placeholders")
+                raise ValueError("LLM generated invalid content with template placeholders")
             
             # Create draft object matching the specification
             draft = DraftContent(
@@ -463,10 +529,15 @@ Your response MUST be valid JSON:
             
             # Log the JSON output
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info("STRATEGIST OUTPUT (JSON)")
+            simple_log.info("STRATEGIST OUTPUT (JSON)")
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info(json.dumps(formatted_output, indent=2))
+            simple_log.info(json.dumps(formatted_output, indent=2))
             self.logger.info("="*250)
+            simple_log.info("="*250)
             
             # Update state
             state["draft"] = draft
@@ -484,12 +555,17 @@ Your response MUST be valid JSON:
             )
             
             self.logger.info(f"Draft generated successfully:")
+            simple_log.info(f"Draft generated successfully:")
             self.logger.info(f"  - Draft ID: {draft['draft_id']}")
+            simple_log.info(f"  - Draft ID: {draft['draft_id']}")
             self.logger.info(f"  - Content length: {len(draft_content)} chars")
+            simple_log.info(f"  - Content length: {len(draft_content)} chars")
             self.logger.info(f"  - CoT steps: {len(chain_of_thought)}")
+            simple_log.info(f"  - CoT steps: {len(chain_of_thought)}")
             
             for i, step in enumerate(chain_of_thought, 1):  # All steps
                 self.logger.info(f"  Step {i}: {step['thought']} (confidence: {step['confidence']:.2f})")
+                simple_log.info(f"  Step {i}: {step['thought']} (confidence: {step['confidence']:.2f})")
             
         except Exception as e:
             self.logger.error(f"Draft generation failed: {str(e)}")
@@ -532,6 +608,7 @@ Your response MUST be valid JSON:
             self.logger.error("All retrieval results were empty!")
             # Try to salvage something from the results
             self.logger.info(f"DEBUG: First result structure: {retrieval_results[0] if retrieval_results else 'No results'}")
+            simple_log.info(f"DEBUG: First result structure: {retrieval_results[0] if retrieval_results else 'No results'}")
             return "Context retrieval failed - no readable content found."
         
         return "\n".join(context_parts)
@@ -553,52 +630,8 @@ Your response MUST be valid JSON:
     
     def _generate_proper_answer(self, query: str, context: str) -> str:
         """Generate a proper answer based on the actual context"""
-        # Parse the context to extract key information
-        if "pipelining" in context.lower() or "hazard" in context.lower():
-            # This is about computer architecture
-            return self._generate_architecture_answer(query, context)
-        else:
-            # Generic answer based on context
-            return self._generate_generic_answer(query, context)
+        return self._generate_generic_answer(query, context)
     
-    def _generate_architecture_answer(self, query: str, context: str) -> str:
-        """Generate answer for computer architecture topics"""
-        answer = """Based on the retrieved course materials, here's what was covered in yesterday's lesson:
-
-**1. Pipelining and Data Hazards**
-
-The lesson focused on pipelining in computer architecture, specifically addressing data hazards that occur when instructions depend on results from previous instructions.
-
-A detailed table was presented showing:
-- For r-type instructions: source operands needed in EX stage, values produced in EX, forwarding from ME or WB
-- For lw (load word): source operands needed in EX(rs1), values produced in ME, forwarding from WB
-- For sw (store word): source operands needed in EX(rs1) and ME(rs2)
-- For beq (branch): source operands needed in ID stage for both rs1 and rs2
-
-**2. Forwarding Mechanisms**
-
-Three main forwarding paths were explained:
-1. WB → ID: Forwarding through the register file
-2. ME or WB → EX: Standard forwarding for ALU operations
-3. ME or WB → ID: Special forwarding for branch decisions
-
-These paths help resolve data hazards by bypassing results directly to where they're needed.
-
-**3. Pipeline Execution Diagrams**
-
-The lesson included pipeline diagrams showing:
-- Instructions moving through stages (IF, ID, EX, ME, WB) over clock cycles
-- How hazards are detected and marked (shown with 'X' marks in the diagrams)
-- Examples with specific instructions like "add x7, x5, x6" demonstrating forwarding logic
-
-**4. Additional Topics**
-
-- Branch offset ranges: [-2^12, +2^12-1] = [-4096, +4095] bytes
-- Function implementation examples, including a square function using loops
-- Practical examples of instruction sequences and their pipeline behavior
-
-This material appears to be from a computer architecture course focusing on RISC-V pipeline implementation and optimization."""
-        return answer
     
     def _generate_generic_answer(self, query: str, context: str) -> str:
         """Generate a generic answer based on context"""
@@ -620,41 +653,4 @@ This information was retrieved from the course materials to answer your query: \
         
         return answer
     
-    def _generate_proper_cot(self, query: str, context: str) -> List[ChainOfThought]:
-        """Generate proper chain of thought based on context"""
-        if "pipelining" in context.lower() or "hazard" in context.lower():
-            return [
-                ChainOfThought(
-                    step=1,
-                    thought="Analyzing the retrieved context about pipelining and data hazards",
-                    confidence=0.8
-                ),
-                ChainOfThought(
-                    step=2,
-                    thought="Identifying key concepts: forwarding paths, pipeline stages, and hazard detection",
-                    confidence=0.75
-                ),
-                ChainOfThought(
-                    step=3,
-                    thought="Synthesizing the information to provide a comprehensive overview",
-                    confidence=0.7
-                )
-            ]
-        else:
-            return [
-                ChainOfThought(
-                    step=1,
-                    thought="Reviewing the retrieved context for relevant information",
-                    confidence=0.7
-                ),
-                ChainOfThought(
-                    step=2,
-                    thought="Organizing the information to answer the query",
-                    confidence=0.65
-                )
-            ]
     
-    def _extract_cot_fallback(self, response: str) -> List[ChainOfThought]:
-        """Fallback method to extract CoT from unstructured response"""
-        # This is now deprecated in favor of _generate_proper_cot
-        return self._generate_proper_cot("", response)

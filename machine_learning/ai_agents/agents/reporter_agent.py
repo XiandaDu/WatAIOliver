@@ -14,6 +14,15 @@ from pydantic import BaseModel, Field
 from ai_agents.state import WorkflowState, log_agent_execution
 from ai_agents.utils import create_langchain_llm
 
+# Import simple logger for backup logging
+try:
+    from ai_agents.simple_logger import simple_log
+except:
+    class SimpleLogFallback:
+        def info(self, msg, data=None): pass
+        def error(self, msg, data=None): pass
+    simple_log = SimpleLogFallback()
+
 
 class FinalAnswer(BaseModel):
     """Structured final answer"""
@@ -156,8 +165,11 @@ Provide quality indicators:
         
         try:
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info("REPORTER AGENT - FINAL SYNTHESIS")
+            simple_log.info("REPORTER AGENT - FINAL SYNTHESIS")
             self.logger.info("="*250)
+            simple_log.info("="*250)
             
             query = state["query"]
             draft = state["draft"]
@@ -167,9 +179,13 @@ Provide quality indicators:
             debate_rounds = state["current_round"]
             
             self.logger.info(f"Synthesizing answer:")
+            simple_log.info(f"Synthesizing answer:")
             self.logger.info(f"  - Debate status: {decision}")
+            simple_log.info(f"  - Debate status: {decision}")
             self.logger.info(f"  - Rounds: {debate_rounds}")
+            simple_log.info(f"  - Rounds: {debate_rounds}")
             self.logger.info(f"  - Convergence: {convergence_score:.2f}")
+            simple_log.info(f"  - Convergence: {convergence_score:.2f}")
             
             # Determine synthesis approach based on decision
             if decision == "converged":
@@ -210,10 +226,15 @@ Provide quality indicators:
             
             # Log the JSON output
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info("REPORTER OUTPUT (JSON)")
+            simple_log.info("REPORTER OUTPUT (JSON)")
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info(json.dumps(formatted_output, indent=2))
+            simple_log.info(json.dumps(formatted_output, indent=2))
             self.logger.info("="*250)
+            simple_log.info("="*250)
             
             # Update state
             state["final_answer"] = final_answer
@@ -231,9 +252,13 @@ Provide quality indicators:
             )
             
             self.logger.info(f"Synthesis completed:")
+            simple_log.info(f"Synthesis completed:")
             self.logger.info(f"  - Answer type: {final_answer.get('type', 'standard')}")
+            simple_log.info(f"  - Answer type: {final_answer.get('type', 'standard')}")
             self.logger.info(f"  - Confidence: {final_answer.get('confidence_score', 0):.2f}")
+            simple_log.info(f"  - Confidence: {final_answer.get('confidence_score', 0):.2f}")
             self.logger.info(f"  - Sources: {len(final_answer.get('sources', []))}")
+            simple_log.info(f"  - Sources: {len(final_answer.get('sources', []))}")
             
         except Exception as e:
             self.logger.error(f"Synthesis failed: {str(e)}")
@@ -291,11 +316,16 @@ Provide quality indicators:
             prompt_value = self.synthesis_chain.prompt.format_prompt(**synthesis_inputs)
             messages = prompt_value.to_messages()
             self.logger.info(">>> ACTUAL REPORTER SYNTHESIS PROMPT <<<")
+            simple_log.info(">>> ACTUAL REPORTER SYNTHESIS PROMPT <<<")
             self.logger.info("START_SYNTHESIS_PROMPT" + "="*229)
+            simple_log.info("START_SYNTHESIS_PROMPT" + "="*229)
             for i, msg in enumerate(messages):
                 self.logger.info(f"Message {i+1}: {msg.content}")
+                simple_log.info(f"Message {i+1}: {msg.content}")
             self.logger.info("END_SYNTHESIS_PROMPT" + "="*231)
+            simple_log.info("END_SYNTHESIS_PROMPT" + "="*231)
             self.logger.info(f"Total prompt length: {sum(len(msg.content) for msg in messages)} characters")
+            simple_log.info(f"Total prompt length: {sum(len(msg.content) for msg in messages)} characters")
         except Exception as e:
             self.logger.error(f"Could not log synthesis prompt: {e}")
         
@@ -345,10 +375,14 @@ Provide quality indicators:
             prompt_value = self.fallback_chain.prompt.format_prompt(**fallback_inputs)
             messages = prompt_value.to_messages()
             self.logger.info(">>> ACTUAL REPORTER FALLBACK PROMPT <<<")
+            simple_log.info(">>> ACTUAL REPORTER FALLBACK PROMPT <<<")
             self.logger.info("START_FALLBACK_PROMPT" + "="*229)
+            simple_log.info("START_FALLBACK_PROMPT" + "="*229)
             for i, msg in enumerate(messages):
                 self.logger.info(f"Message {i+1}: {msg.content}")
+                simple_log.info(f"Message {i+1}: {msg.content}")
             self.logger.info("END_FALLBACK_PROMPT" + "="*231)
+            simple_log.info("END_FALLBACK_PROMPT" + "="*231)
         except Exception as e:
             self.logger.error(f"Could not log fallback prompt: {e}")
         
@@ -391,10 +425,14 @@ Provide quality indicators:
                 prompt_value = self.quality_assessment_chain.prompt.format_prompt(**quality_inputs)
                 messages = prompt_value.to_messages()
                 self.logger.info(">>> ACTUAL QUALITY ASSESSMENT PROMPT <<<")
+                simple_log.info(">>> ACTUAL QUALITY ASSESSMENT PROMPT <<<")
                 self.logger.info("START_QUALITY_PROMPT" + "="*229)
+                simple_log.info("START_QUALITY_PROMPT" + "="*229)
                 for i, msg in enumerate(messages):
                     self.logger.info(f"Message {i+1}: {msg.content}")
+                    simple_log.info(f"Message {i+1}: {msg.content}")
                 self.logger.info("END_QUALITY_PROMPT" + "="*231)
+                simple_log.info("END_QUALITY_PROMPT" + "="*231)
             except Exception as e:
                 self.logger.error(f"Could not log quality prompt: {e}")
             
@@ -567,6 +605,7 @@ Provide quality indicators:
             moderator_decision = state.get("moderator_decision", "approved")
             
             self.logger.info(f"Reporter streaming final answer for debate status: {moderator_decision}")
+            simple_log.info(f"Reporter streaming final answer for debate status: {moderator_decision}")
             
             # Stream based on debate outcome
             if moderator_decision in ["approved", "conditionally_approved"]:

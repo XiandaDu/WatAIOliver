@@ -117,7 +117,7 @@ def ask_question(data: QuestionIn):
     """
     model = data.embedding_model or get_settings().embedding_model
     rag_service = get_rag_service()
-    result = rag_service.answer_question(data.course_id, data.question)
+    result = rag_service.answer_question_with_scores(data.course_id, data.question)
     if not result["success"]:
         raise HTTPException(status_code=500, detail=result.get("error"))
     return result

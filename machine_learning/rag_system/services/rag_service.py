@@ -1,12 +1,9 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from datetime import datetime
 
-from machine_learning.constants import ModelConfig, TextProcessingConfig
+from machine_learning.constants import ModelConfig
 
-from langchain.chains import RetrievalQA
 from langchain.schema import Document
-from langchain.prompts import PromptTemplate
-from langchain.memory import ConversationBufferMemory
 
 from rag_system.app.config import Settings
 from rag_system.embedding.google_embedding_client import GoogleEmbeddingClient
@@ -54,35 +51,6 @@ class RAGService:
             table_name="document_embeddings"
         )
         
-        # Create base retriever and QA chain (will be course-filtered when needed)
-        self.base_retriever_config = {
-            "search_type": "similarity_score_threshold",
-            "search_kwargs": {
-                "k": TextProcessingConfig.DEFAULT_RETRIEVAL_K,
-                "score_threshold": TextProcessingConfig.DEFAULT_SCORE_THRESHOLD
-            }
-        }
-        
-        # Initialize conversation memory for context
-        self.memory = ConversationBufferMemory(
-            memory_key="chat_history",
-            return_messages=True
-        )
-        
-        # Create structured prompt template
-        self.qa_prompt = PromptTemplate(
-            input_variables=["context", "question"],
-            template="""You are a helpful AI assistant for academic course content. Use the provided context to answer the student's question accurately and concisely.
-
-Context from course materials:
-{context}
-
-Student's question: {question}
-
-Please provide a clear, educational response based on the context. If the context doesn't contain enough information to answer the student's question fully, acknowledge this and provide what you can from the available material.
-
-Answer:"""
-        )
 
     def process_document(self, course_id: str, content: str, doc_id: str = None) -> Dict[str, Any]:
         """
@@ -211,58 +179,6 @@ Answer:"""
                 "success": False
             }
 
-    def answer_question(self, course_id: str, question: str) -> Dict[str, Any]:
-        """
-        Answer a question using RetrievalQA chain with langchain.
-        
-        Args:
-            course_id: Identifier for the course
-            question: The question text to be answered
-            
-        Returns:
-            A dictionary with the answer, source information, and success status
-        """
-        try:
-            # Use langchain RetrievalQA for structured QA
-            qa_chain = self.create_course_qa_chain(course_id)
-            
-            # Debug: Get retriever and show what documents are retrieved
-            retriever = self.create_course_retriever(course_id)
-            retrieved_docs = retriever.get_relevant_documents(question)
-            print(f"=== RETRIEVED {len(retrieved_docs)} DOCUMENTS FOR QUERY: '{question}' ===")
-            for i, doc in enumerate(retrieved_docs):
-                print(f"DOC {i+1}:")
-                print(f"  Content: {doc.page_content[:200]}...")
-                print(f"  Metadata: {doc.metadata}")
-                print(f"  ---")
-            
-            # Run the chain
-            result = qa_chain({"query": question})
-            
-            # Extract answer and sources
-            answer = result.get("result", "I couldn't find relevant information to answer your question.")
-            source_docs = result.get("source_documents", [])
-            
-            # Format sources with similarity scores if available
-            sources = []
-            for doc in source_docs:
-                source_info = {
-                    "content": doc.page_content,
-                    "metadata": doc.metadata,
-                }
-                # Add similarity score if available in metadata
-                if hasattr(doc, 'metadata') and doc.metadata and 'similarity_score' in doc.metadata:
-                    source_info["similarity_score"] = doc.metadata['similarity_score']
-                sources.append(source_info)
-            
-            return {
-                "answer": answer,
-                "sources": sources,
-                "success": True
-            }
-        except Exception as e:
-            print(f"RAG Error: {str(e)}")
-            return {"error": str(e), "success": False}
     
     def answer_question_with_scores(self, course_id: str, question: str) -> Dict[str, Any]:
         """
@@ -361,54 +277,4 @@ Please provide a detailed answer based on the context provided. If the context d
             })
         return sources
 
-    
-    def create_course_retriever(self, course_id: str):
-        """
-        Create a course-specific retriever with metadata filtering.
-        Restricts retrieval to documents matching the given course_id.
-        
-        Args:
-            course_id: The ID of the course to filter documents by
-        
-        Returns:
-            A retriever object configured to retrieve documents for the specified course
-        """
-        config = self.base_retriever_config.copy()
-        config["search_kwargs"]["filter"] = {"course_id": course_id}
-        
-        return self.vector_client.as_retriever(**config)
-    
-    def create_course_qa_chain(self, course_id: str):
-        """
-        Create a course-specific QA chain using the retriever and LLM client.
-        Enables retrieval-augmented generation for question answering.
-        
-        Args:
-            course_id: The ID of the course to create the QA chain for
-        
-        Returns:
-            A QA chain object configured for the specified course
-        """
-        retriever = self.create_course_retriever(course_id)
-        
-        # Try course-specific search first, fallback to global if no results
-        try:
-            # Test if retriever returns results for a dummy query
-            test_docs = retriever.get_relevant_documents("test")
-            if not test_docs:
-                print(f"No course-specific docs for {course_id}, using global retriever")
-                retriever = self.vector_client.as_retriever(**self.base_retriever_config)
-        except:
-            # Fallback to global retriever on any error
-            retriever = self.vector_client.as_retriever(**self.base_retriever_config)
-        
-        return RetrievalQA.from_chain_type(
-            llm=self.llm_client.get_llm_client(),
-            retriever=retriever,
-            return_source_documents=True,
-            chain_type="stuff",
-            chain_type_kwargs={
-                "prompt": self.qa_prompt
-            }
-        )
 

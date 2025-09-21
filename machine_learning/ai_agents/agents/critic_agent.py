@@ -17,6 +17,15 @@ from pydantic import BaseModel, Field
 from ai_agents.state import WorkflowState, Critique, log_agent_execution
 from ai_agents.utils import create_langchain_llm
 
+# Import simple logger for backup logging
+try:
+    from ai_agents.simple_logger import simple_log
+except:
+    class SimpleLogFallback:
+        def info(self, msg, data=None): pass
+        def error(self, msg, data=None): pass
+    simple_log = SimpleLogFallback()
+
 
 class CritiqueOutput(BaseModel):
     """Structured critique output"""
@@ -366,8 +375,15 @@ Output ONLY the JSON. Do NOT create fake critiques.""")
         
         try:
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info(f"CRITIC AGENT - ROUND {state['current_round']}")
+            simple_log.info(f"CRITIC AGENT - ROUND {state['current_round']}")
             self.logger.info("="*250)
+            simple_log.info("="*250)
+            simple_log.info("CRITIC START", {
+                "round": state['current_round'],
+                "draft_id": state.get('draft_content', {}).get('draft_id', 'unknown')
+            })
             
             draft = state["draft"]
             query = state["query"]
@@ -377,6 +393,7 @@ Output ONLY the JSON. Do NOT create fake critiques.""")
                 raise ValueError("No draft to critique")
             
             self.logger.info(f"Critiquing draft: {draft['draft_id']}")
+            simple_log.info(f"Critiquing draft: {draft['draft_id']}")
             
             # Create structured input matching Strategist output format
             structured_draft_input = {
@@ -389,10 +406,15 @@ Output ONLY the JSON. Do NOT create fake critiques.""")
             
             # RUN INDEPENDENT CHAINS IN PARALLEL
             self.logger.info("Running PARALLEL critique pipeline...")
+            simple_log.info("Running PARALLEL critique pipeline...")
             self.logger.info("  • Logic Verification (independent)")
+            simple_log.info("  • Logic Verification (independent)")
             self.logger.info("  • Fact Checking (independent)")  
+            simple_log.info("  • Fact Checking (independent)")
             self.logger.info("  • Hallucination Detection (independent)")
+            simple_log.info("  • Hallucination Detection (independent)")
             self.logger.info("  → All results combined in Synthesis")
+            simple_log.info("  → All results combined in Synthesis")
             
             # Execute all verification chains in parallel
             try:
@@ -405,8 +427,11 @@ Output ONLY the JSON. Do NOT create fake critiques.""")
                 }
                 
                 self.logger.info("="*250)
+                simple_log.info("="*250)
                 self.logger.info("LLM INPUT - PARALLEL VERIFICATION")
+                simple_log.info("LLM INPUT - PARALLEL VERIFICATION")
                 self.logger.info("="*250)
+                simple_log.info("="*250)
                 # Format the structured input for logging (matching Strategist format)
                 try:
                     log_input = {
@@ -419,19 +444,26 @@ Output ONLY the JSON. Do NOT create fake critiques.""")
                     
                     formatted_inputs = json.dumps(log_input, indent=2)
                     self.logger.info(f"Verification inputs (structured format):\n{formatted_inputs}")
+                    simple_log.info(f"Verification inputs (structured format):\n{formatted_inputs}")
                 except:
                     self.logger.info(f"Verification inputs: {base_inputs}")
+                    simple_log.info(f"Verification inputs: {base_inputs}")
                 self.logger.info("="*250)
+                simple_log.info("="*250)
                 
                 # Run all three verification chains in parallel
                 self.logger.info("Executing parallel verification chains...")
+                simple_log.info("Executing parallel verification chains...")
                 
                 # Create async tasks for parallel execution
                 async def run_chain_async(chain, inputs, chain_name):
                     """Helper to run chain asynchronously with proper debugging and fail-fast."""
                     self.logger.info("="*250)
+                    simple_log.info("="*250)
                     self.logger.info(f"CHAIN EXECUTION: {chain_name.upper()}")
+                    simple_log.info(f"CHAIN EXECUTION: {chain_name.upper()}")
                     self.logger.info("="*250)
+                    simple_log.info("="*250)
                     
                     # ============================================================
                     # CRITICAL DEBUG SECTION - OUTSIDE TRY BLOCK
@@ -439,27 +471,39 @@ Output ONLY the JSON. Do NOT create fake critiques.""")
                     
                     # 1. Debug what the chain object actually is
                     self.logger.info(f"🔍 CHAIN OBJECT DEBUG:")
+                    simple_log.info(f"🔍 CHAIN OBJECT DEBUG:")
                     self.logger.info(f"   - Chain type: {type(chain)}")
+                    simple_log.info(f"   - Chain type: {type(chain)}")
                     self.logger.info(f"   - Chain class: {chain.__class__.__name__}")
+                    simple_log.info(f"   - Chain class: {chain.__class__.__name__}")
                     self.logger.info(f"   - Has prompt: {hasattr(chain, 'prompt')}")
+                    simple_log.info(f"   - Has prompt: {hasattr(chain, 'prompt')}")
                     self.logger.info(f"   - Has output_key: {hasattr(chain, 'output_key')}")
+                    simple_log.info(f"   - Has output_key: {hasattr(chain, 'output_key')}")
                     if hasattr(chain, 'output_key'):
                         self.logger.info(f"   - Output key value: {chain.output_key}")
+                        simple_log.info(f"   - Output key value: {chain.output_key}")
                     
                     # 2. Debug the inputs
                     self.logger.info(f"🔍 INPUTS DEBUG:")
+                    simple_log.info(f"🔍 INPUTS DEBUG:")
                     self.logger.info(f"   - Input type: {type(inputs)}")
+                    simple_log.info(f"   - Input type: {type(inputs)}")
                     self.logger.info(f"   - Input keys: {list(inputs.keys())}")
+                    simple_log.info(f"   - Input keys: {list(inputs.keys())}")
                     for key in inputs.keys():
                         val_preview = str(inputs[key])  # Full value
                         self.logger.info(f"   - {key}: {val_preview}...")
+                        simple_log.info(f"   - {key}: {val_preview}...")
                     
                     # 3. Extract and validate expected variables OUTSIDE try block
                     expected_vars = []
                     if hasattr(chain, 'prompt') and hasattr(chain.prompt, 'input_variables'):
                         expected_vars = chain.prompt.input_variables
                         self.logger.info(f"🔍 TEMPLATE VARIABLES:")
+                        simple_log.info(f"🔍 TEMPLATE VARIABLES:")
                         self.logger.info(f"   - Expected: {expected_vars}")
+                        simple_log.info(f"   - Expected: {expected_vars}")
                     else:
                         self.logger.error(f"❌ CHAIN HAS NO PROMPT OR INPUT_VARIABLES!")
                         self.logger.error(f"   - Chain attributes: {dir(chain)}")  # Show all attributes
@@ -467,11 +511,13 @@ Output ONLY the JSON. Do NOT create fake critiques.""")
                     
                     # 4. Check variable matching OUTSIDE try block
                     self.logger.info(f"🔍 VARIABLE MATCHING:")
+                    simple_log.info(f"🔍 VARIABLE MATCHING:")
                     missing_vars = []
                     available_vars = []
                     for var in expected_vars:
                         if var in inputs:
                             self.logger.info(f"   ✓ {var} - FOUND in inputs")
+                            simple_log.info(f"   ✓ {var} - FOUND in inputs")
                             available_vars.append(var)
                         else:
                             self.logger.error(f"   ✗ {var} - MISSING from inputs!")
@@ -499,21 +545,28 @@ Output ONLY the JSON. Do NOT create fake critiques.""")
                         prompt_val = chain.prompt.format_prompt(**call_kwargs)
                         messages = prompt_val.to_messages()
                         self.logger.info(">>> ACTUAL COMPLETE PROMPT BEING SENT TO LLM <<<")
+                        simple_log.info(">>> ACTUAL COMPLETE PROMPT BEING SENT TO LLM <<<")
                         self.logger.info("START_PROMPT" + "="*240)
+                        simple_log.info("START_PROMPT" + "="*240)
                         for msg in messages:
                             self.logger.info(f"Message: {msg.content}")
+                            simple_log.info(f"Message: {msg.content}")
                         self.logger.info("END_PROMPT" + "="*242)
+                        simple_log.info("END_PROMPT" + "="*242)
                         self.logger.info(f"Total prompt length: {sum(len(m.content) for m in messages)} characters")
+                        simple_log.info(f"Total prompt length: {sum(len(m.content) for m in messages)} characters")
                     except Exception as e:
                         self.logger.error(f"Could not format prompt for logging: {e}")
                     
                     self.logger.info("="*250)
+                    simple_log.info("="*250)
                     
                     # ============================================================
                     # INVOKE THE CHAIN - NO FALLBACKS, FAIL FAST
                     # ============================================================
                     try:
                         self.logger.info(f"📞 Calling {chain_name}.arun() with args: {sorted(call_kwargs.keys())}")
+                        simple_log.info(f"📞 Calling {chain_name}.arun() with args: {sorted(call_kwargs.keys())}")
                         
                         # Build the explicit call based on exact variables
                         if set(call_kwargs) == {"query", "draft", "cot"}:
@@ -552,13 +605,21 @@ Output ONLY the JSON. Do NOT create fake critiques.""")
                     # 4) Log FULL LLM response
                     # ------------------------------------------------------------------
                     self.logger.info("="*250)
+                    simple_log.info("="*250)
                     self.logger.info(f"LLM OUTPUT - {chain_name.upper()}")
+                    simple_log.info(f"LLM OUTPUT - {chain_name.upper()}")
                     self.logger.info("="*250)
+                    simple_log.info("="*250)
                     self.logger.info(">>> ACTUAL COMPLETE RESPONSE FROM LLM <<<")
+                    simple_log.info(">>> ACTUAL COMPLETE RESPONSE FROM LLM <<<")
                     self.logger.info("START_RESPONSE" + "="*236)
+                    simple_log.info("START_RESPONSE" + "="*236)
                     self.logger.info(str(raw_output))
+                    simple_log.info(str(raw_output))
                     self.logger.info("END_RESPONSE" + "="*238)
+                    simple_log.info("END_RESPONSE" + "="*238)
                     self.logger.info(f"Total response length: {len(str(raw_output))} characters")
+                    simple_log.info(f"Total response length: {len(str(raw_output))} characters")
 
                     return raw_result
                 
@@ -580,13 +641,19 @@ Output ONLY the JSON. Do NOT create fake critiques.""")
                     hallucination_result = {'hallucination_analysis': '{"hallucinations": [], "hallucination_summary": "Chain failed"}'}
                 
                 self.logger.info("="*250)
+                simple_log.info("="*250)
                 self.logger.info("PARALLEL VERIFICATION RESULTS")
+                simple_log.info("PARALLEL VERIFICATION RESULTS")
                 self.logger.info("="*250)
+                simple_log.info("="*250)
                 
                 # Debug what we actually got back
                 self.logger.info(f"Logic result type: {type(logic_result)}, keys: {logic_result.keys() if isinstance(logic_result, dict) else 'Not a dict'}")
+                simple_log.info(f"Logic result type: {type(logic_result)}, keys: {logic_result.keys() if isinstance(logic_result, dict) else 'Not a dict'}")
                 self.logger.info(f"Fact result type: {type(fact_result)}, keys: {fact_result.keys() if isinstance(fact_result, dict) else 'Not a dict'}")
+                simple_log.info(f"Fact result type: {type(fact_result)}, keys: {fact_result.keys() if isinstance(fact_result, dict) else 'Not a dict'}")
                 self.logger.info(f"Hallucination result type: {type(hallucination_result)}, keys: {hallucination_result.keys() if isinstance(hallucination_result, dict) else 'Not a dict'}")
+                simple_log.info(f"Hallucination result type: {type(hallucination_result)}, keys: {hallucination_result.keys() if isinstance(hallucination_result, dict) else 'Not a dict'}")
                 
                 # Validate verification results
                 logic_text = str(logic_result.get('logic_analysis', ''))
@@ -611,46 +678,73 @@ Output ONLY the JSON. Do NOT create fake critiques.""")
                 }
                 
                 self.logger.info("="*250)
+                simple_log.info("="*250)
                 self.logger.info("LLM INPUT - SYNTHESIS CHAIN")
+                simple_log.info("LLM INPUT - SYNTHESIS CHAIN")
                 self.logger.info("="*250)
+                simple_log.info("="*250)
                 self.logger.info(">>> ACTUAL COMPLETE SYNTHESIS INPUTS <<<")
+                simple_log.info(">>> ACTUAL COMPLETE SYNTHESIS INPUTS <<<")
                 self.logger.info("START_SYNTHESIS_INPUT" + "="*229)
+                simple_log.info("START_SYNTHESIS_INPUT" + "="*229)
                 # Log ALL inputs without truncation
                 self.logger.info("LOGIC ANALYSIS:")
+                simple_log.info("LOGIC ANALYSIS:")
                 self.logger.info(synthesis_inputs['logic_analysis'])
+                simple_log.info(synthesis_inputs['logic_analysis'])
                 self.logger.info("-" * 100)
+                simple_log.info("-" * 100)
                 self.logger.info("FACT ANALYSIS:")
+                simple_log.info("FACT ANALYSIS:")
                 self.logger.info(synthesis_inputs['fact_analysis'])
+                simple_log.info(synthesis_inputs['fact_analysis'])
                 self.logger.info("-" * 100)
+                simple_log.info("-" * 100)
                 self.logger.info("HALLUCINATION ANALYSIS:")
+                simple_log.info("HALLUCINATION ANALYSIS:")
                 self.logger.info(synthesis_inputs['hallucination_analysis'])
+                simple_log.info(synthesis_inputs['hallucination_analysis'])
                 self.logger.info("END_SYNTHESIS_INPUT" + "="*231)
+                simple_log.info("END_SYNTHESIS_INPUT" + "="*231)
                 self.logger.info("="*250)
+                simple_log.info("="*250)
                 
                 # Use arun for proper variable substitution with ChatPromptTemplate
                 synthesis_result_text = await self.synthesis_chain.arun(**synthesis_inputs)
                 synthesis_result = {'text': synthesis_result_text}
                 
                 self.logger.info("="*250)
+                simple_log.info("="*250)
                 self.logger.info("LLM OUTPUT - SYNTHESIS CHAIN")
+                simple_log.info("LLM OUTPUT - SYNTHESIS CHAIN")
                 self.logger.info("="*250)
+                simple_log.info("="*250)
                 # Log the FULL synthesis result - NO TRUNCATION!
                 self.logger.info(">>> ACTUAL COMPLETE SYNTHESIS RESPONSE <<<")
+                simple_log.info(">>> ACTUAL COMPLETE SYNTHESIS RESPONSE <<<")
                 self.logger.info("START_SYNTHESIS" + "="*235)
+                simple_log.info("START_SYNTHESIS" + "="*235)
                 if isinstance(synthesis_result, dict):
                     try:
                         formatted_result = json.dumps(synthesis_result, indent=2)
                         self.logger.info(formatted_result)  # Log the FULL formatted result
+                        simple_log.info(formatted_result)
                     except:
                         self.logger.info(str(synthesis_result))  # Log as string if JSON fails
+                        simple_log.info(str(synthesis_result))
                 else:
                     self.logger.info(str(synthesis_result))  # Log the FULL result
+                    simple_log.info(str(synthesis_result))
                 self.logger.info("END_SYNTHESIS" + "="*237)
+                simple_log.info("END_SYNTHESIS" + "="*237)
                 self.logger.info(f"Total synthesis length: {len(str(synthesis_result))} characters")
+                simple_log.info(f"Total synthesis length: {len(str(synthesis_result))} characters")
                 self.logger.info("="*250)
+                simple_log.info("="*250)
                 
                 # Parse the final synthesized critique
                 self.logger.info(f"Attempting to parse synthesis result (type: {type(synthesis_result)})")
+                simple_log.info(f"Attempting to parse synthesis result (type: {type(synthesis_result)})")
                 
                 # Extract the text from the synthesis result dict
                 if isinstance(synthesis_result, dict):
@@ -668,15 +762,18 @@ Output ONLY the JSON. Do NOT create fake critiques.""")
                     # Extract JSON from markdown code block
                     json_text = json_text.split("```json")[1].split("```")[0].strip()
                     self.logger.info(f"Extracted JSON from markdown: {json_text}")
+                    simple_log.info(f"Extracted JSON from markdown: {json_text}")
                 elif "```" in json_text:
                     # Extract from generic code block
                     json_text = json_text.split("```")[1].split("```")[0].strip()
                     self.logger.info(f"Extracted JSON from code block: {json_text}")
+                    simple_log.info(f"Extracted JSON from code block: {json_text}")
                 
                 # Fix double brace issue that sometimes occurs
                 if json_text.startswith('{{') and json_text.endswith('}}'):
                     json_text = json_text[1:-1]
                     self.logger.info("Fixed double brace issue in JSON")
+                    simple_log.info("Fixed double brace issue in JSON")
                 
                 final_critique = json.loads(json_text)
                 critiques = self._convert_json_to_critiques(final_critique)
@@ -684,6 +781,7 @@ Output ONLY the JSON. Do NOT create fake critiques.""")
                 severity_score = final_critique.get("severity_score", 0.5)
                 
                 self.logger.info(f"Parallel verification complete! Found {len(critiques)} issues through independent analysis")
+                simple_log.info(f"Parallel verification complete! Found {len(critiques)} issues through independent analysis")
                 
             except json.JSONDecodeError as e:
                 self.logger.error(f"JSON parsing failed: {e}")
@@ -717,10 +815,15 @@ Output ONLY the JSON. Do NOT create fake critiques.""")
             
             # Log the JSON output
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info("CRITIC OUTPUT (JSON)")
+            simple_log.info("CRITIC OUTPUT (JSON)")
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info(json.dumps(formatted_output, indent=2))
+            simple_log.info(json.dumps(formatted_output, indent=2))
             self.logger.info("="*250)
+            simple_log.info("="*250)
             
             # Update state
             state["critiques"] = critiques
@@ -738,9 +841,13 @@ Output ONLY the JSON. Do NOT create fake critiques.""")
             )
             
             self.logger.info(f"Critique completed:")
+            simple_log.info(f"Critique completed:")
             self.logger.info(f"  - Total issues: {len(critiques)}")
+            simple_log.info(f"  - Total issues: {len(critiques)}")
             self.logger.info(f"  - Overall assessment: {overall_assessment}")
+            simple_log.info(f"  - Overall assessment: {overall_assessment}")
             self.logger.info(f"  - Severity score: {severity_score:.2f}")
+            simple_log.info(f"  - Severity score: {severity_score:.2f}")
             
             # Log critical issues
             critical_issues = [c for c in critiques if c.get("severity") == "critical"]

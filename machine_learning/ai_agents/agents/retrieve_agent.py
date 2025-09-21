@@ -26,6 +26,17 @@ from ai_agents.utils import (
     format_rag_results_for_agents
 )
 
+# Import simple logger for backup logging
+try:
+    from ai_agents.simple_logger import simple_log
+except:
+    # Fallback if import fails
+    class SimpleLogFallback:
+        def info(self, msg, data=None): pass
+        def error(self, msg, data=None): pass
+        def debug(self, msg, data=None): pass
+    simple_log = SimpleLogFallback()
+
 
 class RetrievalChainOutput(BaseModel):
     """Output schema for the retrieval chain"""
@@ -86,9 +97,20 @@ class SpeculativeRetrievalChain(Chain):
         
         if self.logger:
             self.logger.info("="*80)
+            simple_log.info("="*80)
             self.logger.info("SPECULATIVE RETRIEVAL CHAIN - Starting")
+            simple_log.info("SPECULATIVE RETRIEVAL CHAIN - Starting")
             self.logger.info(f"Query: {query}")
+            simple_log.info(f"Query: {query}")
             self.logger.info("="*80)
+            simple_log.info("="*80)
+            
+            # Also log to simple logger
+            simple_log.info("RETRIEVAL CHAIN START", {
+                "query": query,
+                "course_id": course_id,
+                "threshold": self.min_quality_threshold
+            })
         
         # Stage 1: Initial Retrieval
         initial_results = await self._stage_initial_retrieval(query, course_id)
@@ -97,11 +119,26 @@ class SpeculativeRetrievalChain(Chain):
         quality_output = await self._stage_quality_assessment(query, initial_results)
         quality_score = quality_output["score"]
         
+        # Simple log quality assessment
+        simple_log.info("QUALITY ASSESSMENT", {
+            "query": query,
+            "score": quality_score,
+            "threshold": self.min_quality_threshold,
+            "will_expand": quality_score < self.min_quality_threshold,
+            "issues": quality_output.get("issues", [])
+        })
+        
         # Stage 3: Conditional Reframing using SequentialChain
         if quality_score < self.min_quality_threshold:
             if self.logger:
                 self.logger.info("\n[TRIGGERING SEQUENTIAL EXPANSION CHAIN]")
+                simple_log.info("\n[TRIGGERING SEQUENTIAL EXPANSION CHAIN]")
                 self.logger.info(f"Quality score {quality_score:.3f} < threshold {self.min_quality_threshold}")
+                simple_log.info(f"Quality score {quality_score:.3f} < threshold {self.min_quality_threshold}")
+                simple_log.info("TRIGGERING EXPANSION", {
+                    "quality_score": quality_score,
+                    "threshold": self.min_quality_threshold
+                })
             
             # Build the expansion chain if not already built
             if self.expansion_chain is None:
@@ -118,16 +155,35 @@ class SpeculativeRetrievalChain(Chain):
             
             if self.logger:
                 self.logger.info("="*80)
+                simple_log.info("="*80)
                 self.logger.info("Executing SequentialChain: Reframing → Alternative Retrieval → Merge & Rerank")
+                simple_log.info("Executing SequentialChain: Reframing → Alternative Retrieval → Merge & Rerank")
                 self.logger.info("="*80)
+                simple_log.info("="*80)
                 self.logger.info("[DEBUG] Chain inputs:")
+                simple_log.info("[DEBUG] Chain inputs:")
                 self.logger.info(f"  - Query: {query}")
+                simple_log.info(f"  - Query: {query}")
                 self.logger.info(f"  - Quality Score: {quality_output['score']}")
+                simple_log.info(f"  - Quality Score: {quality_output['score']}")
                 self.logger.info(f"  - Quality Issues: {'; '.join(quality_output['issues'])}")
+                simple_log.info(f"  - Quality Issues: {'; '.join(quality_output['issues'])}")
                 self.logger.info(f"  - Course ID: {course_id}")
+                simple_log.info(f"  - Course ID: {course_id}")
             
             # Execute the chain synchronously using invoke (not deprecated __call__)
+            simple_log.info("EXPANSION CHAIN START", {
+                "query": query,
+                "quality_score": quality_output["score"],
+                "issues": quality_output["issues"]
+            })
+            
             chain_result = self.expansion_chain.invoke(chain_inputs)
+            
+            simple_log.info("EXPANSION CHAIN COMPLETE", {
+                "final_score": chain_result.get("final_score", 0),
+                "strategy": f"refined_with_{len(chain_result.get('alternative_queries', []))}_alternatives"
+            })
             
             # Extract alternative queries from the results
             speculative_queries = chain_result.get("alternative_queries", [])
@@ -151,7 +207,9 @@ class SpeculativeRetrievalChain(Chain):
         """Stage 1: Initial RAG retrieval"""
         if self.logger:
             self.logger.info("\n[CHAIN STAGE 1] Initial Retrieval")
+            simple_log.info("\n[CHAIN STAGE 1] Initial Retrieval")
             self.logger.info(f"Input: query='{query}', course_id={course_id}")
+            simple_log.info(f"Input: query='{query}', course_id={course_id}")
         
         result = await perform_rag_retrieval(
             self.rag_service, query, course_id, self.logger
@@ -160,7 +218,12 @@ class SpeculativeRetrievalChain(Chain):
         if self.logger:
             sources_count = len(result.get('sources', [])) if result else 0
             self.logger.info(f"Output: {sources_count} sources retrieved")
-        
+            simple_log.info(f"Output: {sources_count} sources retrieved")
+            simple_log.info("INITIAL RETRIEVAL DONE", {
+                "sources_count": sources_count,
+                "has_results": bool(result)
+            })
+    
         return result
     
     async def _stage_quality_assessment(
@@ -169,7 +232,9 @@ class SpeculativeRetrievalChain(Chain):
         """Stage 2: Assess quality of retrieval results using score-based approach"""
         if self.logger:
             self.logger.info("\n[CHAIN STAGE 2] Quality Assessment")
+            simple_log.info("\n[CHAIN STAGE 2] Quality Assessment")
             self.logger.info(f"Input: {len(retrieval_results.get('sources', []))} sources")
+            simple_log.info(f"Input: {len(retrieval_results.get('sources', []))} sources")
         
         sources = retrieval_results.get('sources', [])
         
@@ -200,10 +265,15 @@ class SpeculativeRetrievalChain(Chain):
         
         if self.logger:
             self.logger.info(f"Quality assessment final result:")
+            simple_log.info(f"Quality assessment final result:")
             self.logger.info(f"  - Average similarity score: {score:.3f} (threshold: {self.min_quality_threshold})")
+            simple_log.info(f"  - Average similarity score: {score:.3f} (threshold: {self.min_quality_threshold})")
             self.logger.info(f"  - Will trigger query expansion: {score < self.min_quality_threshold}")
+            simple_log.info(f"  - Will trigger query expansion: {score < self.min_quality_threshold}")
             self.logger.info(f"  - Source scores: {[s.get('score', 0.0) for s in sources]}")
+            simple_log.info(f"  - Source scores: {[s.get('score', 0.0) for s in sources]}")
             self.logger.info(f"  - Issues: {issues}")
+            simple_log.info(f"  - Issues: {issues}")
         
         return output
     
@@ -260,11 +330,17 @@ class SpeculativeRetrievalChain(Chain):
         
         if self.logger:
             self.logger.info("="*80)
+            simple_log.info("="*80)
             self.logger.info("[CHAIN] REFRAMING PARSER - DEBUG")
+            simple_log.info("[CHAIN] REFRAMING PARSER - DEBUG")
             self.logger.info("="*80)
+            simple_log.info("="*80)
             self.logger.info(f"[DEBUG] Raw inputs to parser: {inputs.keys()}")
+            simple_log.info(f"[DEBUG] Raw inputs to parser: {inputs.keys()}")
             self.logger.info(f"[DEBUG] Reframing output to parse:\n{reframing_output}")
+            simple_log.info(f"[DEBUG] Reframing output to parse:\n{reframing_output}")
             self.logger.info("="*80)
+            simple_log.info("="*80)
         
         # Parse queries from the LLM response
         queries = []
@@ -281,8 +357,10 @@ class SpeculativeRetrievalChain(Chain):
         
         if self.logger:
             self.logger.info(f"[CHAIN] Extracted {len(queries)} alternative queries")
+            simple_log.info(f"[CHAIN] Extracted {len(queries)} alternative queries")
             for i, q in enumerate(queries[:3], 1):
                 self.logger.info(f"  Query {i}: {q}")
+                simple_log.info(f"  Query {i}: {q}")
             if len(queries) == 0:
                 self.logger.warning("[WARNING] No queries extracted from reframing output!")
         
@@ -295,13 +373,20 @@ class SpeculativeRetrievalChain(Chain):
         
         if self.logger:
             self.logger.info("="*80)
+            simple_log.info("="*80)
             self.logger.info("[CHAIN] ALTERNATIVE RETRIEVAL - DEBUG")
+            simple_log.info("[CHAIN] ALTERNATIVE RETRIEVAL - DEBUG")
             self.logger.info("="*80)
+            simple_log.info("="*80)
             self.logger.info(f"[DEBUG] Alternative queries to retrieve:")
+            simple_log.info(f"[DEBUG] Alternative queries to retrieve:")
             for i, q in enumerate(queries, 1):
                 self.logger.info(f"  {i}. {q}")
+                simple_log.info(f"  {i}. {q}")
             self.logger.info(f"[DEBUG] Course ID: {course_id}")
+            simple_log.info(f"[DEBUG] Course ID: {course_id}")
             self.logger.info("="*80)
+            simple_log.info("="*80)
         
         # Use a thread executor to run async code from sync context
         import asyncio
@@ -327,6 +412,7 @@ class SpeculativeRetrievalChain(Chain):
             for q in queries:
                 if self.logger:
                     self.logger.info(f"[DEBUG] Submitting retrieval for: {q}")
+                    simple_log.info(f"[DEBUG] Submitting retrieval for: {q}")
                 future = executor.submit(run_async_retrieval, q)
                 futures.append((future, q))
             
@@ -338,6 +424,7 @@ class SpeculativeRetrievalChain(Chain):
                     if self.logger:
                         sources_count = len(result.get('sources', [])) if result else 0
                         self.logger.info(f"[DEBUG] Retrieved {sources_count} sources for: {q}")
+                        simple_log.info(f"[DEBUG] Retrieved {sources_count} sources for: {q}")
                 except Exception as e:
                     if self.logger:
                         self.logger.error(f"[ERROR] Failed to retrieve for query '{q}': {e}")
@@ -352,6 +439,7 @@ class SpeculativeRetrievalChain(Chain):
         
         if self.logger:
             self.logger.info(f"[CHAIN] Retrieved {len(valid_results)} successful results")
+            simple_log.info(f"[CHAIN] Retrieved {len(valid_results)} successful results")
         
         return {"alternative_results": valid_results}
     
@@ -363,6 +451,7 @@ class SpeculativeRetrievalChain(Chain):
         
         if self.logger:
             self.logger.info(f"[CHAIN] Merging initial + {len(alternative_results)} alternative results")
+            simple_log.info(f"[CHAIN] Merging initial + {len(alternative_results)} alternative results")
         
         # Collect all unique sources
         all_sources = initial_results.get('sources', []).copy()
@@ -378,6 +467,7 @@ class SpeculativeRetrievalChain(Chain):
         # Use original vector retrieval scores (no LLM reranking)
         if self.logger:
             self.logger.info(f"[CHAIN] Merging {len(all_sources)} sources using vector scores...")
+            simple_log.info(f"[CHAIN] Merging {len(all_sources)} sources using vector scores...")
         
         # Sort by original retrieval score
         ranked_sources = sorted(all_sources, key=lambda x: x.get('score', 0), reverse=True)
@@ -391,6 +481,7 @@ class SpeculativeRetrievalChain(Chain):
         
         if self.logger:
             self.logger.info(f"[CHAIN] Final: {len(top_sources)} results, score={final_score:.3f}")
+            simple_log.info(f"[CHAIN] Final: {len(top_sources)} results, score={final_score:.3f}")
         
         return {
             "final_results": final_results,
@@ -568,14 +659,19 @@ QUERY: most recent course content and examples""")
         
         try:
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info("RETRIEVE AGENT - CHAINED RETRIEVAL WORKFLOW")
+            simple_log.info("RETRIEVE AGENT - CHAINED RETRIEVAL WORKFLOW")
             self.logger.info("="*250)
+            simple_log.info("="*250)
             
             query = state["query"]
             course_id = state["course_id"]
             
             self.logger.info(f"Query: '{query}'")
+            simple_log.info(f"Query: '{query}'")
             self.logger.info(f"Course ID: {course_id}")
+            simple_log.info(f"Course ID: {course_id}")
             
             # Debug chunks first (for logging purposes)
             await debug_course_chunks(self.rag_service, course_id, query, self.logger)
@@ -589,6 +685,7 @@ QUERY: most recent course content and examples""")
             # 5. Merging and reranking
             
             self.logger.info("\nExecuting composite retrieval chain...")
+            simple_log.info("\nExecuting composite retrieval chain...")
             chain_output = await self.retrieval_chain._acall({
                 "query": query,
                 "course_id": course_id
@@ -602,7 +699,9 @@ QUERY: most recent course content and examples""")
             
             # Log what we got
             self.logger.info(f"Chain output type: {type(chain_output)}")
+            simple_log.info(f"Chain output type: {type(chain_output)}")
             self.logger.info(f"Results type: {type(results)}, length: {len(results) if isinstance(results, list) else 'N/A'}")
+            simple_log.info(f"Results type: {type(results)}, length: {len(results) if isinstance(results, list) else 'N/A'}")
             
             # Convert to RetrievalResult format for state
             retrieval_results = []
@@ -636,10 +735,15 @@ QUERY: most recent course content and examples""")
             
             # Log the JSON output
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info("CHAIN OUTPUT (JSON)")
+            simple_log.info("CHAIN OUTPUT (JSON)")
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info(json.dumps(json_output, indent=2))
+            simple_log.info(json.dumps(json_output, indent=2))
             self.logger.info("="*250)
+            simple_log.info("="*250)
             
             # Update state with chain results
             state["retrieval_results"] = retrieval_results[:10]
@@ -661,6 +765,7 @@ QUERY: most recent course content and examples""")
             )
             
             self.logger.info(f"Chained retrieval completed in {processing_time:.2f}s")
+            simple_log.info(f"Chained retrieval completed in {processing_time:.2f}s")
             
         except Exception as e:
             self.logger.error(f"Chained retrieval failed: {str(e)}")

@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Optional
 from langchain.schema.runnable import Runnable
 from langchain_core.messages import HumanMessage
 from langchain.schema import BaseMessage
+import os
+from datetime import datetime
 
 
 class LLMClientAdapter(Runnable):
@@ -111,6 +113,18 @@ def create_langchain_llm(llm_client, temperature: float = None, streaming: bool 
     return adapter
 
 
+# Simple file-based debug logging
+def _debug_log(message: str, filename: str = "multi_agent_debug.log"):
+    """Simple file-based logging for debugging when regular logging fails"""
+    try:
+        log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "logs")
+        log_file = os.path.join(log_dir, filename)
+        with open(log_file, "a") as f:
+            f.write(f"[{datetime.now().isoformat()}] {message}\n")
+    except:
+        pass  # Fail silently
+
+
 async def perform_rag_retrieval(
     rag_service, 
     query: str, 
@@ -133,21 +147,23 @@ async def perform_rag_retrieval(
         RAG result dict with sources and metadata (with preserved scores)
     """
     try:
+        _debug_log(f"\n=== PERFORM_RAG_RETRIEVAL CALLED ===")
+        _debug_log(f"Query: '{query}'")
+        _debug_log(f"Course ID: {course_id}")
+        _debug_log(f"RAG Service Type: {type(rag_service).__name__}")
+        
         if logger:
             logger.info(f"Performing RAG query: '{query}' for course: {course_id}")
         
         # Use the enhanced method that preserves similarity scores
-        if hasattr(rag_service, 'answer_question_with_scores'):
-            result = rag_service.answer_question_with_scores(course_id, query)
-        else:
-            # Fallback to legacy method if enhanced method not available
-            if logger:
-                logger.warning("Enhanced method not available, falling back to legacy method (scores may be lost)")
-            result = rag_service.answer_question(course_id, query)
+        _debug_log(f"Calling answer_question_with_scores...")
+        result = rag_service.answer_question_with_scores(course_id, query)
+        _debug_log(f"Result: success={result.get('success') if result else 'None'}")
         
         if logger and result:
             sources = result.get('sources', [])
             logger.info(f"RAG completed - found {len(sources)} sources")
+            _debug_log(f"Sources found: {len(sources)}")
             
             # Log first few sources for debugging
             for i, source in enumerate(sources[:3]):
@@ -156,6 +172,7 @@ async def perform_rag_retrieval(
                 # Show score type for debugging
                 score_type = type(score).__name__
                 logger.info(f"  {i+1}. Score={score} ({score_type}), Content='{content[:100]}...'")
+                _debug_log(f"  Source {i+1}: Score={score} ({score_type}), Content='{content[:50]}...'")
             
             if len(sources) > 3:
                 logger.info(f"  ... and {len(sources) - 3} more sources")
@@ -163,6 +180,11 @@ async def perform_rag_retrieval(
         return result
         
     except Exception as e:
+        _debug_log(f"ERROR in perform_rag_retrieval: {e}")
+        _debug_log(f"Exception type: {type(e).__name__}")
+        import traceback
+        _debug_log(f"Traceback: {traceback.format_exc()}")
+        
         if logger:
             logger.error(f"RAG query failed: {e}")
         return None

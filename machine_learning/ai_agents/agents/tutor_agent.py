@@ -14,6 +14,15 @@ from pydantic import BaseModel, Field
 from ai_agents.state import WorkflowState, log_agent_execution
 from ai_agents.utils import create_langchain_llm
 
+# Import simple logger for backup logging
+try:
+    from ai_agents.simple_logger import simple_log
+except:
+    class SimpleLogFallback:
+        def info(self, msg, data=None): pass
+        def error(self, msg, data=None): pass
+    simple_log = SimpleLogFallback()
+
 
 class TutorInteraction(BaseModel):
     """Structured tutor interaction"""
@@ -142,8 +151,11 @@ Format each tip on a new line starting with "TIP:".""")
         
         try:
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info("TUTOR AGENT - LEARNING INTERACTION")
+            simple_log.info("TUTOR AGENT - LEARNING INTERACTION")
             self.logger.info("="*250)
+            simple_log.info("="*250)
             
             query = state["query"]
             final_answer = state["final_answer"]
@@ -155,6 +167,7 @@ Format each tip on a new line starting with "TIP:".""")
             )
             
             self.logger.info(f"Interaction type: {interaction_type}")
+            simple_log.info(f"Interaction type: {interaction_type}")
             
             # Generate appropriate interaction elements
             interaction = {
@@ -235,10 +248,15 @@ Format each tip on a new line starting with "TIP:".""")
             
             # Log the JSON output
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info("TUTOR OUTPUT (JSON)")
+            simple_log.info("TUTOR OUTPUT (JSON)")
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info(json.dumps(formatted_output, indent=2))
+            simple_log.info(json.dumps(formatted_output, indent=2))
             self.logger.info("="*250)
+            simple_log.info("="*250)
             
             # Update state
             state["tutor_interaction"] = interaction
@@ -256,8 +274,11 @@ Format each tip on a new line starting with "TIP:".""")
             )
             
             self.logger.info(f"Tutor interaction prepared:")
+            simple_log.info(f"Tutor interaction prepared:")
             self.logger.info(f"  - Type: {interaction_type}")
+            simple_log.info(f"  - Type: {interaction_type}")
             self.logger.info(f"  - Elements: {[e['type'] for e in interaction['elements']]}")
+            simple_log.info(f"  - Elements: {[e['type'] for e in interaction['elements']]}")
             
         except Exception as e:
             self.logger.error(f"Tutor interaction failed: {str(e)}")
@@ -308,10 +329,14 @@ Format each tip on a new line starting with "TIP:".""")
                 prompt_value = self.pattern_analysis_chain.prompt.format_prompt(**pattern_inputs)
                 messages = prompt_value.to_messages()
                 self.logger.info(">>> ACTUAL PATTERN ANALYSIS PROMPT <<<")
+                simple_log.info(">>> ACTUAL PATTERN ANALYSIS PROMPT <<<")
                 self.logger.info("START_PROMPT" + "="*240)
+                simple_log.info("START_PROMPT" + "="*240)
                 for i, msg in enumerate(messages):
                     self.logger.info(f"Message {i+1}: {msg.content}")
+                    simple_log.info(f"Message {i+1}: {msg.content}")
                 self.logger.info("END_PROMPT" + "="*242)
+                simple_log.info("END_PROMPT" + "="*242)
             except Exception as e:
                 self.logger.error(f"Could not log pattern prompt: {e}")
             
@@ -362,10 +387,14 @@ Format each tip on a new line starting with "TIP:".""")
                 prompt_value = self.guide_chain.prompt.format_prompt(**guide_inputs)
                 messages = prompt_value.to_messages()
                 self.logger.info(">>> ACTUAL GUIDE PROMPT <<<")
+                simple_log.info(">>> ACTUAL GUIDE PROMPT <<<")
                 self.logger.info("START_GUIDE_PROMPT" + "="*233)
+                simple_log.info("START_GUIDE_PROMPT" + "="*233)
                 for i, msg in enumerate(messages):
                     self.logger.info(f"Message {i+1}: {msg.content}")
+                    simple_log.info(f"Message {i+1}: {msg.content}")
                 self.logger.info("END_GUIDE_PROMPT" + "="*235)
+                simple_log.info("END_GUIDE_PROMPT" + "="*235)
             except Exception as e:
                 self.logger.error(f"Could not log guide prompt: {e}")
             
@@ -399,10 +428,14 @@ Format each tip on a new line starting with "TIP:".""")
                 prompt_value = self.quiz_chain.prompt.format_prompt(**quiz_inputs)
                 messages = prompt_value.to_messages()
                 self.logger.info(">>> ACTUAL QUIZ PROMPT <<<")
+                simple_log.info(">>> ACTUAL QUIZ PROMPT <<<")
                 self.logger.info("START_QUIZ_PROMPT" + "="*234)
+                simple_log.info("START_QUIZ_PROMPT" + "="*234)
                 for i, msg in enumerate(messages):
                     self.logger.info(f"Message {i+1}: {msg.content}")
+                    simple_log.info(f"Message {i+1}: {msg.content}")
                 self.logger.info("END_QUIZ_PROMPT" + "="*236)
+                simple_log.info("END_QUIZ_PROMPT" + "="*236)
             except Exception as e:
                 self.logger.error(f"Could not log quiz prompt: {e}")
             
@@ -455,10 +488,14 @@ Format each tip on a new line starting with "TIP:".""")
                 prompt_value = self.tips_chain.prompt.format_prompt(**tips_inputs)
                 messages = prompt_value.to_messages()
                 self.logger.info(">>> ACTUAL TIPS PROMPT <<<")
+                simple_log.info(">>> ACTUAL TIPS PROMPT <<<")
                 self.logger.info("START_TIPS_PROMPT" + "="*234)
+                simple_log.info("START_TIPS_PROMPT" + "="*234)
                 for i, msg in enumerate(messages):
                     self.logger.info(f"Message {i+1}: {msg.content}")
+                    simple_log.info(f"Message {i+1}: {msg.content}")
                 self.logger.info("END_TIPS_PROMPT" + "="*236)
+                simple_log.info("END_TIPS_PROMPT" + "="*236)
             except Exception as e:
                 self.logger.error(f"Could not log tips prompt: {e}")
             

@@ -15,6 +15,15 @@ from pydantic import BaseModel, Field
 from ai_agents.state import WorkflowState, log_agent_execution
 from ai_agents.utils import create_langchain_llm
 
+# Import simple logger for backup logging
+try:
+    from ai_agents.simple_logger import simple_log
+except:
+    class SimpleLogFallback:
+        def info(self, msg, data=None): pass
+        def error(self, msg, data=None): pass
+    simple_log = SimpleLogFallback()
+
 
 class ModeratorDecision(BaseModel):
     """Structured moderator decision"""
@@ -148,8 +157,16 @@ Write ONLY plain text feedback, no code.""")
         
         try:
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info(f"MODERATOR AGENT - ROUND {state['current_round']}")
+            simple_log.info(f"MODERATOR AGENT - ROUND {state['current_round']}")
             self.logger.info("="*250)
+            simple_log.info("="*250)
+            simple_log.info("MODERATOR START", {
+                "round": state['current_round'],
+                "has_drafts": bool(state.get('draft_content')),
+                "has_critiques": bool(state.get('critiques'))
+            })
             
             critiques = state["critiques"]
             current_round = state["current_round"]
@@ -160,22 +177,30 @@ Write ONLY plain text feedback, no code.""")
             severity_counts = self._analyze_severity(critiques)
             
             self.logger.info(f"Critique analysis:")
+            simple_log.info(f"Critique analysis:")
             self.logger.info(f"  - Critical: {severity_counts['critical']}")
+            simple_log.info(f"  - Critical: {severity_counts['critical']}")
             self.logger.info(f"  - High: {severity_counts['high']}")
+            simple_log.info(f"  - High: {severity_counts['high']}")
             self.logger.info(f"  - Medium: {severity_counts['medium']}")
+            simple_log.info(f"  - Medium: {severity_counts['medium']}")
             self.logger.info(f"  - Low: {severity_counts['low']}")
+            simple_log.info(f"  - Low: {severity_counts['low']}")
             
             # Prepare decision inputs
             draft_summary = draft["content"] if draft else "No draft"
             
             # Log critique formatting to debug truncation issues
             self.logger.info(f"Formatting {len(critiques)} critiques for moderator input:")
+            simple_log.info(f"Formatting {len(critiques)} critiques for moderator input:")
             for i, critique in enumerate(critiques):  # Show all critiques for debugging
                 desc_len = len(critique.get("description", ""))
                 self.logger.info(f"  Critique {i+1}: {critique.get('type')} - {critique.get('severity')} - {desc_len} chars")
+                simple_log.info(f"  Critique {i+1}: {critique.get('type')} - {critique.get('severity')} - {desc_len} chars")
                 # Show full description in logs - no truncation
                 if desc_len > 0:
                     self.logger.info(f"    Full description: {critique.get('description', '')}")
+                    simple_log.info(f"    Full description: {critique.get('description', '')}")
             
             critiques_str = self._format_critiques(critiques)
             has_previous = "Yes" if state.get("moderator_feedback") else "No"
@@ -195,14 +220,20 @@ Write ONLY plain text feedback, no code.""")
             }
             
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info("LLM INPUT - MODERATOR DECISION CHAIN")
+            simple_log.info("LLM INPUT - MODERATOR DECISION CHAIN")
             self.logger.info("="*250)
+            simple_log.info("="*250)
             try:
                 formatted_inputs = json.dumps(decision_inputs, indent=2)
                 self.logger.info(f"Decision inputs (formatted):\n{formatted_inputs}")
+                simple_log.info(f"Decision inputs (formatted):\n{formatted_inputs}")
             except:
                 self.logger.info(f"Decision inputs: {decision_inputs}")
+                simple_log.info(f"Decision inputs: {decision_inputs}")
             self.logger.info("="*250)
+            simple_log.info("="*250)
             
             # Log the ACTUAL prompt being sent to the LLM
             try:
@@ -210,18 +241,25 @@ Write ONLY plain text feedback, no code.""")
                 messages = prompt_value.to_messages()
                 
                 self.logger.info(">>> ACTUAL COMPLETE PROMPT BEING SENT TO MODERATOR LLM <<<")
+                simple_log.info(">>> ACTUAL COMPLETE PROMPT BEING SENT TO MODERATOR LLM <<<")
                 self.logger.info("START_PROMPT" + "="*240)
+                simple_log.info("START_PROMPT" + "="*240)
                 for msg in messages:
                     # Check message type by its class name
                     msg_type = type(msg).__name__
                     if 'System' in msg_type:
                         self.logger.info(f"System: {msg.content}")
+                        simple_log.info(f"System: {msg.content}")
                     elif 'Human' in msg_type:
                         self.logger.info(f"Human: {msg.content}")
+                        simple_log.info(f"Human: {msg.content}")
                     else:
                         self.logger.info(f"{msg_type}: {msg.content}")
+                        simple_log.info(f"{msg_type}: {msg.content}")
                 self.logger.info("END_PROMPT" + "="*242)
+                simple_log.info("END_PROMPT" + "="*242)
                 self.logger.info(f"Total prompt length: {sum(len(msg.content) for msg in messages)} characters")
+                simple_log.info(f"Total prompt length: {sum(len(msg.content) for msg in messages)} characters")
             except Exception as e:
                 self.logger.error(f"Could not log prompt: {e}")
             
@@ -229,8 +267,11 @@ Write ONLY plain text feedback, no code.""")
             decision_response = await self.decision_chain.arun(**decision_inputs)
             
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info("LLM OUTPUT - MODERATOR DECISION CHAIN")
+            simple_log.info("LLM OUTPUT - MODERATOR DECISION CHAIN")
             self.logger.info("="*250)
+            simple_log.info("="*250)
             # Format the raw response nicely if it contains JSON
             if "```json" in decision_response:
                 try:
@@ -238,11 +279,15 @@ Write ONLY plain text feedback, no code.""")
                     json_part = decision_response.split("```json")[1].split("```")[0].strip()
                     formatted_json = json.dumps(json.loads(json_part), indent=2)
                     self.logger.info(f"Raw decision response:\n{formatted_json}")
+                    simple_log.info(f"Raw decision response:\n{formatted_json}")
                 except:
                     self.logger.info(f"Raw decision response: {decision_response}")
+                    simple_log.info(f"Raw decision response: {decision_response}")
             else:
                 self.logger.info(f"Raw decision response: {decision_response}")
+                simple_log.info(f"Raw decision response: {decision_response}")
             self.logger.info("="*250)
+            simple_log.info("="*250)
             
             # Parse decision
             decision, reasoning, feedback, convergence_score = self._parse_decision(decision_response)
@@ -286,10 +331,15 @@ Write ONLY plain text feedback, no code.""")
             
             # Log the JSON output
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info("MODERATOR OUTPUT (JSON)")
+            simple_log.info("MODERATOR OUTPUT (JSON)")
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info(json.dumps(formatted_output, indent=2))
+            simple_log.info(json.dumps(formatted_output, indent=2))
             self.logger.info("="*250)
+            simple_log.info("="*250)
             
             # Update state
             state["moderator_decision"] = decision
@@ -308,11 +358,16 @@ Write ONLY plain text feedback, no code.""")
             )
             
             self.logger.info(f"Moderation decision:")
+            simple_log.info(f"Moderation decision:")
             self.logger.info(f"  - Decision: {decision}")
+            simple_log.info(f"  - Decision: {decision}")
             self.logger.info(f"  - Reasoning: {reasoning}")
+            simple_log.info(f"  - Reasoning: {reasoning}")
             self.logger.info(f"  - Convergence score: {convergence_score:.2f}")
+            simple_log.info(f"  - Convergence score: {convergence_score:.2f}")
             if feedback:
                 self.logger.info(f"  - Feedback: {feedback}")
+                simple_log.info(f"  - Feedback: {feedback}")
             
         except Exception as e:
             self.logger.error(f"Moderation failed: {str(e)}")
@@ -381,9 +436,13 @@ Write ONLY plain text feedback, no code.""")
         """Apply hard rules to override LLM decision if needed"""
         
         self.logger.info(f"Decision rule processing:")
+        simple_log.info(f"Decision rule processing:")
         self.logger.info(f"  LLM decision: {decision}")
+        simple_log.info(f"  LLM decision: {decision}")
         self.logger.info(f"  Round: {current_round}/{max_rounds}")
+        simple_log.info(f"  Round: {current_round}/{max_rounds}")
         self.logger.info(f"  Severity counts: {severity_counts}")
+        simple_log.info(f"  Severity counts: {severity_counts}")
         
         # Rule 1: Force deadlock if at max rounds
         if current_round >= max_rounds:
@@ -407,25 +466,32 @@ Write ONLY plain text feedback, no code.""")
         
         # Log aggregate score calculation for debugging
         self.logger.info(f"Aggregate severity score calculation:")
+        simple_log.info(f"Aggregate severity score calculation:")
         for severity, count in severity_counts.items():
             if count > 0:
                 score_contribution = count * self.severity_to_score.get(severity, 0.5)
                 self.logger.info(f"  {count} {severity} × {self.severity_to_score.get(severity, 0.5)} = {score_contribution}")
+                simple_log.info(f"  {count} {severity} × {self.severity_to_score.get(severity, 0.5)} = {score_contribution}")
         self.logger.info(f"  Total aggregate score: {aggregate_score:.2f}")
+        simple_log.info(f"  Total aggregate score: {aggregate_score:.2f}")
         self.logger.info(f"  Convergence threshold: {self.convergence_threshold}")
+        simple_log.info(f"  Convergence threshold: {self.convergence_threshold}")
         
         # Rule 5: Force convergence if aggregate score is below threshold AND LLM agrees
         if aggregate_score < self.convergence_threshold and decision == "converged":
             self.logger.info(f"RULE 5 TRIGGERED: Allowing convergence - aggregate score {aggregate_score:.2f} < threshold {self.convergence_threshold} and LLM agrees")
+            simple_log.info(f"RULE 5 TRIGGERED: Allowing convergence - aggregate score {aggregate_score:.2f} < threshold {self.convergence_threshold} and LLM agrees")
             return "converged"
         
         # Rule 6: Force convergence ONLY if no critical, high, or medium issues exist
         if severity_counts["critical"] == 0 and severity_counts["high"] == 0 and severity_counts["medium"] == 0:
             self.logger.info("RULE 6 TRIGGERED: Forcing convergence - only low-severity issues remain")
+            simple_log.info("RULE 6 TRIGGERED: Forcing convergence - only low-severity issues remain")
             return "converged"
         
         # Rule 7: Respect LLM decision if no rules override
         self.logger.info(f"NO RULES TRIGGERED: Respecting LLM decision '{decision}'")
+        simple_log.info(f"NO RULES TRIGGERED: Respecting LLM decision '{decision}'")
         return decision
     
     async def _generate_detailed_feedback(self, critiques: List[Dict]) -> str:
@@ -451,14 +517,20 @@ Write ONLY plain text feedback, no code.""")
             }
             
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info("LLM INPUT - MODERATOR FEEDBACK CHAIN")
+            simple_log.info("LLM INPUT - MODERATOR FEEDBACK CHAIN")
             self.logger.info("="*250)
+            simple_log.info("="*250)
             try:
                 formatted_feedback_inputs = json.dumps(feedback_inputs, indent=2)
                 self.logger.info(f"Feedback inputs (formatted):\n{formatted_feedback_inputs}")
+                simple_log.info(f"Feedback inputs (formatted):\n{formatted_feedback_inputs}")
             except:
                 self.logger.info(f"Feedback inputs: {feedback_inputs}")
+                simple_log.info(f"Feedback inputs: {feedback_inputs}")
             self.logger.info("="*250)
+            simple_log.info("="*250)
             
             # Log the ACTUAL feedback prompt
             feedback_inputs = {
@@ -471,11 +543,16 @@ Write ONLY plain text feedback, no code.""")
                 messages = prompt_value.to_messages()
                 
                 self.logger.info(">>> ACTUAL COMPLETE FEEDBACK PROMPT <<<")
+                simple_log.info(">>> ACTUAL COMPLETE FEEDBACK PROMPT <<<")
                 self.logger.info("START_FEEDBACK_PROMPT" + "="*230)
+                simple_log.info("START_FEEDBACK_PROMPT" + "="*230)
                 for i, msg in enumerate(messages):
                     self.logger.info(f"Message {i+1}: {msg.content}")
+                    simple_log.info(f"Message {i+1}: {msg.content}")
                 self.logger.info("END_FEEDBACK_PROMPT" + "="*232)
+                simple_log.info("END_FEEDBACK_PROMPT" + "="*232)
                 self.logger.info(f"Total prompt length: {sum(len(msg.content) for msg in messages)} characters")
+                simple_log.info(f"Total prompt length: {sum(len(msg.content) for msg in messages)} characters")
             except Exception as e:
                 self.logger.error(f"Could not log feedback prompt: {e}")
             
@@ -483,10 +560,15 @@ Write ONLY plain text feedback, no code.""")
             feedback = await self.feedback_chain.arun(**feedback_inputs)
             
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info("LLM OUTPUT - MODERATOR FEEDBACK CHAIN")
+            simple_log.info("LLM OUTPUT - MODERATOR FEEDBACK CHAIN")
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info(f"Generated feedback: {feedback}")
+            simple_log.info(f"Generated feedback: {feedback}")
             self.logger.info("="*250)
+            simple_log.info("="*250)
             
             return feedback
         except Exception as e:

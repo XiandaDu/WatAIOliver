@@ -294,50 +294,117 @@ async def get_most_recent_user_query(conversation_id: str) -> Optional[str]:
         return None
 
 
+class UnifiedRAGService:
+    """
+    Unified RAG service for both daily and multi-agent modes.
+    Ensures consistent behavior and score preservation across all modes.
+    """
+    
+    def __init__(self, logger=None):
+        import logging
+        self.logger = logger or logging.getLogger(__name__)
+    
+    async def query_async(self, course_id: str, question: str, rag_model: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Async query to RAG system - returns results with confidence scores.
+        Used by daily mode and can be used by any async context.
+        """
+        try:
+            self.logger.info(f"[UnifiedRAG] Querying course {course_id}: {question[:50]}...")
+            
+            async with httpx.AsyncClient(timeout=TimeoutConfig.RAG_QUERY_TIMEOUT) as client:
+                payload = {
+                    "course_id": course_id,
+                    "question": question,
+                }
+                if rag_model:
+                    payload["embedding_model"] = rag_model
+                
+                response = await client.post(
+                    f"http://{ServiceConfig.LOCALHOST}:{ServiceConfig.RAG_SYSTEM_PORT}/ask",
+                    json=payload,
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    sources = result.get('sources', [])
+                    
+                    # Log scores for debugging
+                    self.logger.info(f"[UnifiedRAG] Success - {len(sources)} sources found")
+                    for i, source in enumerate(sources[:3]):
+                        score = source.get('score', 'N/A')
+                        self.logger.info(f"  Source {i+1}: score={score}")
+                    
+                    return result
+                else:
+                    self.logger.error(f"[UnifiedRAG] HTTP {response.status_code}: {response.text}")
+                    return {
+                        "success": False,
+                        "error": f"RAG system error: {response.status_code}",
+                        "sources": []
+                    }
+        
+        except Exception as e:
+            self.logger.error(f"[UnifiedRAG] Exception: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "sources": []
+            }
+    
+    def query_sync(self, course_id: str, question: str, **kwargs) -> Dict[str, Any]:
+        """
+        Synchronous wrapper for multi-agent system.
+        Handles the async-to-sync conversion properly.
+        """
+        import asyncio
+        import concurrent.futures
+        
+        try:
+            # Use thread pool to run async code when event loop is already running
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(
+                    asyncio.run,
+                    self.query_async(course_id, question, kwargs.get('rag_model'))
+                )
+                return future.result(timeout=60)
+        except Exception as e:
+            self.logger.error(f"[UnifiedRAG] Sync wrapper error: {e}")
+            return {"success": False, "error": str(e), "sources": []}
+    
+    # Compatibility methods for multi-agent system
+    def answer_question(self, course_id: str, question: str, **kwargs):
+        """Compatibility method for multi-agent system"""
+        return self.query_sync(course_id, question, **kwargs)
+    
+    def answer_question_with_scores(self, course_id: str, question: str, **kwargs):
+        """Compatibility method - all queries now return scores"""
+        return self.query_sync(course_id, question, **kwargs)
+
+
+# Create global instance for easy access
+_unified_rag = UnifiedRAGService(logger)
+
+
+# Legacy compatibility function - redirects to unified service
 async def query_rag_system(
-    conversation_id: str,
+    conversation_id: str,  # Kept for compatibility but not used
     question: str,
     course_id: Optional[str] = None,
     rag_model: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """
-    Query the RAG system for relevant information based on the user's question.
+    Legacy function - now uses UnifiedRAGService.
+    Kept for backward compatibility.
     """
-    try:
-        if course_id:
-            target_course_id = course_id
-        else:
-            from src.course.CRUD import get_all_courses
-
-            courses = get_all_courses()
-            if not courses:
-                return None
-
-            target_course_id = str(courses[0]["course_id"])
-        async with httpx.AsyncClient(timeout=TimeoutConfig.RAG_QUERY_TIMEOUT) as client:
-            rag_payload = {
-                "course_id": target_course_id,
-                "question": question,
-            }
-            if rag_model:
-                rag_payload["embedding_model"] = rag_model
-
-            response = await client.post(
-                f"http://{ServiceConfig.LOCALHOST}:{ServiceConfig.RAG_SYSTEM_PORT}/ask",
-                json=rag_payload,
-            )
-
-            if response.status_code == 200:
-                return response.json()
-            else:
-                logger.error(
-                    f"RAG system returned {response.status_code}: {response.text}"
-                )
-                return None
-
-    except Exception as e:
-        logger.error(f"Error querying RAG system: {e}")
-        return None
+    if not course_id:
+        from src.course.CRUD import get_all_courses
+        courses = get_all_courses()
+        if not courses:
+            return None
+        course_id = str(courses[0]["course_id"])
+    
+    return await _unified_rag.query_async(course_id, question, rag_model)
 
 
 def enhance_prompt_with_rag_context(
@@ -821,62 +888,8 @@ async def query_agents_system_streaming(
                 temperature=0.6,
             )
 
-        # Create a proper RAG service wrapper with required methods
-        class RAGServiceWrapper:
-            def __init__(self, settings):
-                self.settings = settings
-
-            def answer_question(self, course_id: str, question: str, **kwargs):
-                """Answer question using the RAG system via HTTP call (synchronous wrapper)"""
-                import asyncio
-                import concurrent.futures
-
-                try:
-                    # Use thread pool to run async code when event loop is already running
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(
-                            asyncio.run,
-                            self._async_answer_question(course_id, question, **kwargs),
-                        )
-                        return future.result(timeout=60)  # 60 second timeout
-                except Exception as e:
-                    ai_agents_logger.error(f"Error in synchronous RAG wrapper: {e}")
-                    return {"success": False, "error": str(e)}
-
-            async def _async_answer_question(
-                self, course_id: str, question: str, **kwargs
-            ):
-                """Async implementation of answer_question"""
-                try:
-                    async with httpx.AsyncClient(
-                        timeout=TimeoutConfig.RAG_QUERY_TIMEOUT
-                    ) as client:
-                        rag_payload = {
-                            "course_id": course_id,
-                            "question": question,
-                        }
-
-                        response = await client.post(
-                            f"http://{ServiceConfig.LOCALHOST}:{ServiceConfig.RAG_SYSTEM_PORT}/ask",
-                            json=rag_payload,
-                        )
-
-                        if response.status_code == 200:
-                            return response.json()
-                        else:
-                            ai_agents_logger.error(
-                                f"RAG system returned {response.status_code}: {response.text}"
-                            )
-                            return {
-                                "success": False,
-                                "error": f"RAG system error: {response.status_code}",
-                            }
-
-                except Exception as e:
-                    ai_agents_logger.error(f"Error querying RAG system: {e}")
-                    return {"success": False, "error": str(e)}
-
-        rag_service = RAGServiceWrapper(rag_settings)
+        # Use unified RAG service for consistency with daily mode
+        rag_service = UnifiedRAGService(logger=ai_agents_logger)
 
         # Create the workflow using the new architecture
         workflow = create_workflow(

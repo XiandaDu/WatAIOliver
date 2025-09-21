@@ -8,6 +8,7 @@ import logging
 from typing import Dict, Any, List, Literal, AsyncGenerator, Optional
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
+from ai_agents.simple_logger import simple_log
 
 from ai_agents.state import WorkflowState, AgentContext, initialize_state
 from ai_agents.agents.retrieve_agent import RetrieveAgent
@@ -45,6 +46,8 @@ class MultiAgentWorkflow:
         self.app = self.workflow.compile(checkpointer=self.memory)
         
         self.logger.info("Multi-Agent Workflow initialized with LangGraph")
+        simple_log.info("Multi-Agent Workflow initialized with LangGraph")
+        simple_log.info("WORKFLOW INITIALIZED", {"agents": ["retrieve", "strategist", "critic", "moderator", "reporter", "tutor"]})
     
     def _build_workflow(self) -> StateGraph:
         """Build the LangGraph workflow"""
@@ -103,23 +106,34 @@ class MultiAgentWorkflow:
         convergence_score = state.get("convergence_score", 0.0)
         
         self.logger.info("="*250)
+        simple_log.info("="*250)
         self.logger.info("WORKFLOW ROUTING DECISION")
+        simple_log.info("WORKFLOW ROUTING DECISION")
         self.logger.info("="*250)
+        simple_log.info("="*250)
         self.logger.info(f"Moderator decision: {decision}")
+        simple_log.info(f"Moderator decision: {decision}")
         self.logger.info(f"Current round: {current_round} / {max_rounds}")
+        simple_log.info(f"Current round: {current_round} / {max_rounds}")
         self.logger.info(f"Convergence score: {convergence_score:.3f}")
+        simple_log.info(f"Convergence score: {convergence_score:.3f}")
         
         if decision == "iterate":
             self.logger.info("→ ROUTING TO: STRATEGIST (continue iteration)")
+            simple_log.info("→ ROUTING TO: STRATEGIST (continue iteration)")
             self.logger.info("="*250)
+            simple_log.info("="*250)
             return "strategist"
         elif decision in ["converged", "abort_deadlock", "escalate_with_warning"]:
             self.logger.info(f"→ ROUTING TO: REPORTER (synthesis phase - {decision})")
+            simple_log.info(f"→ ROUTING TO: REPORTER (synthesis phase - {decision})")
             self.logger.info("="*250)
+            simple_log.info("="*250)
             return "reporter"
         else:
             self.logger.error(f"→ ROUTING TO: END (unexpected decision: {decision})")
             self.logger.info("="*250)
+            simple_log.info("="*250)
             return "end"
     
     async def process_query(
@@ -148,11 +162,25 @@ class MultiAgentWorkflow:
         
         try:
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info("STARTING LANGGRAPH MULTI-AGENT WORKFLOW")
+            simple_log.info("STARTING LANGGRAPH MULTI-AGENT WORKFLOW")
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info(f"Query: {query[:100]}...")
+            simple_log.info(f"Query: {query[:100]}...")
             self.logger.info(f"Course: {course_id}")
+            simple_log.info(f"Course: {course_id}")
             self.logger.info(f"Session: {session_id}")
+            simple_log.info(f"Session: {session_id}")
+            
+            # Also log to simple logger for debugging
+            simple_log.info("WORKFLOW START", {
+                "query": query[:100],
+                "course_id": course_id,
+                "session_id": session_id,
+                "max_rounds": max_rounds
+            })
             
             # Initialize state
             initial_state = initialize_state(
@@ -172,23 +200,45 @@ class MultiAgentWorkflow:
                 # Log each node execution with detailed state information
                 for node, state_update in event.items():
                     self.logger.info("="*250)
+                    simple_log.info("="*250)
                     self.logger.info(f"STATE TRANSITION - NODE: {node.upper()}")
+                    simple_log.info(f"STATE TRANSITION - NODE: {node.upper()}")
                     self.logger.info("="*250)
+                    simple_log.info("="*250)
+                    simple_log.info(f"NODE TRANSITION: {node.upper()}", {
+                        "node": node,
+                        "has_status": "workflow_status" in state_update
+                    })
                     
                     # Log key state changes
                     if "workflow_status" in state_update:
                         self.logger.info(f"Status: {state_update['workflow_status']}")
+                        simple_log.info(f"Status: {state_update['workflow_status']}")
                     
                     if "current_round" in state_update:
                         self.logger.info(f"Current round: {state_update['current_round']} / {state_update.get('max_rounds', 'unknown')}")
+                        simple_log.info(f"Current round: {state_update['current_round']} / {state_update.get('max_rounds', 'unknown')}")
                     
                     if "moderator_decision" in state_update:
                         self.logger.info(f"Moderator decision: {state_update['moderator_decision']}")
+                        simple_log.info(f"Moderator decision: {state_update['moderator_decision']}")
+                        simple_log.info("MODERATOR DECISION", {
+                            "decision": state_update['moderator_decision'],
+                            "round": state_update.get('current_round', 'unknown')
+                        })
                         if "convergence_score" in state_update:
                             self.logger.info(f"Convergence score: {state_update['convergence_score']}")
+                            simple_log.info(f"Convergence score: {state_update['convergence_score']}")
+                            simple_log.info("CONVERGENCE SCORE", {
+                                "score": state_update['convergence_score']
+                            })
                     
                     if "error_messages" in state_update and state_update["error_messages"]:
                         self.logger.warning(f"Errors accumulated: {len(state_update['error_messages'])}")
+                        simple_log.error("WORKFLOW ERRORS", {
+                            "error_count": len(state_update['error_messages']),
+                            "latest_errors": state_update["error_messages"][-3:]
+                        })
                         for i, error in enumerate(state_update["error_messages"][-3:], 1):  # Last 3 errors
                             self.logger.warning(f"  {i}. {error}")
                     
@@ -203,10 +253,16 @@ class MultiAgentWorkflow:
                             sources_count = len(retrieval_results.get("sources", []))
                         quality_score = state_update.get("retrieval_quality_score", "unknown")
                         self.logger.info(f"Retrieved {sources_count} sources, quality: {quality_score}")
+                        simple_log.info(f"Retrieved {sources_count} sources, quality: {quality_score}")
+                        simple_log.info("RETRIEVAL RESULT", {
+                            "sources_count": sources_count,
+                            "quality_score": quality_score
+                        })
                     
                     elif node == "strategist" and "draft" in state_update:
                         draft_length = len(str(state_update["draft"].get("content", "")))
                         self.logger.info(f"Generated draft: {draft_length} characters")
+                        simple_log.info(f"Generated draft: {draft_length} characters")
                     
                     elif node == "critic" and "critiques" in state_update:
                         critique_count = len(state_update.get("critiques", []))
@@ -215,17 +271,21 @@ class MultiAgentWorkflow:
                             sev = c.get("severity", "unknown")
                             severity_counts[sev] = severity_counts.get(sev, 0) + 1
                         self.logger.info(f"Found {critique_count} critiques: {dict(severity_counts)}")
+                        simple_log.info(f"Found {critique_count} critiques: {dict(severity_counts)}")
                     
                     elif node == "reporter" and "final_answer" in state_update:
                         answer_length = len(str(state_update["final_answer"]))
                         self.logger.info(f"Synthesized final answer: {answer_length} characters")
+                        simple_log.info(f"Synthesized final answer: {answer_length} characters")
                     
                     elif node == "tutor" and "tutor_interaction" in state_update:
                         interaction_type = state_update["tutor_interaction"].get("interaction_type", "unknown")
                         elements_count = len(state_update["tutor_interaction"].get("elements", []))
                         self.logger.info(f"Prepared {interaction_type} interaction with {elements_count} elements")
+                        simple_log.info(f"Prepared {interaction_type} interaction with {elements_count} elements")
                     
                     self.logger.info("="*250)
+                    simple_log.info("="*250)
                     
                     # Yield intermediate updates
                     if isinstance(state_update, dict):
@@ -245,8 +305,11 @@ class MultiAgentWorkflow:
             response = self._format_final_response(state_data)
             
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info("WORKFLOW COMPLETED SUCCESSFULLY")
+            simple_log.info("WORKFLOW COMPLETED SUCCESSFULLY")
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self._log_execution_summary(state_data)
             
             yield {
@@ -294,19 +357,28 @@ class MultiAgentWorkflow:
         """Log execution summary"""
         
         self.logger.info("EXECUTION SUMMARY:")
+        simple_log.info("EXECUTION SUMMARY:")
         self.logger.info(f"  Query: {state.get('query', '')[:100]}...")
+        simple_log.info(f"  Query: {state.get('query', '')[:100]}...")
         self.logger.info(f"  Debate Rounds: {state.get('current_round', 0)}")
+        simple_log.info(f"  Debate Rounds: {state.get('current_round', 0)}")
         self.logger.info(f"  Final Decision: {state.get('moderator_decision', 'unknown')}")
+        simple_log.info(f"  Final Decision: {state.get('moderator_decision', 'unknown')}")
         self.logger.info(f"  Convergence Score: {state.get('convergence_score', 0):.2f}")
+        simple_log.info(f"  Convergence Score: {state.get('convergence_score', 0):.2f}")
         self.logger.info(f"  Retrieval Quality: {state.get('retrieval_quality_score', 0):.2f}")
+        simple_log.info(f"  Retrieval Quality: {state.get('retrieval_quality_score', 0):.2f}")
         
         # Log timing
         times = state.get("processing_times", {})
         if times:
             self.logger.info("  Processing Times:")
+            simple_log.info("  Processing Times:")
             for agent, time_val in times.items():
                 self.logger.info(f"    - {agent}: {time_val:.2f}s")
+                simple_log.info(f"    - {agent}: {time_val:.2f}s")
             self.logger.info(f"  Total Time: {sum(times.values()):.2f}s")
+            simple_log.info(f"  Total Time: {sum(times.values()):.2f}s")
         
         # Log any errors
         errors = state.get("error_messages", [])
@@ -351,10 +423,15 @@ class MultiAgentWorkflow:
         """
         try:
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info("STARTING STREAMING WORKFLOW EXECUTION")
+            simple_log.info("STARTING STREAMING WORKFLOW EXECUTION")
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info(f"Query: {query[:100]}...")
+            simple_log.info(f"Query: {query[:100]}...")
             self.logger.info(f"Course: {course_id}")
+            simple_log.info(f"Course: {course_id}")
             
             # Initialize state
             initial_state = initialize_state(
@@ -388,6 +465,7 @@ class MultiAgentWorkflow:
                         # We've reached the reporter stage - stream its content
                         reached_reporter = True
                         self.logger.info("=== STREAMING REPORTER CONTENT ===")
+                        simple_log.info("=== STREAMING REPORTER CONTENT ===")
                         
                         # Get the current state for reporter
                         current_state = await self.app.aget_state(config)
@@ -423,8 +501,11 @@ class MultiAgentWorkflow:
             response = self._format_final_response(final_state)
             
             self.logger.info("="*250)
+            simple_log.info("="*250)
             self.logger.info("STREAMING WORKFLOW COMPLETED")
+            simple_log.info("STREAMING WORKFLOW COMPLETED")
             self.logger.info("="*250)
+            simple_log.info("="*250)
             
             yield {
                 "status": "complete",
