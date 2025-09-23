@@ -7,6 +7,7 @@ from src.file.router import router as file_router
 from src.conversationTable.router import router as conversation_router
 from src.documents.router import router as documents_router
 from src.messages.router import router as messages_router
+from src.ab_testing.router import router as ab_testing_router
 
 def register_routes(app: FastAPI):
     app.include_router(auth_router)
@@ -17,3 +18,4 @@ def register_routes(app: FastAPI):
     app.include_router(conversation_router)
     app.include_router(documents_router)
     app.include_router(messages_router)
+    app.include_router(ab_testing_router)

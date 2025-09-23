@@ -5,6 +5,7 @@ import os
 from typing import Optional, Dict, Any, List, AsyncGenerator
 from fastapi import UploadFile
 import json
+from ..ab_testing.service import create_ab_test_query
 
 from ..logger import logger
 from .models import (
