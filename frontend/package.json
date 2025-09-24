@@ -27,6 +27,7 @@
     "framer-motion": "^11.18.2",
     "katex": "^0.16.9",
     "lucide-react": "^0.515.0",
+    "marked": "^16.3.0",
     "next-themes": "^0.4.6",
     "react": "^19.1.0",
     "react-chartjs-2": "^5.3.0",

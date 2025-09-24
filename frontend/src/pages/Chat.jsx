@@ -214,7 +214,7 @@ export default function ChatPage() {
     if (userId) {
       loadConversations();
     }
-  }, [userId]);
+  }, [userId, selectedCourseId]);
 
   useEffect(() => {
     const courseParam =
@@ -261,12 +261,23 @@ export default function ChatPage() {
       return;
     }
 
+    // Guard: ensure selected conversation belongs to selected course
+    if (
+      selectedConversation &&
+      selectedCourseId &&
+      selectedConversation.course_id !== selectedCourseId
+    ) {
+      setSelectedConversation(null);
+      setMessages([]);
+      return;
+    }
+
     if (selectedConversation) {
       loadMessages(selectedConversation.conversation_id);
     } else {
       setMessages([]);
     }
-  }, [selectedConversation, isSendingMessage]);
+  }, [selectedConversation, isSendingMessage, selectedCourseId]);
 
   // Get loading state for current conversation
   const getCurrentConversationLoadingState = () => {
@@ -282,9 +293,13 @@ export default function ChatPage() {
   const loadConversations = async () => {
     setIsLoadingConversations(true);
     try {
-      const response = await fetch(
+      const url = new URL(
         `${import.meta.env.VITE_API_BASE_URL}/chat/conversations/${userId}`
       );
+      if (selectedCourseId) {
+        url.searchParams.set("course_id", selectedCourseId);
+      }
+      const response = await fetch(url.toString());
       if (response.ok) {
         const data = await response.json();
         setConversations(data || []);
@@ -423,6 +438,7 @@ export default function ChatPage() {
               title:
                 input ||
                 (experimental_attachments?.length ? "File Upload" : "New Chat"),
+              course_id: selectedCourseId || null,
             }),
           }
         );
@@ -437,7 +453,7 @@ export default function ChatPage() {
               title:
                 input ||
                 (experimental_attachments?.length ? "File Upload" : "New Chat"),
-              course_id: selectedModel === "rag" ? selectedCourseId : null,
+              course_id: selectedCourseId || null,
               user_id: userId,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
@@ -890,6 +906,7 @@ export default function ChatPage() {
                 message.content.length > 50
                   ? message.content.substring(0, 50) + "..."
                   : message.content,
+              course_id: selectedCourseId || null,
             }),
           }
         );
@@ -905,6 +922,7 @@ export default function ChatPage() {
                 message.content.length > 50
                   ? message.content.substring(0, 50) + "..."
                   : message.content,
+              course_id: selectedCourseId || null,
               user_id: userId,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
