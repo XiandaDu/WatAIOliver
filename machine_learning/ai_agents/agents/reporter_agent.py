@@ -1,717 +1,635 @@
 """
-Reporter Agent - Report Writer
+Reporter Agent - LangChain Implementation
 
-This agent synthesizes the final answer after debate convergence, creating
-polished, refined, and pedagogically valuable responses.
+Synthesizes verified debate results into polished final answers.
 """
 
-from typing import List, Dict, Any
-from ai_agents.agents.base_agent import BaseAgent, AgentInput, AgentOutput, AgentRole
+import time
+import json
+from typing import Dict, Any, List, AsyncGenerator
+from langchain.prompts import ChatPromptTemplate
+from langchain.chains import LLMChain
+from pydantic import BaseModel, Field
+
+from ai_agents.state import WorkflowState, log_agent_execution
+from ai_agents.utils import create_langchain_llm
+
+# Import simple logger for backup logging
+try:
+    from ai_agents.simple_logger import simple_log
+except:
+    class SimpleLogFallback:
+        def info(self, msg, data=None): pass
+        def error(self, msg, data=None): pass
+    simple_log = SimpleLogFallback()
 
 
-class ReporterAgent(BaseAgent):
+class FinalAnswer(BaseModel):
+    """Structured final answer"""
+    introduction: str = Field(description="Brief introduction to the problem")
+    step_by_step_solution: str = Field(description="Detailed solution with steps")
+    key_takeaways: str = Field(description="Important points to remember")
+    confidence_score: float = Field(description="Answer confidence 0-1")
+    sources: List[str] = Field(description="Source references")
+
+
+class ReporterAgent:
     """
-    Reporter Agent - Final Answer Synthesizer
+    Report Writer using LangChain chains.
     
-    Responsible for:
-    1. Synthesizing verified draft into final polished answer
-    2. Handling both converged and deadlock scenarios
-    3. Formatting answers for educational value
-    4. Providing source attribution and citations
+    Synthesizes debate results into:
+    1. Polished, pedagogically valuable answers
+    2. Clear structure and formatting
+    3. Transparent handling of uncertainties
     """
     
-    def __init__(self, config, llm_client=None, logger=None):
-        super().__init__(AgentRole.REPORTER, config, llm_client, logger)
+    def __init__(self, context):
+        self.context = context
+        self.logger = context.logger.getChild("reporter")
+        self.llm_client = context.llm_client
+        self.llm = create_langchain_llm(self.llm_client)
         
-        # Reporter-specific prompts
-        self.system_prompt = self._build_system_prompt()
-        
-    def _build_system_prompt(self) -> str:
-        """Build the system prompt for the reporter"""
-        return """
-        You are an expert educational content writer and report synthesizer. Your role is to:
-
-        1. SYNTHESIZE verified content into polished, final answers
-        2. STRUCTURE responses for maximum educational value
-        3. INTEGRATE remaining minor issues seamlessly
-        4. ATTRIBUTE sources clearly and transparently
-        5. MAINTAIN academic rigor while ensuring accessibility
-        6. **CLEAN AND FIX** all retrieved content formatting issues
-
-        Key principles:
-        - Write in the tone of a seasoned, knowledgeable teacher
-        - Organize content logically: introduction, steps, key takeaways
-        - **Fix all document parsing artifacts**: broken sentences, missing punctuation, fragmented text
-        - **Transform raw retrieval text** into coherent, well-structured explanations
-        - **Ensure proper grammar and flow** - don't copy-paste raw retrieved content
-        - **Present information naturally** - don't mention "Document 1", "sources", or "retrieved materials"
-        - Be transparent about knowledge boundaries and limitations
-        - Provide clear, actionable insights
-        - Ensure content is suitable for educational contexts
-        - Reflect carefully on the debate outcome before finalizing
-
-        CRITICAL: The retrieved content may have formatting issues, incomplete sentences, broken mathematical expressions, or parsing errors. 
-        Your job is to understand the meaning and rewrite it as clear, professional educational content that flows naturally without referencing sources.
-        
-        **SPECIAL ATTENTION TO MATH**: Fix incomplete formulas (e.g., "f(x) = x^" → "f(x) = x^n"), integrate scattered mathematical symbols, and ensure all equations are properly formatted and complete.
-
-        Your output should be the definitive, high-quality answer to the user's question.
-        """
+        # Setup chains
+        self._setup_chains()
     
-    async def process(self, agent_input: AgentInput) -> AgentOutput:
-        """
-        Synthesize final answer from debate results
+    def _setup_chains(self):
+        """Setup LangChain chains for answer synthesis"""
         
-        Args:
-            agent_input: Contains draft, critique results, and convergence status
-            
-        Returns:
-            AgentOutput: Final polished answer ready for user
-        """
+        # Main synthesis chain for converged results
+        self.synthesis_chain = LLMChain(
+            llm=self.llm,
+            prompt=ChatPromptTemplate.from_messages([
+                ("system", """You are an expert educator synthesizing verified solutions.
+                Create clear, pedagogically valuable final answers.
+                Write in a professional, educational tone."""),
+                ("human", """Query: {query}
+
+Verified Draft:
+{draft}
+
+Chain of Thought:
+{cot}
+
+Remaining Minor Issues (if any):
+{minor_issues}
+
+Debate Status: {status}
+Quality Score: {quality_score}
+
+Create a polished final answer with:
+1. INTRODUCTION: Brief problem overview
+2. STEP_BY_STEP_SOLUTION: Clear, detailed solution
+3. KEY_TAKEAWAYS: Important concepts to remember
+4. SOURCES: Relevant source citations
+
+Ensure the answer is:
+- Clearly structured
+- Easy to understand
+- Educationally valuable
+- Accurate and complete
+
+- Critical Instructions:
+Your output should follow this format: Express your logic using mathematical language and logical symbols whenever possible, especially in mathematics and physics; (use abbreviations like s.t. frequently)
+Provide concise explanations in natural English (note: use only English under all circumstances); however, do not place explanations within the same paragraph as equations.
+Avoid unnecessarily complicating the problem. If you believe this question could be posed to a high school student or freshman, solve it using methods accessible to those students. For complex problems, use ample line breaks and expand your explanations.""")
+            ])
+        )
+        
+        # Chain for handling deadlock/escalation cases
+        self.fallback_chain = LLMChain(
+            llm=self.llm,
+            prompt=ChatPromptTemplate.from_messages([
+                ("system", """You are handling an incomplete or problematic solution.
+
+CRITICAL INSTRUCTIONS:
+1. Write actual, concrete content - NOT template placeholders
+2. Do NOT use variables like {{query}}, {{reason}}, {{issues}}, {{draft}}
+3. Use the actual query, reason, issues, and draft provided below
+4. Be transparent about limitations while providing a real answer
+5. Write in complete sentences without placeholder text
+
+You must provide a real, readable answer."""),
+                ("human", """Query: {query}
+
+Best Available Draft:
+{draft}
+
+Unresolved Issues:
+{issues}
+
+Status: {status}
+Reason: {reason}
+
+IMPORTANT: Write a real answer using the actual information above. Do NOT use placeholder variables.
+
+Create a transparent answer that:
+1. Provides the verified portions of the solution based on the actual draft
+2. Clearly indicates areas of uncertainty based on the actual issues
+3. Explains what couldn't be fully resolved using the actual status and reason
+4. Suggests how to get better answers
+
+Format as:
+INTRODUCTION: [Write actual context about the query and limitations]
+PARTIAL_SOLUTION: [Write what you can actually provide from the draft]
+UNRESOLVED_AREAS: [Write what actually remains uncertain from the issues]
+RECOMMENDATIONS: [Write actual next steps for the user]
+
+Remember: Use the actual content provided, not placeholder variables!""")
+            ])
+        )
+        
+        # Chain for quality indicators
+        self.quality_assessment_chain = LLMChain(
+            llm=self.llm,
+            prompt=ChatPromptTemplate.from_messages([
+                ("system", """Assess the quality indicators of the final answer."""),
+                ("human", """Answer Content:
+{answer}
+
+Debate Metrics:
+- Rounds: {rounds}
+- Convergence Score: {convergence_score}
+- Issues Resolved: {issues_resolved}
+
+Provide quality indicators:
+1. COMPLETENESS: [0-1 score]
+2. CLARITY: [0-1 score]
+3. ACCURACY: [0-1 score]
+4. PEDAGOGICAL_VALUE: [0-1 score]""")
+            ])
+        )
+    
+    async def __call__(self, state: WorkflowState) -> WorkflowState:
+        """Synthesize final answer from debate results"""
+        start_time = time.time()
+        
         try:
-            # Extract debate results
-            draft_content = agent_input.metadata.get('draft_content', '')
-            chain_of_thought = agent_input.metadata.get('chain_of_thought', [])
-            final_draft_status = agent_input.metadata.get('final_draft_status', {})
-            remaining_critiques = agent_input.metadata.get('remaining_critiques', [])
-            context = agent_input.context
-            original_query = agent_input.query
+            self.logger.info("="*250)
+            simple_log.info("="*250)
+            self.logger.info("REPORTER AGENT - FINAL SYNTHESIS")
+            simple_log.info("REPORTER AGENT - FINAL SYNTHESIS")
+            self.logger.info("="*250)
+            simple_log.info("="*250)
             
-            debate_status = final_draft_status.get('status', 'approved')
-            quality_score = final_draft_status.get('quality_score', 0.8)
+            query = state["query"]
+            draft = state["draft"]
+            critiques = state["critiques"]
+            decision = state["moderator_decision"]
+            convergence_score = state["convergence_score"]
+            debate_rounds = state["current_round"]
             
-            self.logger.info(f"Reporter synthesizing final answer...")
-            self.logger.info(f"Debate status: {debate_status}, Quality: {quality_score:.3f}")
+            self.logger.info(f"Synthesizing answer:")
+            simple_log.info(f"Synthesizing answer:")
+            self.logger.info(f"  - Debate status: {decision}")
+            simple_log.info(f"  - Debate status: {decision}")
+            self.logger.info(f"  - Rounds: {debate_rounds}")
+            simple_log.info(f"  - Rounds: {debate_rounds}")
+            self.logger.info(f"  - Convergence: {convergence_score:.2f}")
+            simple_log.info(f"  - Convergence: {convergence_score:.2f}")
             
-            # Generate final answer based on debate outcome
-            if debate_status == "approved":
-                final_answer = await self._synthesize_approved_answer(
-                    original_query, draft_content, chain_of_thought, remaining_critiques, context
+            # Determine synthesis approach based on decision
+            if decision == "converged":
+                final_answer = await self._synthesize_converged(
+                    query, draft, critiques, convergence_score
                 )
-            elif debate_status == "escalated":
-                quality_warning = final_draft_status.get('quality_warning', 'Quality issues detected after multiple improvement attempts')
-                final_answer = await self._synthesize_escalated_answer(
-                    original_query, draft_content, remaining_critiques, context, quality_warning
-                )
-            elif debate_status == "deadlock":
-                final_answer = await self._synthesize_deadlock_answer(
-                    original_query, draft_content, remaining_critiques, context
+            elif decision in ["abort_deadlock", "escalate_with_warning"]:
+                final_answer = await self._synthesize_incomplete(
+                    query, draft, critiques, decision, convergence_score
                 )
             else:
-                # Fallback for unexpected status
-                final_answer = await self._synthesize_fallback_answer(
-                    original_query, draft_content, context
+                # Shouldn't reach here, but handle gracefully
+                final_answer = await self._synthesize_incomplete(
+                    query, draft, critiques, "unexpected_state", convergence_score
                 )
             
-            # Enhance with metadata and sources
-            enhanced_answer = self._enhance_with_metadata(
-                final_answer, context, quality_score, debate_status
+            # Add quality indicators
+            quality_indicators = await self._assess_quality(
+                final_answer, debate_rounds, convergence_score, critiques
+            )
+            final_answer["quality_indicators"] = quality_indicators
+            
+            # Add source attributions
+            sources = self._extract_sources(state["retrieval_results"])
+            final_answer["sources"] = sources
+            
+            # Create formatted JSON output according to specification
+            formatted_output = {
+                "final_answer": {
+                    "introduction": final_answer.get("introduction", ""),
+                    "step_by_step_solution": final_answer.get("step_by_step_solution", ""),
+                    "key_takeaways": final_answer.get("key_takeaways", ""),
+                    "further_reading": sources[:3] if sources else []  # Top 3 sources
+                },
+                "confidence_score": final_answer.get("confidence_score", convergence_score),
+                "sources": sources
+            }
+            
+            # Log the JSON output
+            self.logger.info("="*250)
+            simple_log.info("="*250)
+            self.logger.info("REPORTER OUTPUT (JSON)")
+            simple_log.info("REPORTER OUTPUT (JSON)")
+            self.logger.info("="*250)
+            simple_log.info("="*250)
+            self.logger.info(json.dumps(formatted_output, indent=2))
+            simple_log.info(json.dumps(formatted_output, indent=2))
+            self.logger.info("="*250)
+            simple_log.info("="*250)
+            
+            # Update state
+            state["final_answer"] = final_answer
+            state["workflow_status"] = "synthesizing"
+            
+            # Log execution
+            processing_time = time.time() - start_time
+            log_agent_execution(
+                state=state,
+                agent_name="Reporter",
+                input_summary=f"Status: {decision}, Draft: {draft['draft_id'] if draft else 'none'}",
+                output_summary=f"Synthesized final answer with confidence {final_answer.get('confidence_score', 0):.2f}",
+                processing_time=processing_time,
+                success=True
             )
             
-            return AgentOutput(
-                success=True,
-                content={
-                    "final_answer": enhanced_answer,
-                    "synthesis_metadata": {
-                        "debate_status": debate_status,
-                        "quality_score": quality_score,
-                        "remaining_issues": len(remaining_critiques or []),
-                        "context_sources": len(context),
-                        "answer_structure": {
-                            "has_introduction": "introduction" in enhanced_answer,
-                            "has_step_by_step": "step_by_step_solution" in enhanced_answer,
-                            "has_takeaways": "key_takeaways" in enhanced_answer,
-                            "has_sources": "sources" in enhanced_answer
-                        }
-                    }
-                },
-                metadata={
-                    "original_query": original_query,
-                    "synthesis_approach": debate_status,
-                    "educational_format": True
-                },
-                processing_time=0.0,  # Set by parent class
-                agent_role=self.agent_role
+            self.logger.info(f"Synthesis completed:")
+            simple_log.info(f"Synthesis completed:")
+            self.logger.info(f"  - Answer type: {final_answer.get('type', 'standard')}")
+            simple_log.info(f"  - Answer type: {final_answer.get('type', 'standard')}")
+            self.logger.info(f"  - Confidence: {final_answer.get('confidence_score', 0):.2f}")
+            simple_log.info(f"  - Confidence: {final_answer.get('confidence_score', 0):.2f}")
+            self.logger.info(f"  - Sources: {len(final_answer.get('sources', []))}")
+            simple_log.info(f"  - Sources: {len(final_answer.get('sources', []))}")
+            
+        except Exception as e:
+            self.logger.error(f"Synthesis failed: {str(e)}")
+            state["error_messages"].append(f"Reporter agent error: {str(e)}")
+            state["workflow_status"] = "failed"
+            
+            # Provide fallback answer
+            state["final_answer"] = {
+                "introduction": "I apologize, but I encountered an error while preparing your answer.",
+                "step_by_step_solution": f"Error details: {str(e)}",
+                "key_takeaways": "Please try rephrasing your question or contact support.",
+                "confidence_score": 0.0,
+                "sources": []
+            }
+            
+            log_agent_execution(
+                state=state,
+                agent_name="Reporter",
+                input_summary=f"Synthesis attempt",
+                output_summary=f"Error: {str(e)}",
+                processing_time=time.time() - start_time,
+                success=False
             )
-            
-        except Exception as e:
-            self.logger.error(f"Reporter failed: {str(e)}")
-            raise e
-    
-    async def _synthesize_approved_answer(
-        self, 
-        query: str, 
-        draft_content: str, 
-        chain_of_thought: List[Dict[str, Any]], 
-        remaining_critiques: List[Dict[str, Any]], 
-        context: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
-        """Synthesize final answer from approved draft"""
         
-        try:
-            # Build comprehensive synthesis prompt
-            cot_summary = self._format_chain_of_thought_summary(chain_of_thought)
-            minor_issues = self._format_minor_issues(remaining_critiques)
-            context_summary = self._format_context_summary(context)
-            
-            prompt = f"""
-            {self.system_prompt}
-            
-            ORIGINAL QUERY:
-            {query}
-            
-            VERIFIED DRAFT CONTENT:
-            {draft_content}
-            
-            REASONING PROCESS:
-            {cot_summary}
-            
-            MINOR REMAINING ISSUES TO ADDRESS:
-            {minor_issues}
-            
-            SUPPORTING CONTEXT:
-            {context_summary}
-            
-            Please synthesize this into a final, polished answer using this structure:
-            
-            ## INTRODUCTION
-            [Brief context-setting introduction that acknowledges the question and previews the approach]
-            
-            ## STEP-BY-STEP SOLUTION
-            [Clear, logical progression through the solution, incorporating insights from the reasoning process]
-            
-            ## KEY TAKEAWAYS
-            [Important concepts, principles, or insights that generalize beyond this specific question]
-            
-            ## IMPORTANT NOTES
-            [Any limitations, assumptions, or areas requiring caution - address minor issues transparently]
-            
-            Requirements:
-            - **CLEAN UP FORMATTING ISSUES**: Fix broken sentences, missing punctuation, fragmented text from document parsing
-            - **FORMAT MATH FOR KATEX**: Use proper LaTeX syntax - inline math: $f(x) = x^2$, display math: $$f(x) = x^2$$
-            - **FIX MATHEMATICAL EXPRESSIONS ONLY**: Complete broken formulas (e.g., "f(x) = x^" → "$f(x) = x^2$"), integrate scattered math symbols with $ delimiters
-            - **NO LONE MATH SYMBOLS**: Never leave symbols like π on separate lines - integrate them into complete sentences or expressions
-            - **COMPLETE ALL BROKEN FORMULAS**: Fix incomplete expressions and fragmented mathematical content
-            - **FIX SENTENCE FRAGMENTS**: Combine broken text pieces into complete, flowing sentences, remove trailing "and" or incomplete endings
-            - **SYNTHESIZE CONCISELY**: Transform raw retrieved content into coherent explanations without unnecessary expansion
-            - **FIX DOCUMENT PARSING ARTIFACTS**: Remove formatting errors, incomplete sentences, and garbled text
-            - **CREATE PROPER FLOW**: Ensure logical transitions between concepts and ideas
-            - **USE ACADEMIC WRITING STYLE**: Clear, professional, and educational tone
-            - **NO DOCUMENT REFERENCES**: Don't mention "Document 1", "according to sources", or "based on provided materials" - present information naturally
-            - **KEEP ORIGINAL SCOPE**: Don't expand beyond the original content's scope unless necessary for clarity
-            - Integrate minor issues seamlessly (don't ignore them, but address them naturally)
-            - Maintain educational value and clear explanations
-            - Use a confident but honest tone
-            - Ensure accuracy and logical flow
-            """
-            
-            response = await self._call_llm(prompt, temperature=0.3)
-            
-            if response:
-                return self._parse_structured_answer(response)
-            else:
-                raise Exception("No response from LLM for answer synthesis")
-                
-        except Exception as e:
-            self.logger.error(f"Approved answer synthesis failed: {str(e)}")
-            # Fallback to basic structure
-            return self._create_fallback_structure(draft_content, query)
+        return state
     
-    async def _synthesize_escalated_answer(
-        self, 
-        query: str, 
-        draft_content: str, 
-        persistent_critiques: List[Dict[str, Any]], 
-        context: List[Dict[str, Any]],
-        quality_warning: str
+    async def _synthesize_converged(
+        self,
+        query: str,
+        draft: Dict,
+        critiques: List[Dict],
+        convergence_score: float
     ) -> Dict[str, Any]:
-        """Synthesize answer for escalated situation with quality warnings"""
+        """Synthesize answer for converged debate"""
         
-        try:
-            critiques_summary = self._format_unresolved_issues(persistent_critiques)
-            context_summary = self._format_context_summary(context)
-            
-            prompt = f"""
-            {self.system_prompt}
-            
-            SITUATION: After 3 improvement iterations, some quality issues remain unresolved. You need to provide the best possible answer while clearly warning the user about potential limitations.
-            
-            ORIGINAL QUERY:
-            {query}
-            
-            BEST AVAILABLE DRAFT:
-            {draft_content}
-            
-            PERSISTENT QUALITY ISSUES:
-            {critiques_summary}
-            
-            QUALITY WARNING TO INCLUDE:
-            {quality_warning}
-            
-            SUPPORTING CONTEXT:
-            {context_summary}
-            
-            INSTRUCTIONS:
-            1. Provide a comprehensive answer based on the available draft and context
-            2. PROMINENTLY include the quality warning at the beginning
-            3. Clearly indicate which parts may be uncertain or problematic
-            4. Suggest ways the user can verify or improve the information
-            5. Maintain educational value while being transparent about limitations
-            
-            Format your response as a well-structured educational answer with clear sections.
-            """
-            
-            response = await self._call_llm(prompt, temperature=0.3)
-            
-            return {
-                "content": response,
-                "status": "escalated",
-                "quality_warning": quality_warning,
-                "persistent_issues": len(persistent_critiques),
-                "transparency": "This answer includes quality warnings due to unresolved issues after multiple improvement attempts."
-            }
-            
-        except Exception as e:
-            self.logger.error(f"Escalated answer synthesis failed: {e}")
-            return {
-                "content": f"I apologize, but I encountered difficulties providing a complete answer to your question. The system detected quality issues that couldn't be fully resolved: {quality_warning}",
-                "status": "error",
-                "quality_warning": quality_warning
-            }
-    
-    async def _synthesize_deadlock_answer(
-        self, 
-        query: str, 
-        draft_content: str, 
-        unresolved_critiques: List[Dict[str, Any]], 
-        context: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
-        """Synthesize answer for deadlock situation with transparency"""
+        # Filter for only low-severity issues
+        minor_issues = [c for c in critiques if c.get("severity") == "low"]
+        minor_issues_str = self._format_issues(minor_issues) if minor_issues else "None"
         
-        try:
-            unresolved_summary = self._format_unresolved_issues(unresolved_critiques)
-            context_summary = self._format_context_summary(context)
-            
-            prompt = f"""
-            {self.system_prompt}
-            
-            SITUATION: The debate process reached a deadlock without full convergence. You need to provide the best possible answer while being transparent about limitations.
-            
-            ORIGINAL QUERY:
-            {query}
-            
-            BEST AVAILABLE DRAFT:
-            {draft_content}
-            
-            UNRESOLVED ISSUES:
-            {unresolved_summary}
-            
-            SUPPORTING CONTEXT:
-            {context_summary}
-            
-            Please create a transparent, educational response using this structure:
-            
-            ## PARTIAL SOLUTION
-            [Present the best available information and reasoning, clearly indicating confidence levels]
-            
-            ## AREAS OF UNCERTAINTY
-            [Honestly discuss unresolved aspects, conflicting information, or gaps in knowledge]
-            
-            ## WHAT WE CAN CONCLUDE
-            [Clearly state what can be confidently concluded from available information]
-            
-            ## RECOMMENDATIONS FOR FURTHER EXPLORATION
-            [Suggest specific areas for additional research or verification]
-            
-            Requirements:
-            - Be completely honest about limitations
-            - Still provide maximum educational value
-            - Maintain academic integrity
-            - Guide user toward reliable sources for unclear areas
-            """
-            
-            response = await self._call_llm(prompt, temperature=0.2)
-            
-            if response:
-                return self._parse_structured_answer(response, deadlock_mode=True)
-            else:
-                raise Exception("No response from LLM for deadlock synthesis")
-                
-        except Exception as e:
-            self.logger.error(f"Deadlock answer synthesis failed: {str(e)}")
-            # Fallback with transparency message
-            return {
-                "partial_solution": draft_content or "Unable to provide complete solution due to unresolved issues.",
-                "areas_of_uncertainty": "Multiple technical issues prevented full verification of this response.",
-                "recommendations": "Please consult additional authoritative sources for verification."
-            }
-    
-    async def _synthesize_fallback_answer(
-        self, 
-        query: str, 
-        draft_content: str, 
-        context: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
-        """Synthesize basic answer as fallback"""
+        # Format CoT
+        cot_str = self._format_cot(draft["chain_of_thought"])
         
-        return {
-            "introduction": f"In response to your query: {query}",
-            "step_by_step_solution": draft_content or "Unable to generate complete solution.",
-            "key_takeaways": "Additional analysis would be needed for complete insights.",
-            "important_notes": "This response may require further verification."
+        # Generate synthesis
+        synthesis_inputs = {
+            'query': query,
+            'draft': draft["content"],
+            'cot': cot_str,
+            'minor_issues': minor_issues_str,
+            'status': "converged",
+            'quality_score': convergence_score
         }
-    
-    def _format_chain_of_thought_summary(self, chain_of_thought: List[Dict[str, Any]]) -> str:
-        """Format Chain of Thought for synthesis prompt"""
         
-        if not chain_of_thought:
-            return "No detailed reasoning process available."
-        
-        formatted_steps = []
-        for step in chain_of_thought:
-            step_num = step.get('step', 'N/A')
-            thought = step.get('thought', '')
-            details = step.get('details', [])
-            
-            formatted_step = f"Step {step_num}: {thought}"
-            if details:
-                formatted_step += f"\n  - {'; '.join(details[:3])}"  # Limit details
-            
-            formatted_steps.append(formatted_step)
-        
-        return "\n".join(formatted_steps)
-    
-    def _format_minor_issues(self, critiques: List[Dict[str, Any]]) -> str:
-        """Format minor remaining issues for synthesis"""
-        
-        if not critiques:
-            return "No minor issues to address."
-        
-        issue_descriptions = []
-        for critique in critiques[:5]:  # Limit to most important
-            severity = critique.get('severity', 'unknown')
-            description = critique.get('description', 'No description')
-            issue_type = critique.get('type', 'unknown')
-            
-            issue_descriptions.append(f"• ({severity}) {description}")
-        
-        return f"Minor issues to integrate naturally:\n" + "\n".join(issue_descriptions)
-    
-    def _format_unresolved_issues(self, critiques: List[Dict[str, Any]]) -> str:
-        """Format unresolved issues for deadlock transparency"""
-        
-        if not critiques:
-            return "No specific unresolved issues documented."
-        
-        # Group by severity for clear presentation
-        by_severity = {}
-        for critique in critiques:
-            severity = critique.get('severity', 'medium')
-            if severity not in by_severity:
-                by_severity[severity] = []
-            by_severity[severity].append(critique.get('description', 'No description'))
-        
-        formatted_issues = []
-        for severity in ['critical', 'high', 'medium', 'low']:
-            if severity in by_severity:
-                issues = by_severity[severity][:3]  # Limit per severity
-                formatted_issues.append(f"{severity.upper()} ISSUES:")
-                for issue in issues:
-                    formatted_issues.append(f"• {issue}")
-        
-        return "\n".join(formatted_issues)
-    
-    def _format_context_summary(self, context: List[Dict[str, Any]]) -> str:
-        """Format context sources for synthesis"""
-        
-        if not context:
-            return "No additional context sources available."
-        
-        summaries = []
-        for i, ctx_item in enumerate(context[:3]):  # Limit to top sources
-            text = ctx_item.get('text', ctx_item.get('content', ''))
-            score = ctx_item.get('score', 'N/A')
-            source = ctx_item.get('source', {})
-            
-            summary = f"Source {i+1} (Relevance: {score}):\n{text[:300]}..."
-            summaries.append(summary)
-        
-        return "\n\n".join(summaries)
-    
-    def _parse_structured_answer(self, response: str, deadlock_mode: bool = False) -> Dict[str, Any]:
-        """Parse LLM response into structured answer format"""
-        
-        answer = {}
-        
+        # Log the ACTUAL synthesis prompt
         try:
-            # Split response into sections
-            sections = {}
-            current_section = None
-            current_content = []
-            
-            for line in response.split('\n'):
-                line = line.strip()
-                
-                if line.startswith('## '):
-                    # Save previous section
-                    if current_section:
-                        sections[current_section] = '\n'.join(current_content)
-                    
-                    # Start new section
-                    current_section = line[3:].strip().lower().replace(' ', '_')
-                    current_content = []
-                    
-                elif current_section and line:
-                    current_content.append(line)
-            
-            # Save last section
-            if current_section:
-                sections[current_section] = '\n'.join(current_content)
-            
-            # Map sections to answer structure
-            if deadlock_mode:
-                answer["partial_solution"] = sections.get('partial_solution', response)
-                answer["areas_of_uncertainty"] = sections.get('areas_of_uncertainty', '')
-                answer["what_we_can_conclude"] = sections.get('what_we_can_conclude', '')
-                answer["recommendations_for_further_exploration"] = sections.get('recommendations_for_further_exploration', '')
-            else:
-                answer["introduction"] = sections.get('introduction', '')
-                answer["step_by_step_solution"] = sections.get('step-by-step_solution', sections.get('step_by_step_solution', response))
-                answer["key_takeaways"] = sections.get('key_takeaways', '')
-                answer["important_notes"] = sections.get('important_notes', '')
-            
+            prompt_value = self.synthesis_chain.prompt.format_prompt(**synthesis_inputs)
+            messages = prompt_value.to_messages()
+            self.logger.info(">>> ACTUAL REPORTER SYNTHESIS PROMPT <<<")
+            simple_log.info(">>> ACTUAL REPORTER SYNTHESIS PROMPT <<<")
+            self.logger.info("START_SYNTHESIS_PROMPT" + "="*229)
+            simple_log.info("START_SYNTHESIS_PROMPT" + "="*229)
+            for i, msg in enumerate(messages):
+                self.logger.info(f"Message {i+1}: {msg.content}")
+                simple_log.info(f"Message {i+1}: {msg.content}")
+            self.logger.info("END_SYNTHESIS_PROMPT" + "="*231)
+            simple_log.info("END_SYNTHESIS_PROMPT" + "="*231)
+            self.logger.info(f"Total prompt length: {sum(len(msg.content) for msg in messages)} characters")
+            simple_log.info(f"Total prompt length: {sum(len(msg.content) for msg in messages)} characters")
         except Exception as e:
-            self.logger.warning(f"️ Answer parsing failed, using raw response: {str(e)}")
-            # Fallback to raw response
-            if deadlock_mode:
-                answer["partial_solution"] = response
-            else:
-                answer["step_by_step_solution"] = response
+            self.logger.error(f"Could not log synthesis prompt: {e}")
+        
+        # Use arun for proper variable substitution
+        response = await self.synthesis_chain.arun(**synthesis_inputs)
+        
+        # Parse response into structured format
+        answer = self._parse_synthesis(response)
+        answer["type"] = "complete"
+        answer["confidence_score"] = convergence_score
         
         return answer
     
-    def _create_fallback_structure(self, content: str, query: str) -> Dict[str, Any]:
-        """Create basic fallback structure"""
-        return {
-            "introduction": f"Addressing your question: {query}",
-            "step_by_step_solution": content or "Unable to generate complete solution.",
-            "key_takeaways": "This response was generated with limited verification.",
-            "important_notes": "Please verify this information with additional sources."
-        }
-    
-    def _enhance_with_metadata(
-        self, 
-        answer: Dict[str, Any], 
-        context: List[Dict[str, Any]], 
-        quality_score: float, 
-        debate_status: str
+    async def _synthesize_incomplete(
+        self,
+        query: str,
+        draft: Dict,
+        critiques: List[Dict],
+        status: str,
+        convergence_score: float
     ) -> Dict[str, Any]:
-        """Enhance answer with confidence score, sources, and metadata"""
+        """Synthesize answer for incomplete/problematic debate"""
         
-        enhanced = answer.copy()
+        # Format unresolved issues
+        unresolved = [c for c in critiques if c.get("severity") in ["critical", "high"]]
+        issues_str = self._format_issues(unresolved)
         
-        # Add confidence score
-        enhanced["confidence_score"] = quality_score
+        # Determine reason
+        reason_map = {
+            "abort_deadlock": "Could not resolve all issues within iteration limit",
+            "escalate_with_warning": "Quality concerns require additional review",
+            "unexpected_state": "Unexpected termination of debate process"
+        }
+        reason = reason_map.get(status, "Unknown termination reason")
         
-        # Add source attribution
-        sources = []
-        for ctx_item in context[:5]:  # Limit sources
-            source_info = ctx_item.get('source', {})
-            score = ctx_item.get('score', 'N/A')
-            
-            if isinstance(source_info, dict):
-                # Extract meaningful source information
-                source_id = source_info.get('document_id', source_info.get('course_id', 'Unknown'))
-                sources.append(f"{source_id} (relevance: {score})")
-            else:
-                sources.append(str(source_info))
-        
-        enhanced["sources"] = sources
-        
-        # Add quality indicators
-        enhanced["quality_indicators"] = {
-            "debate_status": debate_status,
-            "verification_level": "high" if quality_score > 0.8 else "medium" if quality_score > 0.5 else "limited",
-            "context_support": "strong" if len(context) >= 3 else "moderate" if len(context) >= 1 else "limited"
+        # Generate fallback synthesis
+        fallback_inputs = {
+            'query': query,
+            'draft': draft["content"] if draft else "No draft available",
+            'issues': issues_str,
+            'status': status,
+            'reason': reason
         }
         
-        return enhanced
+        # Log the ACTUAL fallback prompt
+        try:
+            prompt_value = self.fallback_chain.prompt.format_prompt(**fallback_inputs)
+            messages = prompt_value.to_messages()
+            self.logger.info(">>> ACTUAL REPORTER FALLBACK PROMPT <<<")
+            simple_log.info(">>> ACTUAL REPORTER FALLBACK PROMPT <<<")
+            self.logger.info("START_FALLBACK_PROMPT" + "="*229)
+            simple_log.info("START_FALLBACK_PROMPT" + "="*229)
+            for i, msg in enumerate(messages):
+                self.logger.info(f"Message {i+1}: {msg.content}")
+                simple_log.info(f"Message {i+1}: {msg.content}")
+            self.logger.info("END_FALLBACK_PROMPT" + "="*231)
+            simple_log.info("END_FALLBACK_PROMPT" + "="*231)
+        except Exception as e:
+            self.logger.error(f"Could not log fallback prompt: {e}")
+        
+        # Use arun for proper substitution
+        response = await self.fallback_chain.arun(**fallback_inputs)
+        
+        # Parse response
+        answer = self._parse_fallback(response)
+        answer["type"] = "partial"
+        answer["confidence_score"] = min(convergence_score, 0.7)  # Cap confidence
+        answer["warning"] = reason
+        
+        return answer
     
-    async def _call_llm(self, prompt: str, temperature: float) -> str:
-        """
-        Call LLM with error handling, retry logic, and proper async interface support.
-        
-        Handles different LLM client types:
-        - LangChain clients with ainvoke method (Cerebras, Gemini)
-        - OpenAI client with generate_async method
-        - Other clients with synchronous generate method
-        
-        Includes retry logic for server-side errors (up to 3 attempts).
-        """
-        async def _llm_operation():
-            if hasattr(self.llm_client, 'get_llm_client'):
-                llm = self.llm_client.get_llm_client()
-                # Check if the underlying client has ainvoke (LangChain compatibility)
-                if hasattr(llm, 'ainvoke'):
-                    response = await llm.ainvoke(prompt, temperature=temperature)
-                    content = response.content if hasattr(response, 'content') else str(response)
-                    
-                    # DEBUG: Log what the agents system generates (from both branches)
-                    print("=== DEBUG AGENT SYSTEM OUTPUT (ainvoke) ===")
-                    print("AGENT LLM RESPONSE:", repr(content[:1000]))  # First 1000 chars
-                    print("==========================================")
-                    
-                    return content
-                else:
-                    # For raw clients (like OpenAI), use the wrapper's async method
-                    if hasattr(self.llm_client, 'generate_async'):
-                        response = await self.llm_client.generate_async(prompt, temperature=temperature)
-                        content_str = str(response)
-                        
-                        # DEBUG: Log what the agents system generates
-                        print("=== DEBUG AGENT SYSTEM OUTPUT (generate_async) ===")
-                        print("AGENT LLM RESPONSE:", repr(content_str[:1000]))  # First 1000 chars
-                        print("==================================================")
-                        
-                        return content_str
-                    else:
-                        # Last resort: synchronous generate
-                        response = self.llm_client.generate(prompt, temperature=temperature)
-                        return str(response)
-            else:
-                # Direct client interface - check for async support first
-                if hasattr(self.llm_client, 'generate_async'):
-                    response = await self.llm_client.generate_async(prompt, temperature=temperature)
-                    content_str = str(response)
-                    
-                    # DEBUG: Log what the agents system generates
-                    print("=== DEBUG AGENT SYSTEM OUTPUT (direct generate_async) ===")
-                    print("AGENT LLM RESPONSE:", repr(content_str[:1000]))  # First 1000 chars
-                    print("=========================================================")
-                    
-                    return content_str
-                else:
-                    # Fallback to synchronous generate (should not be called with await, but handle gracefully)
-                    response = self.llm_client.generate(prompt, temperature=temperature)
-                    content_str = str(response)
-                    
-                    # DEBUG: Log fallback response (preserving development branch logging)
-                    print("=== DEBUG AGENT SYSTEM OUTPUT (fallback) ===")
-                    print("AGENT LLM RESPONSE:", repr(content_str))  # Full content
-                    print("============================================")
-                    
-                    return content_str
+    async def _assess_quality(
+        self,
+        answer: Dict,
+        rounds: int,
+        convergence_score: float,
+        critiques: List[Dict]
+    ) -> Dict[str, float]:
+        """Assess quality indicators of the final answer"""
         
         try:
-            # Use retry mechanism for server-side errors
-            return await self._retry_with_backoff(_llm_operation, max_retries=3, base_delay=1.0)
-        except Exception as e:
-            self.logger.error(f"LLM call failed after all retries: {str(e)}")
-            return ""
-
-    async def _call_llm_stream(self, prompt: str, temperature: float):
-        """
-        Call LLM with streaming support for all model types.
-        
-        Supports Cerebras, OpenAI GPT, and Gemini models with faster streaming.
-        Includes retry logic for server-side errors.
-        """
-        import asyncio
-        
-        async def _stream_operation():
-            if hasattr(self.llm_client, 'generate_stream'):
-                print("=== STARTING CEREBRAS STREAMING ===")
-                chunk_count = 0
-                
-                # All clients now support temperature parameter in generate_stream
-                async for chunk in self.llm_client.generate_stream(prompt, temperature=temperature):
-                    if chunk:
-                        chunk_count += 1
-                        yield chunk
-                        # Reduced delay for faster streaming - only yield control periodically
-                        if chunk_count % 3 == 0:  # Every 3rd chunk
-                            await asyncio.sleep(0.01)  # 10ms delay (reduced from 50ms)
-                print("=== CEREBRAS STREAMING COMPLETE ===")
-            else:
-                # Fallback to non-streaming if streaming not available
-                response = await self._call_llm(prompt, temperature)
-                # Simulate streaming by chunking the response with faster delivery
-                chunk_size = 15  # Smaller chunks for smoother appearance
-                for i in range(0, len(response), chunk_size):
-                    yield response[i:i+chunk_size]
-                    # Faster simulated streaming
-                    await asyncio.sleep(0.02)  # 20ms delay per chunk
-        
-        retry_count = 0
-        max_retries = 3
-        
-        while retry_count < max_retries:
+            # Calculate issues resolved
+            total_issues = len(critiques)
+            resolved_issues = len([c for c in critiques if c.get("severity") == "low"])
+            issues_resolved = f"{resolved_issues}/{total_issues}"
+            
+            # Get quality assessment
+            quality_inputs = {
+                'answer': str(answer),
+                'rounds': rounds,
+                'convergence_score': convergence_score,
+                'issues_resolved': issues_resolved
+            }
+            
+            # Log the ACTUAL quality assessment prompt
             try:
-                async for chunk in _stream_operation():
-                    yield chunk
-                return  # Success, exit retry loop
+                prompt_value = self.quality_assessment_chain.prompt.format_prompt(**quality_inputs)
+                messages = prompt_value.to_messages()
+                self.logger.info(">>> ACTUAL QUALITY ASSESSMENT PROMPT <<<")
+                simple_log.info(">>> ACTUAL QUALITY ASSESSMENT PROMPT <<<")
+                self.logger.info("START_QUALITY_PROMPT" + "="*229)
+                simple_log.info("START_QUALITY_PROMPT" + "="*229)
+                for i, msg in enumerate(messages):
+                    self.logger.info(f"Message {i+1}: {msg.content}")
+                    simple_log.info(f"Message {i+1}: {msg.content}")
+                self.logger.info("END_QUALITY_PROMPT" + "="*231)
+                simple_log.info("END_QUALITY_PROMPT" + "="*231)
             except Exception as e:
-                retry_count += 1
-                
-                # Only retry for server-side errors
-                if not self._is_server_side_error(e):
-                    self.logger.error(f"Non-retryable streaming error: {str(e)}")
-                    yield f"Error: {str(e)}"
-                    return
-                
-                if retry_count < max_retries:
-                    delay = 1.0 * (2 ** (retry_count - 1))  # Exponential backoff
-                    self.logger.warning(
-                        f"Streaming error (attempt {retry_count}/{max_retries}): {str(e)}. "
-                        f"Retrying in {delay:.1f}s..."
-                    )
-                    yield f"[Connection error, retrying in {delay:.0f}s...]\n"
-                    await asyncio.sleep(delay)
-                else:
-                    self.logger.error(f"All {max_retries} streaming retry attempts failed: {str(e)}")
-                    yield f"Error after {max_retries} attempts: {str(e)}"
-
-    async def process_streaming(self, agent_input: AgentInput):
+                self.logger.error(f"Could not log quality prompt: {e}")
+            
+            # Use arun for proper substitution
+            response = await self.quality_assessment_chain.arun(**quality_inputs)
+            
+            # Parse indicators
+            indicators = {}
+            for line in response.split("\n"):
+                for metric in ["COMPLETENESS", "CLARITY", "ACCURACY", "PEDAGOGICAL_VALUE"]:
+                    if metric in line:
+                        try:
+                            score = float(line.split(":")[-1].strip())
+                            indicators[metric.lower()] = score
+                        except:
+                            pass
+            
+            # Ensure all metrics present
+            for metric in ["completeness", "clarity", "accuracy", "pedagogical_value"]:
+                if metric not in indicators:
+                    indicators[metric] = 0.5  # Default
+            
+            return indicators
+            
+        except Exception as e:
+            self.logger.error(f"Quality assessment failed: {e}")
+            return {
+                "completeness": convergence_score,
+                "clarity": 0.7,
+                "accuracy": convergence_score,
+                "pedagogical_value": 0.7
+            }
+    
+    def _parse_synthesis(self, response: str) -> Dict[str, Any]:
+        """Parse structured synthesis response"""
+        answer = {
+            "introduction": "",
+            "step_by_step_solution": "",
+            "key_takeaways": "",
+            "important_notes": ""
+        }
+        
+        current_section = None
+        current_content = []
+        
+        for line in response.split("\n"):
+            # Check for section headers
+            if line.startswith("INTRODUCTION:"):
+                current_section = "introduction"
+                current_content = [line.replace("INTRODUCTION:", "").strip()]
+            elif line.startswith("STEP_BY_STEP_SOLUTION:"):
+                if current_section and current_content:
+                    answer[current_section] = "\n".join(current_content)
+                current_section = "step_by_step_solution"
+                current_content = [line.replace("STEP_BY_STEP_SOLUTION:", "").strip()]
+            elif line.startswith("KEY_TAKEAWAYS:"):
+                if current_section and current_content:
+                    answer[current_section] = "\n".join(current_content)
+                current_section = "key_takeaways"
+                current_content = [line.replace("KEY_TAKEAWAYS:", "").strip()]
+            elif line.startswith("SOURCES:"):
+                if current_section and current_content:
+                    answer[current_section] = "\n".join(current_content)
+                current_section = None
+            elif current_section:
+                current_content.append(line)
+        
+        # Save last section
+        if current_section and current_content:
+            answer[current_section] = "\n".join(current_content)
+        
+        # Fallback if parsing fails
+        if not answer["step_by_step_solution"]:
+            answer["step_by_step_solution"] = response
+        
+        return answer
+    
+    def _parse_fallback(self, response: str) -> Dict[str, Any]:
+        """Parse fallback synthesis response"""
+        answer = {
+            "introduction": "",
+            "step_by_step_solution": "",
+            "key_takeaways": "",
+            "unresolved_areas": "",
+            "recommendations": ""
+        }
+        
+        # Similar parsing logic for fallback format
+        sections = ["INTRODUCTION", "PARTIAL_SOLUTION", "UNRESOLVED_AREAS", "RECOMMENDATIONS"]
+        current_section = None
+        current_content = []
+        
+        for line in response.split("\n"):
+            found_section = False
+            for section in sections:
+                if line.startswith(f"{section}:"):
+                    if current_section and current_content:
+                        key = current_section.lower().replace("partial_solution", "step_by_step_solution")
+                        answer[key] = "\n".join(current_content)
+                    current_section = section
+                    current_content = [line.replace(f"{section}:", "").strip()]
+                    found_section = True
+                    break
+            
+            if not found_section and current_section:
+                current_content.append(line)
+        
+        # Save last section
+        if current_section and current_content:
+            key = current_section.lower().replace("partial_solution", "step_by_step_solution")
+            answer[key] = "\n".join(current_content)
+        
+        return answer
+    
+    def _format_issues(self, issues: List[Dict]) -> str:
+        """Format issues for display"""
+        if not issues:
+            return "None"
+        
+        lines = []
+        for issue in issues:  # All issues
+            severity = issue.get("severity", "").upper()
+            desc = issue.get("description", "")  # Keep full description - no truncation
+            lines.append(f"- [{severity}] {desc}")
+        
+        # Remove arbitrary limit - show all issues
+        
+        return "\n".join(lines)
+    
+    def _format_cot(self, chain_of_thought: List[Dict]) -> str:
+        """Format Chain of Thought"""
+        if not chain_of_thought:
+            return "Direct solution provided"
+        
+        lines = []
+        for step in chain_of_thought:
+            lines.append(f"Step {step['step']}: {step['thought']}")
+        
+        return "\n".join(lines)
+    
+    def _extract_sources(self, retrieval_results: List[Dict]) -> List[str]:
+        """Extract unique sources from retrieval results"""
+        sources = set()
+        
+        for result in retrieval_results[:10]:  # Top 10 results
+            source = result.get("source", "")
+            if source:
+                sources.add(source)
+        
+        return list(sources)
+    
+    async def process_streaming(self, state: WorkflowState) -> Any:
         """
         Stream the final answer synthesis for Cerebras in Problem-Solving mode.
         
         This method streams the final reporter response directly to the frontend
         instead of collecting the full response first.
         """
+        import asyncio
+        from typing import AsyncGenerator
+        
         try:
-            # Extract debate results (same as non-streaming version)
-            draft_content = agent_input.metadata.get('draft_content', '')
-            chain_of_thought = agent_input.metadata.get('chain_of_thought', [])
-            final_draft_status = agent_input.metadata.get('final_draft_status', {})
-            remaining_critiques = agent_input.metadata.get('remaining_critiques', [])
-            context = agent_input.context
-            original_query = agent_input.query
+            # Extract debate results from state
+            draft = state.get("draft", {})
+            draft_content = draft.get("content", "")
+            chain_of_thought = state.get("chain_of_thought", [])
+            critiques = state.get("critiques", [])
+            retrieval_results = state.get("retrieval_results", [])
+            original_query = state.get("query", "")
+            moderator_decision = state.get("moderator_decision", "approved")
             
-            debate_status = final_draft_status.get('status', 'approved')
-            
-            self.logger.info(f"Reporter streaming final answer for debate status: {debate_status}")
+            self.logger.info(f"Reporter streaming final answer for debate status: {moderator_decision}")
+            simple_log.info(f"Reporter streaming final answer for debate status: {moderator_decision}")
             
             # Stream based on debate outcome
-            if debate_status == "approved":
+            if moderator_decision in ["approved", "conditionally_approved"]:
                 async for chunk in self._stream_approved_answer(
-                    original_query, draft_content, chain_of_thought, remaining_critiques, context
+                    original_query, draft_content, chain_of_thought, critiques, retrieval_results
                 ):
                     yield chunk
             else:
-                # For deadlock or other cases, fall back to non-streaming for now
-                result = await self.process(agent_input)
-                answer = result.content.get('final_answer', {})
+                # For deadlock or other cases, use non-streaming synthesis
+                # Call the main __call__ method to get the final answer
+                result = await self.__call__(state)
+                answer = result.get("final_answer", {})
                 
                 # Stream the pre-formatted response
                 full_text = self._format_answer_for_streaming(answer)
                 chunk_size = 20
                 for i in range(0, len(full_text), chunk_size):
                     yield full_text[i:i+chunk_size]
+                    await asyncio.sleep(0.01)
                     
         except Exception as e:
             self.logger.error(f"Streaming reporter failed: {str(e)}")
             yield f"Error generating response: {str(e)}"
-
+    
     async def _stream_approved_answer(
         self, 
         query: str, 
@@ -719,16 +637,17 @@ class ReporterAgent(BaseAgent):
         chain_of_thought: List[Dict[str, Any]], 
         remaining_critiques: List[Dict[str, Any]], 
         context: List[Dict[str, Any]]
-    ):
+    ) -> AsyncGenerator[str, None]:
         """Stream the synthesis of an approved answer"""
+        import asyncio
+        
         try:
-            # Build the same prompt as non-streaming version
-            cot_summary = self._format_chain_of_thought_summary(chain_of_thought)
-            minor_issues = self._format_minor_issues(remaining_critiques)
-            context_summary = self._format_context_summary(context)
+            # Build prompt for streaming synthesis
+            cot_summary = self._format_cot(chain_of_thought)
+            minor_issues = self._format_issues(remaining_critiques)
             
             prompt = f"""
-            {self.system_prompt}
+            You are a senior academic writer tasked with synthesizing verified debate results into a polished final answer.
             
             ORIGINAL QUERY:
             {query}
@@ -741,9 +660,6 @@ class ReporterAgent(BaseAgent):
             
             MINOR REMAINING ISSUES TO ADDRESS:
             {minor_issues}
-            
-            SUPPORTING CONTEXT:
-            {context_summary}
             
             Please synthesize this into a final, polished answer using this structure:
             
@@ -760,32 +676,34 @@ class ReporterAgent(BaseAgent):
             [Any limitations, assumptions, or areas requiring caution - address minor issues transparently]
             
             Requirements:
-            - **CLEAN UP FORMATTING ISSUES**: Fix broken sentences, missing punctuation, fragmented text from document parsing
-            - **FORMAT MATH FOR KATEX**: Use proper LaTeX syntax - inline math: $f(x) = x^2$, display math: $$f(x) = x^2$$
-            - **FIX MATHEMATICAL EXPRESSIONS ONLY**: Complete broken formulas (e.g., "f(x) = x^" → "$f(x) = x^2$"), integrate scattered math symbols with $ delimiters
-            - **NO LONE MATH SYMBOLS**: Never leave symbols like π on separate lines - integrate them into complete sentences or expressions
-            - **COMPLETE ALL BROKEN FORMULAS**: Fix incomplete expressions and fragmented mathematical content
-            - **FIX SENTENCE FRAGMENTS**: Combine broken text pieces into complete, flowing sentences, remove trailing "and" or incomplete endings
-            - **SYNTHESIZE CONCISELY**: Transform raw retrieved content into coherent explanations without unnecessary expansion
-            - **FIX DOCUMENT PARSING ARTIFACTS**: Remove formatting errors, incomplete sentences, and garbled text
-            - **CREATE PROPER FLOW**: Ensure logical transitions between concepts and ideas
-            - **USE ACADEMIC WRITING STYLE**: Clear, professional, and educational tone
-            - **NO DOCUMENT REFERENCES**: Don't mention "Document 1", "according to sources", or "based on provided materials" - present information naturally
-            - **KEEP ORIGINAL SCOPE**: Don't expand beyond the original content's scope unless necessary for clarity
-            - Integrate minor issues seamlessly (don't ignore them, but address them naturally)
+            - Use proper LaTeX syntax for math - inline: $f(x) = x^2$, display: $$f(x) = x^2$$
+            - Create proper flow with logical transitions between concepts
+            - Use academic writing style: clear, professional, and educational
+            - Don't mention sources or documents - present information naturally
+            - Integrate minor issues seamlessly without ignoring them
             - Maintain educational value and clear explanations
-            - Use a confident but honest tone
-            - Ensure accuracy and logical flow
+            
+            Your output should follow this format: Express your logic using mathematical language and logical symbols whenever possible, especially in mathematics and physics; (use abbreviations like s.t. frequently)
+
+            Provide concise explanations in natural English (note: use only English under all circumstances); however, do not place explanations within the same paragraph as equations.
+
+            Avoid unnecessarily complicating the problem. If you believe this question could be posed to a high school student or freshman, solve it using methods accessible to those students. For complex problems, use ample line breaks and expand your explanations.
             """
             
-            # Stream the LLM response directly
-            async for chunk in self._call_llm_stream(prompt, temperature=0.3):
-                yield chunk
+            # Stream the LLM response directly using LangChain's streaming
+            llm = create_langchain_llm(self.llm_client, temperature=0.3, streaming=True)
+            
+            # Use LangChain's async streaming
+            async for chunk in llm.astream(prompt):
+                if hasattr(chunk, 'content'):
+                    yield chunk.content
+                else:
+                    yield str(chunk)
                 
         except Exception as e:
             self.logger.error(f"Streaming approved answer failed: {str(e)}")
             yield f"Error: {str(e)}"
-
+    
     def _format_answer_for_streaming(self, answer: Dict[str, Any]) -> str:
         """Format a structured answer into a single text for streaming"""
         parts = []
@@ -803,3 +721,4 @@ class ReporterAgent(BaseAgent):
             parts.append(f"## Important Notes\n{answer['important_notes']}\n")
         
         return "\n".join(parts)
+

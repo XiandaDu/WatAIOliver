@@ -582,7 +582,7 @@ start_agent() {
   export_root_env
   local log="$LOG_DIR/ai_agents.log" pidf="$PID_DIR/ai_agents.pid"
   info "Starting Agent System (port $AGENT_PORT) ..."
-  ( cd "$ROOT_DIR" && PYTHONPATH="$ML_DIR" nohup python -m uvicorn ai_agents.app.main:app --reload --host 0.0.0.0 --port "$AGENT_PORT" >>"$log" 2>&1 & echo $! >"$pidf" )
+  ( cd "$ROOT_DIR" && PYTHONPATH="$ML_DIR" nohup python -m uvicorn ai_agents.service:app --reload --host 0.0.0.0 --port "$AGENT_PORT" >>"$log" 2>&1 & echo $! >"$pidf" )
   ok "Agent System started. Log: $log"
 }
 
@@ -718,3 +718,4 @@ case "$cmd" in
   -h|--help|help) usage ;;
   *)        usage; exit 1 ;;
 esac
+
