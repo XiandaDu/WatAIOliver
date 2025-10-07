@@ -257,7 +257,36 @@ Format each tip on a new line starting with "TIP:".""")
             simple_log.info(json.dumps(formatted_output, indent=2))
             self.logger.info("="*250)
             simple_log.info("="*250)
-            
+
+            # Send progress callback with tutor interaction details (only once per workflow)
+            if self.context.progress_callback and not state.get("_tutor_progress_sent", False):
+                try:
+                    # Count element types
+                    element_types = {}
+                    for elem in interaction.get("elements", []):
+                        elem_type = elem.get("type", "unknown")
+                        element_types[elem_type] = element_types.get(elem_type, 0) + 1
+
+                    progress_data = {
+                        "status": "in_progress",
+                        "stage": "tutor",
+                        "message": f"✅ Educational content prepared ({len(interaction.get('elements', []))} elements)",
+                        "agent": "tutor",
+                        "details": {
+                            "type": "tutor_complete",
+                            "interaction_type": interaction_type,
+                            "total_elements": len(interaction.get("elements", [])),
+                            "element_types": element_types,
+                            "has_practice_problems": any(e.get("type") == "practice_problem" for e in interaction.get("elements", []))
+                        }
+                    }
+                    self.logger.info(f"Tutor: Sending progress update")
+                    self.context.progress_callback(progress_data)
+                    # Mark that we've sent the progress update
+                    state["_tutor_progress_sent"] = True
+                except Exception as e:
+                    self.logger.error(f"Failed to send tutor progress: {e}")
+
             # Update state
             state["tutor_interaction"] = interaction
             state["workflow_status"] = "tutoring"

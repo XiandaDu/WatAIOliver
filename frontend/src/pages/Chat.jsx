@@ -8,6 +8,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { WelcomeScreen } from "@/components/WelcomeScreen";
 import { ChatInterface } from "@/components/ChatInterface";
 import { extractHtml } from "@/lib/extractHtml";
+import { useReasoningStream } from "@/hooks/useReasoningStream";
 
 export default function ChatPage() {
   const navigate = useNavigate();
@@ -47,6 +48,17 @@ export default function ChatPage() {
     message: "",
     visible: false,
   });
+
+  // Reasoning panel state
+  const [showReasoning, setShowReasoning] = useState(false);
+  const reasoning = useReasoningStream(showReasoning && selectedModel === "rag");
+
+  // Clear reasoning panel when switching conversations
+  useEffect(() => {
+    if (selectedModel === "rag" && showReasoning) {
+      reasoning.clearSteps();
+    }
+  }, [selectedConversation]);
 
   const modelOptions = [
     {
@@ -363,6 +375,11 @@ export default function ChatPage() {
     e.preventDefault();
     if (!input.trim() && !experimental_attachments?.length) return;
 
+    // Clear reasoning panel for new query
+    if (selectedModel === "rag" && showReasoning) {
+      reasoning.clearSteps();
+    }
+
     // console.log("Submit - Input value:", input);
     // console.log("Submit - Input trimmed:", input.trim());
     // console.log(
@@ -662,6 +679,147 @@ export default function ChatPage() {
                   // Parse JSON chunk (unified format for daily and agent modes)
                   const chunk = JSON.parse(content_from_line);
                   receivedContent += chunk.content || "";
+
+                  // Extract reasoning information for Problem Solving mode
+                  if (selectedModel === "rag" && showReasoning) {
+                    console.log("🔍 REASONING DEBUG - SSE Chunk:", chunk);
+                    console.log("🔍 REASONING DEBUG - Keys:", Object.keys(chunk));
+
+                    // Check for multiple reasoning formats from backend
+                    let stage = "", message = "", agent = "", details = null;
+
+                    // Format 1: New reasoning object format
+                    if (chunk.reasoning && chunk.reasoning.status === "in_progress") {
+                      stage = chunk.reasoning.stage || "";
+                      message = chunk.reasoning.message || "";
+                      agent = chunk.reasoning.agent || "";
+                      details = chunk.reasoning.details || null;
+                      console.log("🎯 NEW FORMAT - Stage:", stage, "Message:", message, "Agent:", agent);
+                      if (details) console.log("🔍 RAG DETAILS:", details);
+                    }
+                    // Format 2: Direct agent fields (from modified backend)
+                    else if (chunk.status === "in_progress" || chunk.agent) {
+                      stage = chunk.stage || "";
+                      message = chunk.message || "";
+                      agent = chunk.agent || "";
+                      details = chunk.details || null;
+                      console.log("🎯 DIRECT FORMAT - Stage:", stage, "Message:", message, "Agent:", agent);
+                      if (details) console.log("🔍 RAG DETAILS:", details);
+                    }
+
+                    if (stage || message || agent) {
+
+                      // Enhanced agent detection from stage/message/agent fields
+                      let detectedAgent = null;
+                      let stepInfo = null;
+
+                      // Priority 1: Use direct agent field if available
+                      if (agent) {
+                        detectedAgent = agent.toLowerCase();
+                      }
+
+                      // Priority 2: Extract from stage/message text with enhanced detection
+                      if (!detectedAgent) {
+                        const stageText = stage.toLowerCase();
+                        const messageText = message.toLowerCase();
+                        const combinedText = `${stageText} ${messageText}`;
+
+                        // Enhanced detection patterns
+                        if (combinedText.includes('retrieve') || combinedText.includes('search') || combinedText.includes('knowledge') || combinedText.includes('rag') || combinedText.includes('found') || combinedText.includes('documents')) {
+                          detectedAgent = 'retrieve';
+                        } else if (combinedText.includes('strategist') || combinedText.includes('strategy') || combinedText.includes('planning') || combinedText.includes('draft') || combinedText.includes('analyz') || combinedText.includes('formulat')) {
+                          detectedAgent = 'strategist';
+                        } else if (combinedText.includes('critic') || combinedText.includes('critique') || combinedText.includes('review') || combinedText.includes('feedback') || combinedText.includes('evaluat')) {
+                          detectedAgent = 'critic';
+                        } else if (combinedText.includes('moderator') || combinedText.includes('moderate') || combinedText.includes('decide') || combinedText.includes('route') || combinedText.includes('determin')) {
+                          detectedAgent = 'moderator';
+                        } else if (combinedText.includes('reporter') || combinedText.includes('report') || combinedText.includes('synthesiz') || combinedText.includes('final') || combinedText.includes('compil')) {
+                          detectedAgent = 'reporter';
+                        } else if (combinedText.includes('tutor') || combinedText.includes('tutorial') || combinedText.includes('educational') || combinedText.includes('teach') || combinedText.includes('learn')) {
+                          detectedAgent = 'tutor';
+                        } else if (combinedText.includes('setup') || combinedText.includes('initiali') || combinedText.includes('configur') || combinedText.includes('system')) {
+                          detectedAgent = 'system';
+                        } else if (combinedText.includes('stream') || combinedText.includes('content') || combinedText.includes('generat')) {
+                          detectedAgent = 'reporter'; // Content generation usually happens in reporter
+                        }
+                        // Check exact workflow agent names in any position
+                        else {
+                          const workflowAgents = ['retrieve', 'strategist', 'critic', 'moderator', 'reporter', 'tutor', 'system'];
+                          const allWords = `${stageText} ${messageText}`.split(/\s+/);
+                          detectedAgent = allWords.find(word => workflowAgents.includes(word.replace(/[^a-z]/g, ''))) || null;
+                        }
+
+                        // Last resort: map based on common chunk patterns
+                        if (!detectedAgent) {
+                          if (chunk.status === 'streaming' || chunk.content) {
+                            detectedAgent = 'reporter'; // Content streaming is usually from reporter
+                          } else if (chunk.status === 'in_progress') {
+                            detectedAgent = 'processing'; // Generic processing
+                          } else {
+                            detectedAgent = 'system'; // System messages
+                          }
+                        }
+                      }
+
+                      // Create step info with better formatting
+                      const agentEmojis = {
+                        'retrieve': '🔍',
+                        'strategist': '🧠',
+                        'critic': '💭',
+                        'moderator': '⚖️',
+                        'reporter': '📄',
+                        'tutor': '🎓',
+                        'processing': '⚙️',
+                        'system': '🔧'
+                      };
+
+                      const emoji = agentEmojis[detectedAgent] || '🔄';
+                      const agentName = detectedAgent.charAt(0).toUpperCase() + detectedAgent.slice(1);
+
+                      // Use message directly (backend now sends properly formatted messages)
+                      if (message && message.length > 5) {
+                        // If message already has emoji, use as-is, otherwise add emoji
+                        if (message.match(/^[🔍🧠💭⚖️📄🎓⚙️🔧]/)) {
+                          stepInfo = message;
+                        } else {
+                          stepInfo = `${emoji} ${message}`;
+                        }
+                      } else if (stage) {
+                        stepInfo = `${emoji} ${agentName}: ${stage}`;
+                      } else {
+                        const defaultMessages = {
+                          'retrieve': 'Searching knowledge base for relevant information',
+                          'strategist': 'Analyzing problem and forming solution approach',
+                          'critic': 'Reviewing and critiquing the proposed solution',
+                          'moderator': 'Evaluating feedback and deciding next steps',
+                          'reporter': 'Synthesizing findings into comprehensive answer',
+                          'tutor': 'Adding educational context and guidance',
+                          'processing': 'Processing your query...',
+                          'system': 'Initializing system components'
+                        };
+                        stepInfo = `${emoji} ${agentName}: ${defaultMessages[detectedAgent] || 'Working...'}`;
+                      }
+
+                      if (detectedAgent) {
+                        console.log("✅ DETECTED AGENT:", detectedAgent, "Step:", stepInfo);
+                        if (details) console.log("🔍 PASSING DETAILS TO addStep:", details);
+                        reasoning.setCurrentAgent(detectedAgent);
+                        reasoning.addStep(stepInfo, detectedAgent, details); // Pass details as ragDetails
+                      } else {
+                        console.log("❌ FAILED TO DETECT AGENT - Raw data:", { stage, message, agent, chunkKeys: Object.keys(chunk) });
+                      }
+                    }
+                    // Legacy fallback for old format (should rarely be used now)
+                    else {
+                      console.log("⚠️ NO REASONING DATA - Chunk:", { keys: Object.keys(chunk), status: chunk.status, content: chunk.content ? "has content" : "no content" });
+
+                      // Only create fallback steps for actual content, not empty chunks
+                      if (chunk.content && chunk.content.trim() && chunk.content.length > 5) {
+                        console.log("📝 Creating content-based fallback step");
+                        reasoning.addStep("📝 Generating response content...", "reporter");
+                      }
+                    }
+                  }
                 } catch (jsonError) {
                   // Log parsing error but don't append corrupted data
                   console.error(
@@ -713,6 +871,11 @@ export default function ChatPage() {
           // console.log("Final receivedContent length:", receivedContent.length);
           // console.log("First 200 chars:", receivedContent.substring(0, 200));
           aiResponseContent = receivedContent; // Final content after stream ends
+
+          // Stop reasoning stream when done
+          if (selectedModel === "rag" && showReasoning) {
+            reasoning.stopStreaming();
+          }
           // console.log(
           //   "Set aiResponseContent to:",
           //   aiResponseContent.length,
@@ -1367,6 +1530,8 @@ export default function ChatPage() {
                 isLoading={currentLoadingState.isLoading}
                 isTyping={currentLoadingState.isTyping}
                 stop={stop}
+                showReasoning={showReasoning}
+                setShowReasoning={setShowReasoning}
               />
             ) : (
               <ChatInterface
@@ -1397,6 +1562,9 @@ export default function ChatPage() {
                 stop={stop}
                 messagesContainerRef={messagesContainerRef}
                 agentProgress={agentProgress}
+                showReasoning={showReasoning}
+                setShowReasoning={setShowReasoning}
+                reasoningState={reasoning.reasoningState}
               />
             )}
           </ChatContainer>

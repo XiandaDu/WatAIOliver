@@ -824,7 +824,47 @@ Output ONLY the JSON. Do NOT create fake critiques.""")
             simple_log.info(json.dumps(formatted_output, indent=2))
             self.logger.info("="*250)
             simple_log.info("="*250)
-            
+
+            # Send progress callback with critique details
+            if self.context.progress_callback:
+                try:
+                    # Count critiques by severity
+                    severity_counts = {
+                        "critical": len([c for c in critiques if c.get("severity") == "critical"]),
+                        "high": len([c for c in critiques if c.get("severity") == "high"]),
+                        "medium": len([c for c in critiques if c.get("severity") == "medium"]),
+                        "low": len([c for c in critiques if c.get("severity") == "low"])
+                    }
+
+                    progress_data = {
+                        "status": "in_progress",
+                        "stage": "critic",
+                        "message": f"✅ Review complete: {len(critiques)} issues found (Critical: {severity_counts['critical']}, High: {severity_counts['high']}, Medium: {severity_counts['medium']}, Low: {severity_counts['low']})",
+                        "agent": "critic",
+                        "details": {
+                            "type": "critique_complete",
+                            "draft_id": draft["draft_id"],
+                            "total_critiques": len(critiques),
+                            "severity_counts": severity_counts,
+                            "severity_score": severity_score,
+                            "overall_assessment": overall_assessment,
+                            "top_critiques": [
+                                {
+                                    "type": c.get("type"),
+                                    "severity": c.get("severity"),
+                                    "description": c.get("description"),
+                                    "step_ref": c.get("step_ref")
+                                }
+                                for c in critiques[:5]  # Top 5 critiques
+                            ],
+                            "round": state['current_round']
+                        }
+                    }
+                    self.logger.info(f"Critic: Sending progress update")
+                    self.context.progress_callback(progress_data)
+                except Exception as e:
+                    self.logger.error(f"Failed to send critic progress: {e}")
+
             # Update state
             state["critiques"] = critiques
             state["workflow_status"] = "debating"

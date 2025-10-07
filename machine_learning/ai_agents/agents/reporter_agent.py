@@ -235,7 +235,42 @@ Provide quality indicators:
             simple_log.info(json.dumps(formatted_output, indent=2))
             self.logger.info("="*250)
             simple_log.info("="*250)
-            
+
+            # Send progress callback with reporter synthesis details (only once per workflow)
+            if self.context.progress_callback and not state.get("_reporter_progress_sent", False):
+                try:
+                    # Calculate total answer length
+                    total_length = sum([
+                        len(final_answer.get("introduction", "")),
+                        len(final_answer.get("step_by_step_solution", "")),
+                        len(final_answer.get("key_takeaways", "")),
+                        len(final_answer.get("important_notes", ""))
+                    ])
+
+                    progress_data = {
+                        "status": "in_progress",
+                        "stage": "reporter",
+                        "message": f"✅ Synthesis complete ({total_length} chars, confidence: {final_answer.get('confidence_score', 0):.2f})",
+                        "agent": "reporter",
+                        "details": {
+                            "type": "synthesis_complete",
+                            "answer_type": final_answer.get("type", "standard"),
+                            "confidence_score": final_answer.get("confidence_score", 0),
+                            "total_length": total_length,
+                            "has_introduction": bool(final_answer.get("introduction")),
+                            "has_solution": bool(final_answer.get("step_by_step_solution")),
+                            "has_takeaways": bool(final_answer.get("key_takeaways")),
+                            "has_notes": bool(final_answer.get("important_notes")),
+                            "source_count": len(final_answer.get("sources", []))
+                        }
+                    }
+                    self.logger.info(f"Reporter: Sending progress update")
+                    self.context.progress_callback(progress_data)
+                    # Mark that we've sent the progress update
+                    state["_reporter_progress_sent"] = True
+                except Exception as e:
+                    self.logger.error(f"Failed to send reporter progress: {e}")
+
             # Update state
             state["final_answer"] = final_answer
             state["workflow_status"] = "synthesizing"
