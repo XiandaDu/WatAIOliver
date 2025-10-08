@@ -189,7 +189,7 @@ export function ChatInterface({
                         <div className="prose prose-lg max-w-none">
                           <MarkdownRenderer>{message.content}</MarkdownRenderer>
                         </div>
-                      ) : isLoading ? (
+                      ) : isTyping ? (
                         <div className="flex items-center space-x-2">
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-500"></div>
                           <span className="text-sm text-gray-600">

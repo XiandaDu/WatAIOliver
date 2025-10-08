@@ -1049,10 +1049,27 @@ async def query_agents_system_streaming(
                     f"=== STREAMING COMPLETE: {len(accumulated_content)} chars ==="
                 )
 
+                # Send any remaining queued RAG progress chunks before completion
+                if hasattr(rag_progress_sender, 'immediate_chunks') and rag_progress_sender.immediate_chunks:
+                    while rag_progress_sender.immediate_chunks:
+                        immediate_chunk = rag_progress_sender.immediate_chunks.pop(0)
+                        ai_agents_logger.info(f"=== SENDING FINAL QUEUED RAG CHUNK ===")
+                        ai_agents_logger.info(f"Chunk details: {immediate_chunk.get('details', 'None')}")
+                        yield immediate_chunk
+
+                # Send completion signal to reasoning panel
+                yield {
+                    "status": "complete",
+                    "stage": "complete",
+                    "message": "Response complete",
+                    "agent": "system",
+                    "details": None
+                }
+
                 # Get the full response from the workflow
                 response = chunk.get("response", {})
                 final_answer = response.get("answer", {})
-                
+
                 # If we streamed content, use that as the complete answer
                 if accumulated_content:
                     # Parse the streamed content to extract sections

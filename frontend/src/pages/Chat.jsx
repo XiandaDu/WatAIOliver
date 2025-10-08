@@ -478,11 +478,11 @@ export default function ChatPage() {
             setSelectedConversation(newConversation);
             setConversations((prev) => [newConversation, ...prev]);
 
-            // Removed: Set loading state for the new conversation (will be handled by main loading states)
-            // setConversationLoadingStates(prev => ({
-            //   ...prev,
-            //   [newConversationId]: { isLoading: true, isTyping: true }
-            // }))
+            // Set loading state for the new conversation
+            setConversationLoadingStates(prev => ({
+              ...prev,
+              [newConversationId]: { isLoading: true, isTyping: true }
+            }))
           }
         }
       }
@@ -701,6 +701,12 @@ export default function ChatPage() {
                     console.log("🔍 REASONING DEBUG - SSE Chunk:", chunk);
                     console.log("🔍 REASONING DEBUG - Keys:", Object.keys(chunk));
 
+                    // Check for completion signal
+                    if (chunk.status === "complete") {
+                      console.log("REASONING COMPLETE - Stopping stream");
+                      reasoning.stopStreaming();
+                    }
+
                     // Check for multiple reasoning formats from backend
                     let stage = "", message = "", agent = "", details = null;
 
@@ -858,10 +864,10 @@ export default function ChatPage() {
                   // Hide typing indicator when we first receive content (only once)
                   if (!hasHiddenTyping) {
                     hasHiddenTyping = true;
-                    if (currentConversationId) {
+                    if (newConversationId) {
                       setConversationLoadingStates((prev) => ({
                         ...prev,
-                        [currentConversationId]: {
+                        [newConversationId]: {
                           isLoading: true,
                           isTyping: false,
                         },
