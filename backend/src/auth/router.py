@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Depends
-from .models import GoogleTokenRequest, AuthResponse, RoleUpdateRequest, AccountStatusRequest
+from .models import GoogleTokenRequest, AuthResponse, RoleUpdateRequest, AccountStatusRequest, EmailVerificationRequest, CodeVerificationRequest, EmailVerificationResponse
 from .service import AuthService
 from .middleware import auth_required, admin_required, instructor_required
 import logging
@@ -106,3 +106,36 @@ async def health_check():
 @router.get("/verify-instructor")
 async def verify_instructor(current_user = Depends(instructor_required)):
     return {"success": True, "user": current_user}
+
+@router.post("/send-code", response_model=EmailVerificationResponse)
+async def send_verification_code(email_request: EmailVerificationRequest):
+    try:
+        result = await AuthService.send_verification_code(email_request)
+        return result
+    except Exception as e:
+        logger.error(f"Send verification code endpoint error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error during verification code sending"
+        )
+
+@router.post("/verify-code", response_model=AuthResponse)
+async def verify_verification_code(code_request: CodeVerificationRequest):
+    try:
+        result = await AuthService.verify_code(code_request)
+        
+        if not result.success:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=result.message
+            )
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Verify code endpoint error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error during code verification"
+        )

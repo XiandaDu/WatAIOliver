@@ -22,3 +22,6 @@ python-multipart==0.0.20
 typing_extensions==4.14.0
 pymupdf4llm
 itsdangerous
+
+# Twilio Verify for email verification
+twilio==9.2.3
