@@ -65,6 +65,7 @@ class SpeculativeRetrievalChain(Chain):
     course_id: str = ""
     logger: Any = None
     rag_service: Any = None
+    context: Any = None  # Agent context for progress callbacks
     
     @property
     def input_keys(self) -> List[str]:
@@ -212,7 +213,9 @@ class SpeculativeRetrievalChain(Chain):
             simple_log.info(f"Input: query='{query}', course_id={course_id}")
         
         result = await perform_rag_retrieval(
-            self.rag_service, query, course_id, self.logger
+            self.rag_service, query, course_id, self.logger,
+            progress_callback=getattr(self.context, 'progress_callback', None),
+            query_type="original"
         )
         
         if self.logger:
@@ -401,7 +404,9 @@ class SpeculativeRetrievalChain(Chain):
             asyncio.set_event_loop(loop)
             try:
                 return loop.run_until_complete(
-                    perform_rag_retrieval(self.rag_service, query, course_id, self.logger)
+                    perform_rag_retrieval(self.rag_service, query, course_id, self.logger,
+                                        progress_callback=getattr(self.context, 'progress_callback', None),
+                                        query_type="alternative")
                 )
             finally:
                 loop.close()
@@ -621,7 +626,8 @@ QUERY: most recent course content and examples""")
             initial_retrieval_func=perform_rag_retrieval,
             min_quality_threshold=self.min_quality_threshold,
             logger=self.logger,
-            rag_service=self.rag_service
+            rag_service=self.rag_service,
+            context=self.context
         )
     
     def _format_retrieval_output(self, results: List[RetrievalResult], strategy: str = "initial", no_results_suggestion: str = None) -> Dict[str, Any]:
@@ -752,6 +758,17 @@ QUERY: most recent course content and examples""")
             state["speculative_queries"] = speculative_queries
             state["workflow_status"] = "retrieving"
             state["formatted_retrieval_output"] = json_output
+
+            # Extract structured RAG info for frontend reasoning display
+            if retrieval_results:
+                total_docs = len(retrieval_results)
+                top_scores = [r.get('score', 0) for r in retrieval_results[:3]]
+                state["rag_display_info"] = {
+                    "query": state["query"],
+                    "document_count": total_docs,
+                    "top_scores": top_scores,
+                    "formatted_message": f"Retrieved {total_docs} documents with relevance scores: {', '.join([f'{score:.3f}' for score in top_scores])}"
+                }
             
             # Log execution
             processing_time = time.time() - start_time

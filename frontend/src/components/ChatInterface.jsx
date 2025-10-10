@@ -1,3 +1,4 @@
+import React from "react"
 import { ChatForm, ChatMessages } from "@/components/ui/chat"
 import { MessageInput } from "@/components/ui/message-input"
 import { CustomSelect } from "@/components/ui/custom-select"
@@ -5,8 +6,9 @@ import { ChatFileAttachment } from "@/components/ui/chat-file-attachment"
 import { transcribeAudio } from "@/lib/utils/audio"
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer"
 import { HtmlPreview } from "@/components/HtmlPreview"
+import { ReasoningPanel } from "@/components/ReasoningPanel"
 
-export function ChatInterface({ 
+export function ChatInterface({
   selectedConversation,
   selectedModel,
   setSelectedModel,
@@ -33,7 +35,10 @@ export function ChatInterface({
   isLoading,
   stop,
   messagesContainerRef,
-  agentProgress
+  agentProgress,
+  showReasoning,
+  setShowReasoning,
+  reasoningState
 }) {
   return (
     <>
@@ -105,6 +110,15 @@ export function ChatInterface({
                   />
                   <span className="text-sm text-gray-700">Enable multi-agent debate</span>
                 </label>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    className="form-checkbox h-4 w-4 text-blue-600"
+                    checked={showReasoning}
+                    onChange={(e) => setShowReasoning(e.target.checked)}
+                  />
+                  <span className="text-sm text-gray-700">Show reasoning</span>
+                </label>
               </>
             )}
           </div>
@@ -116,8 +130,6 @@ export function ChatInterface({
         style={{ minHeight: 0 }}
       >
         <ChatMessages className="py-8">
-
-
           <div className="space-y-8">
             {messages.filter((message, index) => {
               // Show user messages always
@@ -134,29 +146,34 @@ export function ChatInterface({
               }
               
               return false;
-            }).map((message) => (
-              <div
-                key={message.id}
-                className={`${
-                  message.role === "user" ? "flex justify-end" : "flex justify-start"
-                }`}
-              >
-                {message.role === "user" ? (
-                  <div className="max-w-xs lg:max-w-md">
-                    {/* Display file attachments if present */}
-                    {message.experimental_attachments && message.experimental_attachments.length > 0 && (
-                      <div className="mb-2 flex flex-wrap gap-2">
-                        {message.experimental_attachments.map((attachment, index) => (
-                          <ChatFileAttachment key={index} attachment={attachment} />
-                        ))}
+            }).map((message, index, filteredMessages) => {
+              // Check if this is the last user message
+              const isLastUserMessage = message.role === "user" &&
+                index === filteredMessages.map(m => m.role).lastIndexOf("user");
+
+              return (
+                <React.Fragment key={message.id}>
+                  <div
+                    className={`${
+                      message.role === "user" ? "flex justify-end" : "flex justify-start"
+                    }`}
+                  >
+                    {message.role === "user" ? (
+                      <div className="max-w-xs lg:max-w-md">
+                        {/* Display file attachments if present */}
+                        {message.experimental_attachments && message.experimental_attachments.length > 0 && (
+                          <div className="mb-2 flex flex-wrap gap-2">
+                            {message.experimental_attachments.map((attachment, index) => (
+                              <ChatFileAttachment key={index} attachment={attachment} />
+                            ))}
+                          </div>
+                        )}
+                        {/* User message bubble */}
+                        <div className="px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg">
+                          <span className="text-sm font-medium">{message.content}</span>
+                        </div>
                       </div>
-                    )}
-                    {/* User message bubble */}
-                    <div className="px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg">
-                      <span className="text-sm font-medium">{message.content}</span>
-                    </div>
-                  </div>
-                ) : (
+                    ) : (
                   <div className="max-w-4xl w-full">
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
                       <div className="flex items-center mb-4">
@@ -172,7 +189,7 @@ export function ChatInterface({
                         <div className="prose prose-lg max-w-none">
                           <MarkdownRenderer>{message.content}</MarkdownRenderer>
                         </div>
-                      ) : isLoading ? (
+                      ) : isTyping ? (
                         <div className="flex items-center space-x-2">
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-500"></div>
                           <span className="text-sm text-gray-600">
@@ -188,8 +205,22 @@ export function ChatInterface({
                     </div>
                   </div>
                 )}
-              </div>
-            ))}
+                  </div>
+
+                  {/* Reasoning Panel - Show after last user message in Problem Solving mode */}
+                  {isLastUserMessage && selectedModel === "rag" && showReasoning && (
+                    <div className="mt-6">
+                      <ReasoningPanel
+                        steps={reasoningState?.steps || []}
+                        isStreaming={reasoningState?.isStreaming || false}
+                        currentAgent={reasoningState?.currentAgent || null}
+                        isExpanded={true}
+                      />
+                    </div>
+                  )}
+                </React.Fragment>
+              );
+            })}
             {isTyping && (
               <div className="flex justify-start">
                 <div className="max-w-4xl w-full">

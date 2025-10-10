@@ -538,7 +538,40 @@ Your response MUST be valid JSON:
             simple_log.info(json.dumps(formatted_output, indent=2))
             self.logger.info("="*250)
             simple_log.info("="*250)
-            
+
+            # Send progress callback with draft details
+            if self.context.progress_callback:
+                try:
+                    # Calculate average confidence from chain of thought
+                    avg_confidence = sum(step["confidence"] for step in chain_of_thought) / len(chain_of_thought) if chain_of_thought else 0.0
+
+                    progress_data = {
+                        "status": "in_progress",
+                        "stage": "strategist",
+                        "message": f"✅ Draft generated ({len(draft_content)} chars, {len(chain_of_thought)} reasoning steps)",
+                        "agent": "strategist",
+                        "details": {
+                            "type": "draft_complete",
+                            "draft_id": draft["draft_id"],
+                            "draft_length": len(draft_content),
+                            "cot_steps": len(chain_of_thought),
+                            "average_confidence": avg_confidence,
+                            "reasoning_steps": [
+                                {
+                                    "step_number": step["step"],
+                                    "thought": step["thought"],
+                                    "confidence": step["confidence"]
+                                }
+                                for step in chain_of_thought[:5]  # Top 5 steps
+                            ],
+                            "round": state['current_round']
+                        }
+                    }
+                    self.logger.info(f"Strategist: Sending progress update")
+                    self.context.progress_callback(progress_data)
+                except Exception as e:
+                    self.logger.error(f"Failed to send strategist progress: {e}")
+
             # Update state
             state["draft"] = draft
             state["workflow_status"] = "debating"

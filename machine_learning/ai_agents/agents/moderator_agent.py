@@ -340,7 +340,45 @@ Write ONLY plain text feedback, no code.""")
             simple_log.info(json.dumps(formatted_output, indent=2))
             self.logger.info("="*250)
             simple_log.info("="*250)
-            
+
+            # Send progress callback with moderator decision details
+            if self.context.progress_callback:
+                try:
+                    # Map decision to user-friendly message
+                    decision_messages = {
+                        "converged": "✅ Quality acceptable - proceeding to synthesis",
+                        "iterate": f"🔄 Improvement needed - Round {current_round + 1}/{max_rounds}",
+                        "abort_deadlock": "⚠️ Maximum rounds reached - synthesizing best available solution",
+                        "escalate_with_warning": "⚠️ Quality concerns detected - escalating"
+                    }
+
+                    progress_data = {
+                        "status": "in_progress",
+                        "stage": "moderator",
+                        "message": decision_messages.get(decision, f"Decision: {decision}"),
+                        "agent": "moderator",
+                        "details": {
+                            "type": "moderation_complete",
+                            "decision": decision,
+                            "convergence_score": convergence_score,
+                            "reasoning": reasoning,
+                            "current_round": current_round,
+                            "max_rounds": max_rounds,
+                            "has_feedback": feedback is not None,
+                            "critique_summary": {
+                                "total": len(critiques),
+                                "critical": len([c for c in critiques if c.get("severity") == "critical"]),
+                                "high": len([c for c in critiques if c.get("severity") == "high"]),
+                                "medium": len([c for c in critiques if c.get("severity") == "medium"]),
+                                "low": len([c for c in critiques if c.get("severity") == "low"])
+                            }
+                        }
+                    }
+                    self.logger.info(f"Moderator: Sending progress update")
+                    self.context.progress_callback(progress_data)
+                except Exception as e:
+                    self.logger.error(f"Failed to send moderator progress: {e}")
+
             # Update state
             state["moderator_decision"] = decision
             state["moderator_feedback"] = feedback if decision == "iterate" else None

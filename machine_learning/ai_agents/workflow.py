@@ -455,12 +455,25 @@ class MultiAgentWorkflow:
                 for node, state_update in event.items():
                     # Yield progress updates for non-reporter stages
                     if node != "reporter":
-                        yield {
+                        progress_update = {
                             "status": "in_progress",
                             "stage": node,
                             "message": f"Processing: {node}",
-                            "state": state_update.get("workflow_status", "processing")
+                            "state": state_update.get("workflow_status", "processing"),
+                            "agent": node
                         }
+
+                        # Include structured RAG info for retrieve stage
+                        if node == "retrieve" and "rag_display_info" in state_update:
+                            rag_info = state_update["rag_display_info"]
+                            progress_update["message"] = rag_info["formatted_message"]
+                            progress_update["details"] = {
+                                "query": rag_info["query"],
+                                "document_count": rag_info["document_count"],
+                                "top_scores": rag_info["top_scores"]
+                            }
+
+                        yield progress_update
                     else:
                         # We've reached the reporter stage - stream its content
                         reached_reporter = True
@@ -526,7 +539,8 @@ def create_workflow(
     llm_client,
     rag_service,
     config,
-    logger: logging.Logger = None
+    logger: logging.Logger = None,
+    progress_callback=None
 ) -> MultiAgentWorkflow:
     """
     Create a configured Multi-Agent Workflow.
@@ -536,7 +550,8 @@ def create_workflow(
         rag_service: RAG service for retrieval
         config: Configuration object
         logger: Optional logger
-        
+        progress_callback: Optional callback for progress updates
+
     Returns:
         Configured MultiAgentWorkflow instance
     """
@@ -545,7 +560,8 @@ def create_workflow(
         llm_client=llm_client,
         rag_service=rag_service,
         config=config,
-        logger=logger or logging.getLogger("langgraph")
+        logger=logger or logging.getLogger("langgraph"),
+        progress_callback=progress_callback
     )
     
     return MultiAgentWorkflow(context, logger)

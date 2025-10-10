@@ -94,6 +94,7 @@ class AgentContext:
     rag_service: Any
     config: Any
     logger: Any
+    progress_callback: Optional[Any] = None
     
     # Model routing based on task complexity
     model_routing: Dict[str, str] = field(default_factory=lambda: {

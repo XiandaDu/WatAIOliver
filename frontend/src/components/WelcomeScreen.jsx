@@ -6,7 +6,7 @@ import { transcribeAudio } from "@/lib/utils/audio"
 import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 
-export function WelcomeScreen({ 
+export function WelcomeScreen({
   selectedModel,
   setSelectedModel,
   modelOptions,
@@ -26,11 +26,13 @@ export function WelcomeScreen({
   setUseAgents,
   append,
   handleSubmit,
-  input, 
-  handleInputChange, 
-  isLoading, 
-  isTyping, 
-  stop 
+  input,
+  handleInputChange,
+  isLoading,
+  isTyping,
+  stop,
+  showReasoning,
+  setShowReasoning
 }) {
   const navigate = useNavigate()
   
@@ -123,6 +125,15 @@ export function WelcomeScreen({
                   onChange={(e) => setUseAgents(e.target.checked)}
                 />
                 <span className="text-sm text-gray-700">Enable multi-agent debate</span>
+              </label>
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  className="form-checkbox h-4 w-4 text-blue-600"
+                  checked={showReasoning}
+                  onChange={(e) => setShowReasoning(e.target.checked)}
+                />
+                <span className="text-sm text-gray-700">Show reasoning</span>
               </label>
             </>
           )}

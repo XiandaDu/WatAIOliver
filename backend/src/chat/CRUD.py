@@ -22,9 +22,12 @@ def create_conversation(data: ConversationCreate):
         raise e
 
 # READ (get all conversations for a user)
-def get_conversations(user_id: str):
+def get_conversations(user_id: str, course_id: str | None = None):
     try:
-        response = supabase.table("conversations").select("*").eq("user_id", user_id).order("created_at", desc=False).execute()
+        query = supabase.table("conversations").select("*").eq("user_id", user_id)
+        if course_id:
+            query = query.eq("course_id", course_id)
+        response = query.order("created_at", desc=False).execute()
         return response.data
     except Exception as e:
         print(f"error getting conversations: {e}")
