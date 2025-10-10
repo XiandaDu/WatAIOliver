@@ -14,6 +14,10 @@ export default function Login() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showEmailLogin, setShowEmailLogin] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [userEmail, setUserEmail] = useState("");
   const navigate = useNavigate();
 
   // Check for suggested login type from URL parameters
@@ -109,6 +113,110 @@ export default function Login() {
     }
   };
 
+  const handleSendCode = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    // Validate email domain
+    if (!validateEmail(formData.email)) {
+      setError("Please use a valid @gmail.com or @uwaterloo.ca email address");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      console.log("Sending request to /auth/send-code with email:", formData.email);
+      const response = await fetch("/auth/send-code", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: formData.email,
+        }),
+      });
+
+      console.log("Response status:", response.status);
+      console.log("Response headers:", response.headers);
+      
+      const data = await response.json();
+      console.log("Response data:", data);
+
+      if (data.success) {
+        setUserEmail(formData.email);
+        setEmailSent(true);
+        setError("");
+      } else {
+        setError(data.message || "Failed to send verification code");
+      }
+    } catch (err) {
+      console.error("Send code error:", err);
+      setError("Failed to send verification code. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyCode = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      console.log("Sending verification request to /auth/verify-code with email:", userEmail, "code:", verificationCode);
+      const response = await fetch("/auth/verify-code", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: userEmail,
+          code: verificationCode,
+        }),
+      });
+
+      console.log("Verification response status:", response.status);
+      console.log("Verification response headers:", response.headers);
+      
+      const data = await response.json();
+      console.log("Verification response data:", data);
+
+      if (data.success) {
+        // Store auth info in localStorage
+        localStorage.setItem("user", JSON.stringify(data.user));
+
+        // Navigate based on user role
+        if (data.user.role === "instructor" || data.user.role === "admin") {
+          navigate("/admin");
+        } else {
+          navigate("/courses");
+        }
+      } else {
+        setError(data.message || "Verification failed");
+      }
+    } catch (err) {
+      console.error("Verification error:", err);
+      setError("Failed to verify code. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBackToEmail = () => {
+    setEmailSent(false);
+    setVerificationCode("");
+    setError("");
+  };
+
+  const handleBackToGoogle = () => {
+    setShowEmailLogin(false);
+    setEmailSent(false);
+    setVerificationCode("");
+    setUserEmail("");
+    setError("");
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
@@ -121,126 +229,184 @@ export default function Login() {
           </p>
         </div>
 
-        {/* Login Type Selector */}
-        <div className="flex rounded-lg overflow-hidden border border-gray-200 mt-8">
-          <button
-            className={`flex-1 py-3 px-4 text-sm font-medium ${
-              activeTab === "student"
-                ? "bg-black text-white"
-                : "bg-white text-gray-700 hover:bg-gray-50"
-            }`}
-            onClick={() => setActiveTab("student")}
-            disabled={loading}
-          >
-            Student
-          </button>
-          <button
-            className={`flex-1 py-3 px-4 text-sm font-medium ${
-              activeTab === "instructor"
-                ? "bg-black text-white"
-                : "bg-white text-gray-700 hover:bg-gray-50"
-            }`}
-            onClick={() => setActiveTab("instructor")}
-            disabled={loading}
-          >
-            Instructor
-          </button>
-        </div>
-
-        {/* Google SSO Button */}
-        <div>
-          <Button
-            type="button"
-            onClick={() => {
-              setLoading(true);
-              loginWithGoogle();
-            }}
-            disabled={loading}
-            className="w-full bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
-          >
-            <img
-              src="https://www.google.com/favicon.ico"
-              alt="Google"
-              className="w-5 h-5 mr-2"
-            />
-            {loading
-              ? "Signing in..."
-              : `Continue with Google as ${
-                  activeTab === "instructor" ? "Instructor" : "Student"
+        {!showEmailLogin ? (
+          // Google Login View
+          <>
+            {/* Login Type Selector */}
+            <div className="flex rounded-lg overflow-hidden border border-gray-200 mt-8">
+              <button
+                className={`flex-1 py-3 px-4 text-sm font-medium ${
+                  activeTab === "student"
+                    ? "bg-black text-white"
+                    : "bg-white text-gray-700 hover:bg-gray-50"
                 }`}
-          </Button>
-        </div>
-
-        {/*
-         * Email login temporarily disabled for cleaner UI. Email/password login can be re-enabled
-         * when needed by uncommenting this section.
-         */}
-        {/*
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300"></div>
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-gray-500">Or continue with email</span>
-          </div>
-        </div>
-
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="email">Email address</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={formData.email}
-                onChange={handleInputChange}
-                className={`mt-1 ${error ? 'border-red-500' : ''}`}
-                placeholder={`Enter your ${activeTab === "instructor" ? "instructor" : "student"} email`}
+                onClick={() => setActiveTab("student")}
                 disabled={loading}
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Use your @gmail.com or @uwaterloo.ca email
+              >
+                Student
+              </button>
+              <button
+                className={`flex-1 py-3 px-4 text-sm font-medium ${
+                  activeTab === "instructor"
+                    ? "bg-black text-white"
+                    : "bg-white text-gray-700 hover:bg-gray-50"
+                }`}
+                onClick={() => setActiveTab("instructor")}
+                disabled={loading}
+              >
+                Instructor
+              </button>
+            </div>
+
+            {/* Google SSO Button */}
+            <div>
+              <Button
+                type="button"
+                onClick={() => {
+                  setLoading(true);
+                  loginWithGoogle();
+                }}
+                disabled={loading}
+                className="w-full bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+              >
+                <img
+                  src="https://www.google.com/favicon.ico"
+                  alt="Google"
+                  className="w-5 h-5 mr-2"
+                />
+                {loading
+                  ? "Signing in..."
+                  : `Continue with Google as ${
+                      activeTab === "instructor" ? "Instructor" : "Student"
+                    }`}
+              </Button>
+            </div>
+
+            {/* Email Login Option */}
+            <div className="mt-4">
+              <Button
+                type="button"
+                onClick={() => setShowEmailLogin(true)}
+                disabled={loading}
+                className="w-full bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200 disabled:opacity-50"
+              >
+                Login by Email
+              </Button>
+            </div>
+          </>
+        ) : !emailSent ? (
+          // Email Input View
+          <>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-medium text-gray-900">Login by Email</h3>
+              <Button
+                type="button"
+                onClick={handleBackToGoogle}
+                variant="ghost"
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                ← Back to Google
+              </Button>
+            </div>
+
+            <form onSubmit={handleSendCode} className="space-y-6">
+              <div>
+                <Label htmlFor="email">Email address</Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className={`mt-1 ${error ? 'border-red-500' : ''}`}
+                  placeholder={`Enter your ${activeTab === "instructor" ? "instructor" : "student"} email`}
+                  disabled={loading}
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Use your @gmail.com or @uwaterloo.ca email
+                </p>
+              </div>
+
+              {error && (
+                <div className="text-sm text-red-600 text-center">
+                  {error}
+                </div>
+              )}
+
+              <div>
+                <Button type="submit" disabled={loading} className="w-full">
+                  {loading ? "Sending..." : "Send Verification Code"}
+                </Button>
+              </div>
+            </form>
+          </>
+        ) : (
+          // Verification Code View
+          <>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-medium text-gray-900">Enter Verification Code</h3>
+              <Button
+                type="button"
+                onClick={handleBackToEmail}
+                variant="ghost"
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                ← Back to Email
+              </Button>
+            </div>
+
+            <div className="text-center mb-6">
+              <p className="text-sm text-gray-600">
+                We sent a verification code to
               </p>
+              <p className="font-medium text-gray-900">{userEmail}</p>
             </div>
-            <div>
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={formData.password}
-                onChange={handleInputChange}
-                className="mt-1"
-                placeholder="Enter your password"
-                disabled={loading}
-              />
-            </div>
-          </div>
 
-          {error && (
-            <div className="text-sm text-red-600 text-center">
-              {error}
-            </div>
-          )}
+            <form onSubmit={handleVerifyCode} className="space-y-6">
+              <div>
+                <Label htmlFor="verificationCode">Verification Code</Label>
+                <Input
+                  id="verificationCode"
+                  name="verificationCode"
+                  type="text"
+                  required
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value)}
+                  className={`mt-1 ${error ? 'border-red-500' : ''}`}
+                  placeholder="Enter 6-digit code"
+                  disabled={loading}
+                  maxLength={6}
+                />
+              </div>
 
-          <div>
-            <Button type="submit" disabled={loading} className="w-full">
-              Sign in as {activeTab === "instructor" ? "Instructor" : "Student"}
-            </Button>
-          </div>
-        </form>
+              {error && (
+                <div className="text-sm text-red-600 text-center">
+                  {error}
+                </div>
+              )}
 
-        <div className="text-center mt-4">
-          <a href="#" className="text-sm text-blue-600 hover:text-blue-800">
-            Forgot your password?
-          </a>
-        </div>
-        */}
+              <div>
+                <Button type="submit" disabled={loading} className="w-full">
+                  {loading ? "Verifying..." : "Verify Code"}
+                </Button>
+              </div>
+
+              <div className="text-center">
+                <Button
+                  type="button"
+                  onClick={handleSendCode}
+                  variant="ghost"
+                  className="text-sm text-blue-600 hover:text-blue-800"
+                  disabled={loading}
+                >
+                  Resend Code
+                </Button>
+              </div>
+            </form>
+          </>
+        )}
       </div>
     </div>
   );

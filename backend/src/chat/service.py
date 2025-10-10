@@ -548,6 +548,17 @@ async def generate_response(data: ChatRequest) -> StreamingResponse:
     """Generate response using daily (RAG) or rag (Multi-agent) systems"""
 
     mode = data.mode or "daily"
+
+    # Debug logging to see what's being received
+    import logging
+    debug_logger = logging.getLogger("ai_agents.debug")
+    debug_logger.info(f"=== GENERATE_RESPONSE DEBUG ===")
+    debug_logger.info(f"Received mode: '{mode}'")
+    debug_logger.info(f"Data.mode: '{data.mode}'")
+    debug_logger.info(f"Data.model: '{data.model}'")
+    debug_logger.info(f"Data.course_id: '{data.course_id}'")
+    debug_logger.info(f"Data.prompt: '{data.prompt[:50]}...'")
+
     # Log to ai_agents for Problem-Solving mode
     if mode == "rag":
         import logging
@@ -590,6 +601,19 @@ async def generate_response(data: ChatRequest) -> StreamingResponse:
                 ai_agents_logger = logging.getLogger("ai_agents.streaming")
                 ai_agents_logger.info("\n=== AGENT SYSTEM START ===")
                 chunk_count = 0
+                # Send initial reasoning step
+                initial_step = {
+                    "content": "",
+                    "reasoning": {
+                        "status": "in_progress",
+                        "stage": "retrieve",
+                        "message": f"Starting multi-agent analysis for: {data.prompt[:50]}...",
+                        "timestamp": "",
+                        "agent": "retrieve"
+                    }
+                }
+                yield f"data: {json.dumps(initial_step)}\n\n".encode("utf-8")
+
                 async for chunk in query_agents_system_streaming(
                     data.conversation_id or "",
                     data.prompt,
@@ -641,10 +665,24 @@ async def generate_response(data: ChatRequest) -> StreamingResponse:
                         ai_agents_logger.info("=== STREAMING COMPLETE ===")
                         break
                     elif chunk.get("status") == "in_progress":
-                        # Just log progress, don't send to frontend
-                        ai_agents_logger.debug(
-                            f"Agent progress: {chunk.get('stage')} - {chunk.get('message')}"
-                        )
+                        # Send agent progress to frontend for reasoning display
+                        stage = chunk.get('stage', '')
+                        message = chunk.get('message', '')
+                        ai_agents_logger.debug(f"Agent progress: {stage} - {message}")
+
+                        # Send reasoning metadata to frontend
+                        reasoning_chunk = {
+                            "content": "",  # No content, just reasoning metadata
+                            "reasoning": {
+                                "status": "in_progress",
+                                "stage": stage,
+                                "message": message,
+                                "timestamp": chunk.get("timestamp", ""),
+                                "agent": chunk.get("agent", ""),
+                                "details": chunk.get("details", None)
+                            }
+                        }
+                        yield f"data: {json.dumps(reasoning_chunk)}\n\n".encode("utf-8")
                     else:
                         ai_agents_logger.warning(f"=== UNHANDLED CHUNK TYPE ===")
                         ai_agents_logger.warning(
@@ -834,6 +872,19 @@ async def query_agents_system_streaming(
         from rag_system.llm_clients.anthropic_client import AnthropicClient
         from rag_system.app.config import get_settings
 
+        # Send progress updates during agent system setup
+        setup_step = {
+            "content": "",
+            "reasoning": {
+                "status": "in_progress",
+                "stage": "setup",
+                "message": "Initializing multi-agent workflow and RAG system",
+                "timestamp": "",
+                "agent": "system"
+            }
+        }
+        yield setup_step
+
         # Initialize workflow with legitimate RAG service
         config = SpeculativeAIConfig()
 
@@ -888,15 +939,46 @@ async def query_agents_system_streaming(
                 temperature=0.6,
             )
 
-        # Use unified RAG service for consistency with daily mode
+        # Progress callback will be passed directly to the workflow and agents
+
+        # Track progress updates to send via SSE
+        rag_progress_queue = []
+
+
+        def rag_progress_sender(progress_data):
+            print(f"RAG_PROGRESS_CALLBACK_CALLED: {progress_data}")
+            ai_agents_logger.info(f"=== RAG PROGRESS RECEIVED ===")
+            ai_agents_logger.info(f"Progress data: {progress_data}")
+
+            # Create reasoning chunk with correct format for outer layer
+            reasoning_chunk = {
+                "status": "in_progress",  # Top-level status for outer layer
+                "stage": progress_data.get("stage", ""),
+                "message": progress_data.get("message", ""),
+                "timestamp": "",
+                "agent": progress_data.get("agent", ""),
+                "details": progress_data.get("details", None)
+            }
+
+            # Send directly to the stream (store in a list that the streaming function can access)
+            if not hasattr(rag_progress_sender, 'immediate_chunks'):
+                rag_progress_sender.immediate_chunks = []
+            rag_progress_sender.immediate_chunks.append(reasoning_chunk)
+
+            ai_agents_logger.info(f"=== RAG PROGRESS PREPARED FOR IMMEDIATE SEND ===")
+            ai_agents_logger.info(f"Details: {progress_data.get('details', 'None')}")
+
+
+        # Use direct RAG service and rely on progress callback for updates
         rag_service = UnifiedRAGService(logger=ai_agents_logger)
 
-        # Create the workflow using the new architecture
+        # Create the workflow using the new architecture with progress callback
         workflow = create_workflow(
             llm_client=llm_client,
             rag_service=rag_service,
             config=config,
             logger=ai_agents_logger.getChild("workflow"),
+            progress_callback=rag_progress_sender
         )
 
         metadata = {
@@ -911,6 +993,9 @@ async def query_agents_system_streaming(
         is_streaming_content = False
         accumulated_content = ""
 
+        # Only use real progress callbacks - no hardcoded reasoning steps
+        ai_agents_logger.info("=== ABOUT TO START WORKFLOW LOOP ===")
+
         async for chunk in workflow.execute_with_content_streaming(
             query=query,
             course_id=course_id,
@@ -919,9 +1004,19 @@ async def query_agents_system_streaming(
             heavy_model=heavy_model,
             course_prompt=course_prompt,
         ):
-            ai_agents_logger.debug(
-                f"=== WORKFLOW CHUNK: {chunk.get('status', 'unknown')} ==="
+            ai_agents_logger.info(
+                f"=== WORKFLOW CHUNK RECEIVED: {chunk.get('status', 'unknown')} ==="
             )
+            ai_agents_logger.info(f"=== WORKFLOW CHUNK KEYS: {list(chunk.keys())} ===")
+            ai_agents_logger.info(f"=== RAG QUEUE SIZE: {len(rag_progress_queue)} ===")
+
+            # Send any immediate RAG progress chunks
+            if hasattr(rag_progress_sender, 'immediate_chunks') and rag_progress_sender.immediate_chunks:
+                while rag_progress_sender.immediate_chunks:
+                    immediate_chunk = rag_progress_sender.immediate_chunks.pop(0)
+                    ai_agents_logger.info(f"=== SENDING IMMEDIATE RAG CHUNK ===")
+                    ai_agents_logger.info(f"Chunk details: {immediate_chunk.get('details', 'None')}")
+                    yield immediate_chunk
 
             if chunk.get("status") == "streaming" and chunk.get("content"):
                 # This is actual Cerebras streaming content
@@ -954,10 +1049,27 @@ async def query_agents_system_streaming(
                     f"=== STREAMING COMPLETE: {len(accumulated_content)} chars ==="
                 )
 
+                # Send any remaining queued RAG progress chunks before completion
+                if hasattr(rag_progress_sender, 'immediate_chunks') and rag_progress_sender.immediate_chunks:
+                    while rag_progress_sender.immediate_chunks:
+                        immediate_chunk = rag_progress_sender.immediate_chunks.pop(0)
+                        ai_agents_logger.info(f"=== SENDING FINAL QUEUED RAG CHUNK ===")
+                        ai_agents_logger.info(f"Chunk details: {immediate_chunk.get('details', 'None')}")
+                        yield immediate_chunk
+
+                # Send completion signal to reasoning panel
+                yield {
+                    "status": "complete",
+                    "stage": "complete",
+                    "message": "Response complete",
+                    "agent": "system",
+                    "details": None
+                }
+
                 # Get the full response from the workflow
                 response = chunk.get("response", {})
                 final_answer = response.get("answer", {})
-                
+
                 # If we streamed content, use that as the complete answer
                 if accumulated_content:
                     # Parse the streamed content to extract sections
@@ -987,6 +1099,15 @@ async def query_agents_system_streaming(
                     }
                 }
                 break
+
+        # Send any remaining immediate chunks after workflow completes
+        if hasattr(rag_progress_sender, 'immediate_chunks') and rag_progress_sender.immediate_chunks:
+            ai_agents_logger.info(f"=== SENDING REMAINING {len(rag_progress_sender.immediate_chunks)} CHUNKS ===")
+            while rag_progress_sender.immediate_chunks:
+                immediate_chunk = rag_progress_sender.immediate_chunks.pop(0)
+                ai_agents_logger.info(f"=== SENDING REMAINING RAG CHUNK ===")
+                ai_agents_logger.info(f"Chunk details: {immediate_chunk.get('details', 'None')}")
+                yield immediate_chunk
 
     except Exception as e:
         # Create ai_agents logger for error logging

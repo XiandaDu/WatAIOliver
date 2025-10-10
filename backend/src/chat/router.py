@@ -35,8 +35,8 @@ async def create_conversation(data: ConversationCreate, response_model=Conversat
     return result
 
 @router.get("/conversations/{user_id}")
-async def get_conversations(user_id: str, response_model=ConversationOut):
-    result = supabase_crud.get_conversations(user_id)
+async def get_conversations(user_id: str, response_model=ConversationOut, course_id: str | None = Query(None)):
+    result = supabase_crud.get_conversations(user_id, course_id=course_id)
     return result
 
 @router.post("/update_conversation")

@@ -31,3 +31,15 @@ class RoleUpdateRequest(BaseModel):
 class AccountStatusRequest(BaseModel):
     user_id: str
     status: Literal["active", "blocked"]
+
+class EmailVerificationRequest(BaseModel):
+    email: EmailStr
+
+class CodeVerificationRequest(BaseModel):
+    email: EmailStr
+    code: str
+
+class EmailVerificationResponse(BaseModel):
+    success: bool
+    message: str
+    email: Optional[str] = None

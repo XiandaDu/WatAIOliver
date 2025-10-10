@@ -63,12 +63,12 @@ class LLMClientAdapter(Runnable):
         """Async invoke - fallback to sync for now"""
         return self.invoke(input, config)
     
-    def batch(self, inputs: List[Any], config: Optional[Dict] = None) -> List[str]:
+    def batch(self, inputs: List[Any], config: Optional[Dict] = None, **kwargs) -> List[str]:
         """Batch invoke"""
         return [self.invoke(inp, config) for inp in inputs]
-    
-    async def abatch(self, inputs: List[Any], config: Optional[Dict] = None) -> List[str]:
-        """Async batch invoke"""
+
+    async def abatch(self, inputs: List[Any], config: Optional[Dict] = None, **kwargs) -> List[str]:
+        """Async batch invoke - handles return_exceptions parameter"""
         return self.batch(inputs, config)
     
     def stream(self, input: Any, config: Optional[Dict] = None):
@@ -85,15 +85,32 @@ class LLMClientAdapter(Runnable):
 def create_langchain_llm(llm_client, temperature: float = None, streaming: bool = False) -> Runnable:
     """
     Create a LangChain-compatible Runnable from our LLM clients.
-    
+
     Args:
         llm_client: Our custom LLM client (GeminiClient, CerebrasClient, etc.)
         temperature: Override temperature setting (optional)
         streaming: Whether to enable streaming (for compatible clients)
-        
+
     Returns:
         A LangChain Runnable that can be used in chains
     """
+    # Check the class name to determine the correct approach
+    client_type = type(llm_client).__name__
+
+    # For OpenAI client, create a proper LangChain ChatOpenAI instance
+    if client_type == "OpenAIClient":
+        try:
+            from langchain_openai import ChatOpenAI
+            return ChatOpenAI(
+                api_key=llm_client.api_key,
+                model=llm_client.model,
+                temperature=temperature or llm_client.temperature,
+                top_p=llm_client.top_p
+            )
+        except ImportError:
+            # Fallback to adapter if langchain_openai is not available
+            pass
+
     # For GeminiClient and CerebrasClient, try to use native LangChain LLM first
     if hasattr(llm_client, 'get_llm_client'):
         native_llm = llm_client.get_llm_client()
@@ -104,7 +121,7 @@ def create_langchain_llm(llm_client, temperature: float = None, streaming: bool 
                 native_llm.temperature = temperature
             # For streaming, LangChain LLMs handle this via astream method
             return native_llm
-    
+
     # Otherwise, wrap in our adapter
     adapter = LLMClientAdapter(llm_client)
     # Pass temperature to adapter if needed
@@ -126,23 +143,26 @@ def _debug_log(message: str, filename: str = "multi_agent_debug.log"):
 
 
 async def perform_rag_retrieval(
-    rag_service, 
-    query: str, 
-    course_id: str, 
-    logger=None
+    rag_service,
+    query: str,
+    course_id: str,
+    logger=None,
+    progress_callback=None,
+    query_type: str = "original"
 ) -> Optional[Dict[str, Any]]:
     """
     Perform RAG retrieval using the enhanced service method that preserves scores.
-    
+
     Uses the new answer_question_with_scores method that directly accesses vector search
     to preserve similarity scores that were being lost in the retriever chain.
-    
+
     Args:
         rag_service: The RAG service instance
         query: Query string
         course_id: Course identifier
         logger: Optional logger
-        
+        progress_callback: Optional function to send progress updates
+
     Returns:
         RAG result dict with sources and metadata (with preserved scores)
     """
@@ -154,29 +174,123 @@ async def perform_rag_retrieval(
         
         if logger:
             logger.info(f"Performing RAG query: '{query}' for course: {course_id}")
-        
+
+        # Send progress update before RAG operation
+        if progress_callback:
+            try:
+                progress_data = {
+                    "status": "in_progress",
+                    "stage": "retrieve",
+                    "message": f"🔍 Searching: '{query[:60]}{'...' if len(query) > 60 else ''}'",
+                    "agent": "retrieve",
+                    "details": {
+                        "query": query,
+                        "type": "search_start",
+                        "query_type": query_type
+                    }
+                }
+                _debug_log(f"=== SENDING RAG PROGRESS UPDATE ===")
+                _debug_log(f"Progress data: {progress_data}")
+                if logger:
+                    logger.info(f"RAG: Sending progress update: {progress_data['message']}")
+                progress_callback(progress_data)
+                _debug_log(f"=== RAG PROGRESS UPDATE SENT ===")
+            except Exception as e:
+                _debug_log(f"=== RAG PROGRESS UPDATE FAILED: {e} ===")
+                if logger:
+                    logger.error(f"Failed to send progress update: {e}")
+        else:
+            _debug_log(f"=== NO PROGRESS CALLBACK PROVIDED ===")
+            if logger:
+                logger.warning("RAG: No progress callback provided")
+
         # Use the enhanced method that preserves similarity scores
         _debug_log(f"Calling answer_question_with_scores...")
         result = rag_service.answer_question_with_scores(course_id, query)
         _debug_log(f"Result: success={result.get('success') if result else 'None'}")
-        
+
         if logger and result:
             sources = result.get('sources', [])
             logger.info(f"RAG completed - found {len(sources)} sources")
             _debug_log(f"Sources found: {len(sources)}")
-            
-            # Log first few sources for debugging
+
+            # Always log the actual RAG results to debug log for extraction
             for i, source in enumerate(sources[:3]):
                 content = source.get('content', '')
                 score = source.get('score', 'N/A')
-                # Show score type for debugging
                 score_type = type(score).__name__
+                # Log to both logger and debug log
                 logger.info(f"  {i+1}. Score={score} ({score_type}), Content='{content[:100]}...'")
                 _debug_log(f"  Source {i+1}: Score={score} ({score_type}), Content='{content[:50]}...'")
-            
+
             if len(sources) > 3:
                 logger.info(f"  ... and {len(sources) - 3} more sources")
+                _debug_log(f"  ... and {len(sources) - 3} more sources")
+
+            # Send progress update with detailed results
+            if progress_callback:
+                try:
+                    if sources:
+                        scores = [f"{s.get('score', 0):.3f}" for s in sources[:3]]
+                        completion_data = {
+                            "status": "in_progress",
+                            "stage": "retrieve_complete",
+                            "message": f"✅ Found {len(sources)} documents (top scores: {', '.join(scores)})",
+                            "agent": "retrieve",
+                            "details": {
+                                "query": query,
+                                "type": "search_complete",
+                                "query_type": query_type,
+                                "total_sources": len(sources),
+                                "top_sources": [
+                                    {
+                                        "score": float(s.get('score', 0)),
+                                        "content_preview": s.get('content', '')[:100] + ('...' if len(s.get('content', '')) > 100 else ''),
+                                        "metadata": s.get('metadata', {})
+                                    }
+                                    for s in sources[:3]
+                                ],
+                                "all_scores": [float(s.get('score', 0)) for s in sources]
+                            }
+                        }
+                        _debug_log(f"=== SENDING RAG COMPLETION UPDATE ===")
+                        _debug_log(f"Completion data: {completion_data}")
+                        if logger:
+                            logger.info(f"RAG: Sending completion update: {completion_data['message']}")
+                        progress_callback(completion_data)
+                        _debug_log(f"=== RAG COMPLETION UPDATE SENT ===")
+                    else:
+                        no_results_data = {
+                            "status": "in_progress",
+                            "stage": "retrieve_complete",
+                            "message": "⚠️ No relevant documents found",
+                            "agent": "retrieve"
+                        }
+                        _debug_log(f"=== SENDING RAG NO RESULTS UPDATE ===")
+                        progress_callback(no_results_data)
+                        _debug_log(f"=== RAG NO RESULTS UPDATE SENT ===")
+                except Exception as e:
+                    _debug_log(f"=== RAG COMPLETION UPDATE FAILED: {e} ===")
+                    if logger:
+                        logger.error(f"Failed to send completion progress: {e}")
+            else:
+                _debug_log(f"=== NO PROGRESS CALLBACK FOR COMPLETION ===")
+                if logger:
+                    logger.warning("RAG: No progress callback for completion")
         
+        # Enhance the result with structured RAG info for easy access
+        if result and result.get('success'):
+            sources = result.get('sources', [])
+            if sources:
+                result['rag_info'] = {
+                    'query': query,
+                    'query_type': query_type,
+                    'document_count': len(sources),
+                    'top_scores': [float(s.get('score', 0)) for s in sources[:3]],
+                    'all_scores': [float(s.get('score', 0)) for s in sources],
+                    'formatted_message': f"Retrieved {len(sources)} documents with scores: {', '.join([f'{s.get('score', 0):.3f}' for s in sources[:3]])}"
+                }
+
         return result
         
     except Exception as e:
