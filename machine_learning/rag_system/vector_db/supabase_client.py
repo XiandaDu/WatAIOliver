@@ -79,26 +79,53 @@ class SupabaseVectorClient:
     
     def similarity_search_with_score(self, query: str, k: int = 4, filter: Optional[Dict[str, Any]] = None) -> List[Tuple[Document, float]]:
         """Search for similar documents with similarity scores.
-        
+
         This implements the secondary filtering logic mentioned in meeting notes.
-        Uses SupabaseVectorStore's similarity_search_with_relevance_scores method.
+        Bypasses the LangChain wrapper to directly call Supabase RPC with proper parameters.
         """
         try:
-            # Use the correct method for SupabaseVectorStore
+            # Embed the query first
+            vector = self.embeddings_client.embed_query(query)
+
+            # Build match_documents RPC parameters
+            match_documents_params = {"query_embedding": vector}
             if filter:
-                results = self.vector_store.similarity_search_with_relevance_scores(query, k=k, filter=filter)
-            else:
-                results = self.vector_store.similarity_search_with_relevance_scores(query, k=k)
-            
+                match_documents_params["filter"] = filter
+
+            # Call the RPC function directly
+            query_builder = self.vector_store._client.rpc(
+                self.vector_store.query_name,
+                match_documents_params
+            )
+
+            # Set limit using method chaining (not params.set which is deprecated)
+            query_builder = query_builder.limit(k)
+
+            # Execute the query
+            res = query_builder.execute()
+
+            # Parse results similar to LangChain's implementation
+            match_result = [
+                (
+                    Document(
+                        metadata=search.get("metadata", {}),
+                        page_content=search.get("content", ""),
+                    ),
+                    search.get("similarity", 0.0),
+                )
+                for search in res.data
+                if search.get("content")
+            ]
+
             # Enhanced filtering with metadata and score thresholds
             filtered_results = []
-            for doc, score in results:
+            for doc, score in match_result:
                 # Add score to metadata for better debugging
                 if doc.metadata is None:
                     doc.metadata = {}
                 doc.metadata['similarity_score'] = score
                 filtered_results.append((doc, score))
-            
+
             print(f"Retrieved {len(filtered_results)} documents with similarity scores")
             return filtered_results
         except Exception as e:
