@@ -15,8 +15,8 @@ from service.validator import validate_expression
 # Configure logging to stdout (for container logging systems)
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler()]  # Output to stdout
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler()],  # Output to stdout
 )
 
 # Suppress noisy library logs
@@ -60,8 +60,10 @@ async def health():
 @app.post("/compute")
 async def compute(request: ComputeRequest):
     """Execute mathematical computation"""
-    logger.info(f"Compute request received: mode={request.mode}, expr={request.expr[:50]}...")
-    
+    logger.info(
+        f"Compute request received: mode={request.mode}, expr={request.expr[:50]}..."
+    )
+
     # validate expression
     is_valid, error_message = validate_expression(request.expr)
     if not is_valid:
@@ -72,12 +74,14 @@ async def compute(request: ComputeRequest):
     try:
         service = CalculatorService()
         result = service.compute(request)
-        
-        if result.ok:
-            logger.info(f"Computation successful: mode={request.mode}, result_type={type(result.result).__name__}")
+
+        if result["ok"]:
+            logger.info(
+                f"Computation successful: mode={request.mode}, result_type={type(result['result']).__name__}"
+            )
         else:
-            logger.warning(f"Computation failed: {result.result}")
-        
+            logger.warning(f"Computation failed: {result['result']}")
+
         return result
 
     except TimeoutError as e:
