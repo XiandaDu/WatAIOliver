@@ -1,29 +1,88 @@
 import datetime
+import logging
 import sympy as sp
 from typing import Callable, Optional
 from sympy.parsing.sympy_parser import parse_expr
 from model import ComputeRequest, ComputeResponse
 
+logger = logging.getLogger("calculator_service.calculator")
+
+# Security whitelist: Only allow safe SymPy functions and types
+# This prevents users from calling dangerous functions
 SAFE_FUNCTIONS = {
     "sin": sp.sin, "cos": sp.cos, "tan": sp.tan,
     "asin": sp.asin, "acos": sp.acos, "atan": sp.atan,
     "log": sp.log, "ln": sp.log,  # ln is an alias for the natural logarithm
     "exp": sp.exp, "sqrt": sp.sqrt, "pi": sp.pi, "E": sp.E,
-    "I": sp.I, "oo": sp.oo
+    "I": sp.I, "oo": sp.oo,
+    
+    # Basic SymPy types needed for parsing
+    "Integer": sp.Integer,
+    "Symbol": sp.Symbol,
+    "Float": sp.Float,
+    "Rational": sp.Rational,
+    
+    # Trigonometric functions
+    # "sin": sp.sin,
+    # "cos": sp.cos,
+    # "tan": sp.tan,
+    # "asin": sp.asin,
+    # "acos": sp.acos,
+    # "atan": sp.atan,
+    # "atan2": sp.atan2,
+    # "sinh": sp.sinh,
+    # "cosh": sp.cosh,
+    # "tanh": sp.tanh,
+    # "asinh": sp.asinh,
+    # "acosh": sp.acosh,
+    # "atanh": sp.atanh,
+    
+    # # Logarithmic and exponential functions
+    # "log": sp.log,
+    # "ln": sp.log,  # ln is an alias for the natural logarithm
+    # "exp": sp.exp,
+    
+    # # Power and root functions
+    # "sqrt": sp.sqrt,
+    # "cbrt": sp.cbrt,
+    # "root": sp.root,
+    # "Pow": sp.Pow,
+    
+    # # Mathematical constants
+    # "pi": sp.pi,
+    # "E": sp.E,
+    # "I": sp.I,
+    # "oo": sp.oo,
+    # "zoo": sp.zoo,
+    # "nan": sp.nan,
+    
+    # # Additional useful functions
+    # "abs": sp.Abs,
+    # "Abs": sp.Abs,
+    # "factorial": sp.factorial,
+    # "gamma": sp.gamma,
+    # "erf": sp.erf,
+    # "erfc": sp.erfc,
 }
 
 class CalculatorService:
     def __init__(self):
-        pass
+        logger.debug("CalculatorService initialized")
 
     def _safe_parse_expr(self, expr: str) -> sp.Expr:
         try:
-            return parse_expr(
+            logger.debug(f"Parsing expression: {expr[:50]}...")
+            # Use global_dict={} to prevent access to all SymPy functions by default
+            # Only functions in SAFE_FUNCTIONS (local_dict) are allowed
+            result = parse_expr(
                 expr,
                 local_dict=SAFE_FUNCTIONS,
                 global_dict={}
             )
+            logger.debug("Expression parsed successfully")
+            return result
         except Exception as e:
+            logger.error(f"Expression parsing failed: {str(e)}")
             raise ValueError(f"Expression parsing failed: {str(e)}")
 
     def _eval(self, expr: sp.Expr) -> float:
@@ -35,19 +94,21 @@ class CalculatorService:
     def _simplify(
         self,
         expr: sp.Expr,
-        ratio: Optional[float] = None,
+        ratio: Optional[float] = 1.7,
         measure: Optional[Callable[[sp.Expr], float]] = None,
     ) -> sp.Expr:
         try:
             kwargs = {}
-            if ratio is not None:
-                kwargs["ratio"] = ratio
+            kwargs["ratio"] = ratio
             if measure is not None:
                 kwargs["measure"] = measure
+
+            logger.debug(f"Simplifying expression: {expr} with kwargs: {kwargs}")
 
             return sp.simplify(expr, **kwargs)
 
         except Exception as e:
+            logger.error(f"Error simplifying expression: {e}")
             raise ValueError(f"Error simplifying expression: {e}")
 
     def _differentiate(self, expr: sp.Expr, var: str) -> sp.Expr:
