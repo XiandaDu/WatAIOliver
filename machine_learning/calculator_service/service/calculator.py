@@ -3,25 +3,33 @@ import logging
 import sympy as sp
 from typing import Callable, Optional
 from sympy.parsing.sympy_parser import parse_expr
-from model import ComputeRequest, ComputeResponse
+from exceptions import ComputationError, MissingParameterError, ParseError
+from model.compute_request_model import ComputeRequest
 
 logger = logging.getLogger("calculator_service.calculator")
 
 # Security whitelist: Only allow safe SymPy functions and types
 # This prevents users from calling dangerous functions
 SAFE_FUNCTIONS = {
-    "sin": sp.sin, "cos": sp.cos, "tan": sp.tan,
-    "asin": sp.asin, "acos": sp.acos, "atan": sp.atan,
-    "log": sp.log, "ln": sp.log,  # ln is an alias for the natural logarithm
-    "exp": sp.exp, "sqrt": sp.sqrt, "pi": sp.pi, "E": sp.E,
-    "I": sp.I, "oo": sp.oo,
-    
+    "sin": sp.sin,
+    "cos": sp.cos,
+    "tan": sp.tan,
+    "asin": sp.asin,
+    "acos": sp.acos,
+    "atan": sp.atan,
+    "log": sp.log,
+    "ln": sp.log,  # ln is an alias for the natural logarithm
+    "exp": sp.exp,
+    "sqrt": sp.sqrt,
+    "pi": sp.pi,
+    "E": sp.E,
+    "I": sp.I,
+    "oo": sp.oo,
     # Basic SymPy types needed for parsing
     "Integer": sp.Integer,
     "Symbol": sp.Symbol,
     "Float": sp.Float,
     "Rational": sp.Rational,
-    
     # Trigonometric functions
     # "sin": sp.sin,
     # "cos": sp.cos,
@@ -36,18 +44,15 @@ SAFE_FUNCTIONS = {
     # "asinh": sp.asinh,
     # "acosh": sp.acosh,
     # "atanh": sp.atanh,
-    
     # # Logarithmic and exponential functions
     # "log": sp.log,
     # "ln": sp.log,  # ln is an alias for the natural logarithm
     # "exp": sp.exp,
-    
     # # Power and root functions
     # "sqrt": sp.sqrt,
     # "cbrt": sp.cbrt,
     # "root": sp.root,
     # "Pow": sp.Pow,
-    
     # # Mathematical constants
     # "pi": sp.pi,
     # "E": sp.E,
@@ -55,7 +60,6 @@ SAFE_FUNCTIONS = {
     # "oo": sp.oo,
     # "zoo": sp.zoo,
     # "nan": sp.nan,
-    
     # # Additional useful functions
     # "abs": sp.Abs,
     # "Abs": sp.Abs,
@@ -64,6 +68,7 @@ SAFE_FUNCTIONS = {
     # "erf": sp.erf,
     # "erfc": sp.erfc,
 }
+
 
 class CalculatorService:
     def __init__(self):
@@ -74,11 +79,7 @@ class CalculatorService:
             logger.debug(f"Parsing expression: {expr[:50]}...")
             # Use global_dict={} to prevent access to all SymPy functions by default
             # Only functions in SAFE_FUNCTIONS (local_dict) are allowed
-            result = parse_expr(
-                expr,
-                local_dict=SAFE_FUNCTIONS,
-                global_dict={}
-            )
+            result = parse_expr(expr, local_dict=SAFE_FUNCTIONS, global_dict={})
             logger.debug("Expression parsed successfully")
             return result
         except Exception as e:
@@ -89,7 +90,7 @@ class CalculatorService:
         try:
             return sp.N(expr)
         except Exception as e:
-            raise ValueError(f"Error evaluating expression: {e}")
+            raise ComputationError(f"Error evaluating expression: {e}")
 
     def _simplify(
         self,
@@ -109,63 +110,86 @@ class CalculatorService:
 
         except Exception as e:
             logger.error(f"Error simplifying expression: {e}")
-            raise ValueError(f"Error simplifying expression: {e}")
+            raise ComputationError(f"Error simplifying expression: {e}")
 
-    def _differentiate(self, expr: sp.Expr, var: str) -> sp.Expr:
+    def _differentiate(self, expr: sp.Expr, var: sp.Symbol) -> sp.Expr:
         try:
             return sp.diff(expr, var)
         except Exception as e:
-            raise ValueError(f"Error differentiating expression: {e}")
+            raise ComputationError(f"Error differentiating expression: {e}")
 
     def _integrate(
         self,
         expr: sp.Expr,
-        var: str,
-        lower: Optional[str] = None,
-        upper: Optional[str] = None,
+        var: sp.Symbol,
+        lower: Optional[sp.Expr] = None,
+        upper: Optional[sp.Expr] = None,
     ) -> sp.Expr:
         try:
-            kwargs = {}
-            if lower is not None:
-                kwargs["lower"] = lower
-            if upper is not None:
-                kwargs["upper"] = upper
-            return sp.integrate(expr, var, **kwargs)
+            # For definite integral: sp.integrate(expr, (var, lower, upper))
+            # For indefinite integral: sp.integrate(expr, var)
+            if lower is not None and upper is not None:
+                return sp.integrate(expr, (var, lower, upper))
+            else:
+                return sp.integrate(expr, var)
 
         except Exception as e:
-            raise ValueError(f"Error integrating expression: {e}")
+            raise ComputationError(f"Error integrating expression: {e}")
 
-    def _solve(self, expr: sp.Expr, var: str) -> sp.Expr:
+    def _solve(self, expr: sp.Expr, var: sp.Symbol) -> sp.Expr:
         try:
             return sp.solve(expr, var)
         except Exception as e:
-            raise ValueError(f"Error solving expression: {e}")
+            raise ComputationError(f"Error solving expression: {e}")
 
-    def compute(self, request: ComputeRequest) -> ComputeResponse:
-        # assume request is valid
-
-        # parse request
-        mode = request.mode
-        expr = request.expr
-        var = request.var
-        lower = request.lower
-        upper = request.upper
+    def compute(self, request: ComputeRequest) -> dict:
+        # assume request is valid (checked in main.py)
+        # parse request, convert to sympy objects
+        try:
+            mode = request.mode
+            expr = self._safe_parse_expr(request.expr)
+            var = sp.Symbol(request.var) if request.var is not None else None
+            lower = (
+                self._safe_parse_expr(request.lower)
+                if request.lower is not None
+                else None
+            )
+            upper = (
+                self._safe_parse_expr(request.upper)
+                if request.upper is not None
+                else None
+            )
+        except Exception as e:
+            raise ParseError("Invalid syntax")
 
         # compute
         if mode == "eval":
-            result = self._eval(self._safe_parse_expr(expr))
+            result = self._eval(expr)
+
         elif mode == "simplify":
-            result = self._simplify(self._safe_parse_expr(expr))
+            result = str(self._simplify(expr))
+
         elif mode == "differentiate":
-            result = self._differentiate(self._safe_parse_expr(expr), var)
+            if var is None:
+                raise MissingParameterError("'var' required for differentiation")
+            result = str(self._differentiate(expr, var))
+
         elif mode == "integrate":
-            result = self._integrate(self._safe_parse_expr(expr), var, lower, upper)
+            if var is None:
+                raise MissingParameterError("'var' required for integration")
+            result = str(self._integrate(expr, var, lower, upper))
+
         elif mode == "solve":
-            result = self._solve(self._safe_parse_expr(expr), var)
+            if var is None:
+                raise MissingParameterError("'var' required for solving")
+            result = str(self._solve(expr, var))
+
         else:
             raise ValueError(f"Invalid mode: {mode}")
 
         # return response
-        return ComputeResponse(
-            ok=True, result=result, mode=mode, timestamp=datetime.now()
-        )
+        return {
+            "ok": True,
+            "result": result,
+            "mode": mode,
+        }
