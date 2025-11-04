@@ -1,7 +1,7 @@
 import datetime
 import logging
 import sympy as sp
-from typing import Callable, Optional
+from typing import Callable, Optional, List, Union
 from sympy.parsing.sympy_parser import parse_expr
 from exceptions import ComputationError, MissingParameterError, ParseError
 from model.compute_request_model import ComputeRequest
@@ -136,7 +136,7 @@ class CalculatorService:
         except Exception as e:
             raise ComputationError(f"Error integrating expression: {e}")
 
-    def _solve(self, expr: sp.Expr, var: sp.Symbol) -> sp.Expr:
+    def _solve(self, expr: sp.Expr, var: sp.Symbol) -> List:
         try:
             return sp.solve(expr, var)
         except Exception as e:
@@ -162,34 +162,34 @@ class CalculatorService:
         except Exception as e:
             raise ParseError("Invalid syntax")
 
-        # compute
+        # compute - return raw SymPy objects, let main.py handle serialization
         if mode == "eval":
             result = self._eval(expr)
 
         elif mode == "simplify":
-            result = str(self._simplify(expr))
+            result = self._simplify(expr)
 
         elif mode == "differentiate":
             if var is None:
                 raise MissingParameterError("'var' required for differentiation")
-            result = str(self._differentiate(expr, var))
+            result = self._differentiate(expr, var)
 
         elif mode == "integrate":
             if var is None:
                 raise MissingParameterError("'var' required for integration")
-            result = str(self._integrate(expr, var, lower, upper))
+            result = self._integrate(expr, var, lower, upper)
 
         elif mode == "solve":
             if var is None:
                 raise MissingParameterError("'var' required for solving")
-            result = str(self._solve(expr, var))
+            result = self._solve(expr, var)
 
         else:
             raise ValueError(f"Invalid mode: {mode}")
 
-        # return response
+        # return response with raw SymPy objects
         return {
             "ok": True,
-            "result": result,
+            "result": result,  # type: Union[float, sp.Expr, List]
             "mode": mode,
         }

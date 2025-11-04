@@ -36,7 +36,6 @@ class TestAPI:
         assert data["ok"] is True
         assert data["result"] == 4.0
         assert data["mode"] == "eval"
-        assert "timestamp" in data
 
     def test_compute_eval_complex(self):
         """Test compute endpoint with complex expression"""

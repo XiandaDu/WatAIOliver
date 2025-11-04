@@ -2,6 +2,7 @@
 Unit tests for CalculatorService - simplify mode
 """
 import pytest
+import sympy as sp
 from machine_learning.calculator_service.service.calculator import CalculatorService
 from machine_learning.calculator_service.model.compute_request_model import (
     ComputeRequest,
@@ -20,7 +21,8 @@ class TestCalculatorSimplify:
         request = ComputeRequest(mode="simplify", expr="x + x")
         result = self.service.compute(request)
         assert result["ok"] is True
-        assert isinstance(result["result"], str)
+        # Result is now a SymPy Expr, not a string
+        assert isinstance(result["result"], sp.Expr)
         assert "2*x" in str(result["result"]) or "2x" in str(result["result"])
 
     def test_simplify_expression(self):
@@ -28,4 +30,5 @@ class TestCalculatorSimplify:
         request = ComputeRequest(mode="simplify", expr="(x**2 - 1)/(x - 1)")
         result = self.service.compute(request)
         assert result["ok"] is True
-        assert isinstance(result["result"], str)
+        # Result is now a SymPy Expr, not a string
+        assert isinstance(result["result"], sp.Expr)

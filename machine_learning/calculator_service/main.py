@@ -11,6 +11,7 @@ from exceptions import ComputationError, MissingParameterError, ParseError
 from model import ComputeRequest
 from service import CalculatorService
 from service.validator import validate_expression
+from utils import serialize_result
 
 # Configure logging to stdout (for container logging systems)
 logging.basicConfig(
@@ -76,6 +77,7 @@ async def compute(request: ComputeRequest):
         result = service.compute(request)
 
         if result["ok"]:
+            result["result"] = serialize_result(result["result"], request.mode)
             logger.info(
                 f"Computation successful: mode={request.mode}, result_type={type(result['result']).__name__}"
             )
@@ -87,15 +89,19 @@ async def compute(request: ComputeRequest):
     except TimeoutError as e:
         logger.error(f"Computation timeout: {str(e)}")
         raise HTTPException(status_code=400, detail="Operation timed out")
+    
     except ParseError as e:
         logger.error(f"Parse error: {str(e)}")
         raise HTTPException(status_code=400, detail="Expression parsing failed")
+    
     except MissingParameterError as e:
         logger.error(f"Missing parameter: {str(e)}")
         raise HTTPException(status_code=422, detail=str(e))
+    
     except ComputationError as e:
         logger.error(f"Computation error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
+    
     except Exception as e:
         logger.exception(f"Unexpected error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

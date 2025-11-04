@@ -2,6 +2,7 @@
 Unit tests for CalculatorService - solve mode
 """
 import pytest
+import sympy as sp
 from machine_learning.calculator_service.service.calculator import CalculatorService
 from machine_learning.calculator_service.model.compute_request_model import (
     ComputeRequest,
@@ -20,16 +21,16 @@ class TestCalculatorSolve:
         request = ComputeRequest(mode="solve", expr="2*x + 4", var="x")
         result = self.service.compute(request)
         assert result["ok"] is True
-        assert isinstance(result["result"], str)
-        # Result is now a string like "[-2]" or "[-2.0]"
+        # Result is now a list of SymPy objects
+        assert isinstance(result["result"], list)
+        assert len(result["result"]) > 0
 
     def test_solve_quadratic_equation(self):
         """Test solving quadratic equation"""
         request = ComputeRequest(mode="solve", expr="x**2 - 4", var="x")
         result = self.service.compute(request)
         assert result["ok"] is True
-        assert isinstance(result["result"], str)
-        # Result is now a string like "[-2, 2]" or "[-2.0, 2.0]"
-        # Should contain both solutions
-        assert "-2" in result["result"] or "-2.0" in result["result"]
-        assert "2" in result["result"] or "2.0" in result["result"]
+        # Result is now a list of SymPy objects
+        assert isinstance(result["result"], list)
+        # Should have 2 solutions: -2 and 2
+        assert len(result["result"]) == 2

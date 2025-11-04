@@ -2,6 +2,7 @@
 Unit tests for CalculatorService - integrate mode
 """
 import pytest
+import sympy as sp
 from machine_learning.calculator_service.service.calculator import CalculatorService
 from machine_learning.calculator_service.model.compute_request_model import (
     ComputeRequest,
@@ -20,7 +21,7 @@ class TestCalculatorIntegrate:
         request = ComputeRequest(mode="integrate", expr="x**2", var="x")
         result = self.service.compute(request)
         assert result["ok"] is True
-        assert isinstance(result["result"], str)
+        assert isinstance(result["result"], sp.Expr)
 
     def test_integrate_definite(self):
         """Test definite integral"""
@@ -29,4 +30,4 @@ class TestCalculatorIntegrate:
         )
         result = self.service.compute(request)
         assert result["ok"] is True
-        assert isinstance(result["result"], str)
+        assert isinstance(result["result"], sp.Expr)
