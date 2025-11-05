@@ -30,7 +30,9 @@ class TestAPI:
 
     def test_compute_eval_basic(self):
         """Test compute endpoint with eval mode"""
-        response = self.client.post("v1/compute", json={"mode": "eval", "expr": "2 + 2"})
+        response = self.client.post(
+            "v1/compute", json={"mode": "eval", "expr": "2 + 2"}
+        )
         assert response.status_code == 200
         data = response.json()
         assert data["ok"] is True

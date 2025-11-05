@@ -25,4 +25,3 @@ class TestCalculatorMissingParam:
         req = ComputeRequest(mode="solve", expr="x-1")
         with pytest.raises(MissingParameterError):
             self.service.compute(req)
-

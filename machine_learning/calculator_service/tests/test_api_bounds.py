@@ -42,11 +42,8 @@ class TestAPIBoundsValidation:
 
     def test_success_response_contains_timestamp(self):
         """Successful responses should include timestamp field."""
-        response = self.client.post(
-            "/v1/compute", json={"mode": "eval", "expr": "2+3"}
-        )
+        response = self.client.post("/v1/compute", json={"mode": "eval", "expr": "2+3"})
         assert response.status_code == 200
         data = response.json()
         assert "timestamp" in data
         assert data["ok"] is True
-

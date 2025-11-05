@@ -8,7 +8,13 @@ from dotenv import load_dotenv
 import os
 import logging
 
-from exceptions import CalculatorError, ComputationError, MissingParameterError, ParseError, ComputationTimeoutError
+from exceptions import (
+    CalculatorError,
+    ComputationError,
+    MissingParameterError,
+    ParseError,
+    ComputationTimeoutError,
+)
 from model import ComputeRequest, ComputeResponse
 from service import CalculatorService
 from service.validator import validate_expression
@@ -67,13 +73,12 @@ async def compute(request: ComputeRequest):
     )
 
     try:
-        
+
         is_valid, error_message = validate_expression(request.expr)
         if not is_valid:
             logger.error(f"Invalid expression: {error_message}")
             raise ParseError(error_message)
-            
-        
+
         if request.lower is not None:
             is_valid, error_message = validate_expression(request.lower)
             if not is_valid:
@@ -120,12 +125,12 @@ async def compute(request: ComputeRequest):
             status_code=status_code,
             detail={
                 "ok": False,
-                "result": str(e),  
+                "result": str(e),
                 "mode": request.mode,
                 "timestamp": datetime.datetime.now().isoformat(),
             },
         )
-            
+
     except Exception as e:
         logger.exception(f"Unexpected error: {str(e)}")
         raise HTTPException(
@@ -137,4 +142,3 @@ async def compute(request: ComputeRequest):
                 "timestamp": datetime.datetime.now().isoformat(),
             },
         )
-    
