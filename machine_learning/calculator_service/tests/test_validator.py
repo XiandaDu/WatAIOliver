@@ -2,7 +2,7 @@
 Unit tests for expression validator
 """
 import pytest
-from machine_learning.calculator_service.service.validator import validate_expression
+from service.validator import validate_expression
 
 
 class TestValidator:

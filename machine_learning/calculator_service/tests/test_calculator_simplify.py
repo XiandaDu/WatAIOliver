@@ -3,8 +3,8 @@ Unit tests for CalculatorService - simplify mode
 """
 import pytest
 import sympy as sp
-from machine_learning.calculator_service.service.calculator import CalculatorService
-from machine_learning.calculator_service.model.compute_request_model import (
+from service.calculator import CalculatorService
+from model.compute_request_model import (
     ComputeRequest,
 )
 

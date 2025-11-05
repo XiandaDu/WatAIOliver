@@ -1,4 +1,3 @@
-import datetime
 import logging
 import sympy as sp
 from typing import Callable, Optional, List, Union
@@ -84,7 +83,7 @@ class CalculatorService:
             return result
         except Exception as e:
             logger.error(f"Expression parsing failed: {str(e)}")
-            raise ValueError(f"Expression parsing failed: {str(e)}")
+            raise ParseError(f"Expression parsing failed: {str(e)}")
 
     def _eval(self, expr: sp.Expr) -> float:
         try:
@@ -163,29 +162,37 @@ class CalculatorService:
             raise ParseError("Invalid syntax")
 
         # compute - return raw SymPy objects, let main.py handle serialization
-        if mode == "eval":
-            result = self._eval(expr)
+        try:
+            if mode == "eval":
+                result = self._eval(expr)
 
-        elif mode == "simplify":
-            result = self._simplify(expr)
+            elif mode == "simplify":
+                result = self._simplify(expr)
 
-        elif mode == "differentiate":
-            if var is None:
-                raise MissingParameterError("'var' required for differentiation")
-            result = self._differentiate(expr, var)
+            elif mode == "differentiate":
+                if var is None:
+                    raise MissingParameterError("'var' required for differentiation")
+                result = self._differentiate(expr, var)
 
-        elif mode == "integrate":
-            if var is None:
-                raise MissingParameterError("'var' required for integration")
-            result = self._integrate(expr, var, lower, upper)
+            elif mode == "integrate":
+                if var is None:
+                    raise MissingParameterError("'var' required for integration")
+                result = self._integrate(expr, var, lower, upper)
 
-        elif mode == "solve":
-            if var is None:
-                raise MissingParameterError("'var' required for solving")
-            result = self._solve(expr, var)
+            elif mode == "solve":
+                if var is None:
+                    raise MissingParameterError("'var' required for solving")
+                result = self._solve(expr, var)
 
-        else:
-            raise ValueError(f"Invalid mode: {mode}")
+            else:
+                raise ParseError(f"Invalid mode: {mode}")
+
+        except MissingParameterError:
+            raise
+        except ParseError:
+            raise
+        except Exception as e:
+            raise ComputationError(f"Error computing expression: {e}")
 
         # return response with raw SymPy objects
         return {

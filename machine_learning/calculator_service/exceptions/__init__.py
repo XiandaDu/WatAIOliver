@@ -8,7 +8,7 @@ from .error_types import (
     ParseError,
     MissingParameterError,
     ComputationError,
-    TimeoutError,
+    ComputationTimeoutError,
 )
 
 __all__ = [
@@ -16,5 +16,5 @@ __all__ = [
     "ParseError",
     "MissingParameterError",
     "ComputationError",
-    "TimeoutError",
+    "ComputationTimeoutError",
 ]

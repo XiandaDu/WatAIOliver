@@ -3,7 +3,8 @@ Unit tests for CalculatorService - _safe_parse_expr method
 """
 import pytest
 import sympy as sp
-from machine_learning.calculator_service.service.calculator import CalculatorService
+from service.calculator import CalculatorService
+from exceptions import ParseError
 
 
 class TestCalculatorParse:
@@ -39,8 +40,13 @@ class TestCalculatorParse:
 
     def test_safe_parse_expr_invalid_expression(self):
         """Test _safe_parse_expr with invalid expression"""
-        with pytest.raises(ValueError, match="Expression parsing failed"):
+        with pytest.raises(ParseError, match="PARSE_ERROR: Expression parsing failed"):
             self.service._safe_parse_expr("invalid@#$%expression")
+
+    def test_safe_parse_expr_empty_string(self):
+        """Empty string should raise ParseError"""
+        with pytest.raises(ParseError, match="PARSE_ERROR: Expression parsing failed"):
+            self.service._safe_parse_expr("")
 
     def test_safe_parse_expr_complex_expression(self):
         """Test _safe_parse_expr with complex expression"""

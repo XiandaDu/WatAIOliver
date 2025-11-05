@@ -9,6 +9,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from service.calculator import CalculatorService
+from exceptions import ParseError
 import sympy as sp
 
 
@@ -56,9 +57,9 @@ def test_safe_parse_expr():
             print(
                 f"✗ {description:30} | Expression: {expr:20} | Unexpectedly succeeded: {result}"
             )
-        except ValueError as e:
+        except ParseError as e:
             print(
-                f"✓ {description:30} | Expression: {expr:20} | Correctly raised ValueError: {str(e)[:50]}"
+                f"✓ {description:30} | Expression: {expr:20} | Correctly raised ParseError: {str(e)[:50]}"
             )
 
     print("\n" + "=" * 60)

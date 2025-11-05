@@ -2,10 +2,9 @@
 Unit tests for CalculatorService - error handling
 """
 import pytest
-from machine_learning.calculator_service.service.calculator import CalculatorService
-from machine_learning.calculator_service.model.compute_request_model import (
-    ComputeRequest,
-)
+from service.calculator import CalculatorService
+from model import ComputeRequest
+from exceptions import ParseError
 
 
 class TestCalculatorErrors:
@@ -20,5 +19,5 @@ class TestCalculatorErrors:
         request = ComputeRequest(mode="eval", expr="2 + 2")
         # Manually change mode to invalid value
         request.mode = "invalid_mode"
-        with pytest.raises(ValueError):
+        with pytest.raises(ParseError):
             self.service.compute(request)

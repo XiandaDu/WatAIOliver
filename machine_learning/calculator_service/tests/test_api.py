@@ -3,7 +3,7 @@ Integration tests for FastAPI endpoints
 """
 import pytest
 from fastapi.testclient import TestClient
-from machine_learning.calculator_service.main import app
+from main import app
 
 
 class TestAPI:
@@ -30,7 +30,7 @@ class TestAPI:
 
     def test_compute_eval_basic(self):
         """Test compute endpoint with eval mode"""
-        response = self.client.post("/compute", json={"mode": "eval", "expr": "2 + 2"})
+        response = self.client.post("v1/compute", json={"mode": "eval", "expr": "2 + 2"})
         assert response.status_code == 200
         data = response.json()
         assert data["ok"] is True
@@ -40,7 +40,7 @@ class TestAPI:
     def test_compute_eval_complex(self):
         """Test compute endpoint with complex expression"""
         response = self.client.post(
-            "/compute", json={"mode": "eval", "expr": "sqrt(16) + sin(pi/2)"}
+            "/v1/compute", json={"mode": "eval", "expr": "sqrt(16) + sin(pi/2)"}
         )
         assert response.status_code == 200
         data = response.json()
@@ -50,7 +50,7 @@ class TestAPI:
     def test_compute_simplify(self):
         """Test compute endpoint with simplify mode"""
         response = self.client.post(
-            "/compute", json={"mode": "simplify", "expr": "x + x"}
+            "v1/compute", json={"mode": "simplify", "expr": "x + x"}
         )
         assert response.status_code == 200
         data = response.json()
@@ -60,7 +60,7 @@ class TestAPI:
     def test_compute_differentiate(self):
         """Test compute endpoint with differentiate mode"""
         response = self.client.post(
-            "/compute", json={"mode": "differentiate", "expr": "x**2", "var": "x"}
+            "v1/compute", json={"mode": "differentiate", "expr": "x**2", "var": "x"}
         )
         assert response.status_code == 200
         data = response.json()
@@ -70,7 +70,7 @@ class TestAPI:
     def test_compute_integrate_indefinite(self):
         """Test compute endpoint with indefinite integral"""
         response = self.client.post(
-            "/compute", json={"mode": "integrate", "expr": "x**2", "var": "x"}
+            "v1/compute", json={"mode": "integrate", "expr": "x**2", "var": "x"}
         )
         assert response.status_code == 200
         data = response.json()
@@ -80,7 +80,7 @@ class TestAPI:
     def test_compute_integrate_definite(self):
         """Test compute endpoint with definite integral"""
         response = self.client.post(
-            "/compute",
+            "v1/compute",
             json={
                 "mode": "integrate",
                 "expr": "x**2",
@@ -97,7 +97,7 @@ class TestAPI:
     def test_compute_solve(self):
         """Test compute endpoint with solve mode"""
         response = self.client.post(
-            "/compute", json={"mode": "solve", "expr": "x**2 - 4", "var": "x"}
+            "v1/compute", json={"mode": "solve", "expr": "x**2 - 4", "var": "x"}
         )
         assert response.status_code == 200
         data = response.json()
@@ -107,7 +107,7 @@ class TestAPI:
     def test_compute_invalid_expression(self):
         """Test compute endpoint with invalid expression"""
         response = self.client.post(
-            "/compute", json={"mode": "eval", "expr": "invalid@#$%expression"}
+            "v1/compute", json={"mode": "eval", "expr": "invalid@#$%expression"}
         )
         # Should return error (either 422 or 200 with ok=False)
         assert response.status_code in [200, 422]
@@ -115,7 +115,7 @@ class TestAPI:
     def test_compute_missing_var(self):
         """Test compute endpoint with missing var parameter"""
         response = self.client.post(
-            "/compute",
+            "v1/compute",
             json={
                 "mode": "differentiate",
                 "expr": "x**2"
@@ -129,21 +129,21 @@ class TestAPI:
         """Test compute endpoint with expression too long"""
         long_expr = "x" * 501
         response = self.client.post(
-            "/compute", json={"mode": "eval", "expr": long_expr}
+            "v1/compute", json={"mode": "eval", "expr": long_expr}
         )
         assert response.status_code == 422
 
     def test_compute_illegal_expression(self):
         """Test compute endpoint with illegal expression"""
         response = self.client.post(
-            "/compute", json={"mode": "eval", "expr": "__class__"}
+            "v1/compute", json={"mode": "eval", "expr": "__class__"}
         )
         assert response.status_code == 422
 
     def test_compute_invalid_mode(self):
         """Test compute endpoint with invalid mode"""
         response = self.client.post(
-            "/compute", json={"mode": "invalid_mode", "expr": "2 + 2"}
+            "v1/compute", json={"mode": "invalid_mode", "expr": "2 + 2"}
         )
         # Should return validation error
         assert response.status_code == 422

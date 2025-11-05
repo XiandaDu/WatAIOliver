@@ -67,7 +67,7 @@ class ComputationError(CalculatorError):
         self.error_type = "COMPUTE_ERROR"
 
 
-class TimeoutError(CalculatorError):
+class ComputationTimeoutError(CalculatorError):
     """
     Computation timeout error
 
