@@ -58,6 +58,7 @@ async def root():
     return {"message": "WatAI Oliver Calculator Service", "status": "running"}
 
 
+# TODO: implement health check
 @app.get("/health")
 async def health():
     """Health check endpoint"""
@@ -65,6 +66,7 @@ async def health():
     return {"status": "healthy"}
 
 
+# TODO: implement automatic restart policies.
 @app.post("/v1/compute")
 async def compute(request: ComputeRequest):
     """Execute mathematical computation"""

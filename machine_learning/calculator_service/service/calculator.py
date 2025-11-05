@@ -7,6 +7,8 @@ from model.compute_request_model import ComputeRequest
 
 logger = logging.getLogger("calculator_service.calculator")
 
+# TODO: implement resource limiting
+
 # Security whitelist: Only allow safe SymPy functions and types
 # This prevents users from calling dangerous functions
 SAFE_FUNCTIONS = {
@@ -29,43 +31,6 @@ SAFE_FUNCTIONS = {
     "Symbol": sp.Symbol,
     "Float": sp.Float,
     "Rational": sp.Rational,
-    # Trigonometric functions
-    # "sin": sp.sin,
-    # "cos": sp.cos,
-    # "tan": sp.tan,
-    # "asin": sp.asin,
-    # "acos": sp.acos,
-    # "atan": sp.atan,
-    # "atan2": sp.atan2,
-    # "sinh": sp.sinh,
-    # "cosh": sp.cosh,
-    # "tanh": sp.tanh,
-    # "asinh": sp.asinh,
-    # "acosh": sp.acosh,
-    # "atanh": sp.atanh,
-    # # Logarithmic and exponential functions
-    # "log": sp.log,
-    # "ln": sp.log,  # ln is an alias for the natural logarithm
-    # "exp": sp.exp,
-    # # Power and root functions
-    # "sqrt": sp.sqrt,
-    # "cbrt": sp.cbrt,
-    # "root": sp.root,
-    # "Pow": sp.Pow,
-    # # Mathematical constants
-    # "pi": sp.pi,
-    # "E": sp.E,
-    # "I": sp.I,
-    # "oo": sp.oo,
-    # "zoo": sp.zoo,
-    # "nan": sp.nan,
-    # # Additional useful functions
-    # "abs": sp.Abs,
-    # "Abs": sp.Abs,
-    # "factorial": sp.factorial,
-    # "gamma": sp.gamma,
-    # "erf": sp.erf,
-    # "erfc": sp.erfc,
 }
 
 
