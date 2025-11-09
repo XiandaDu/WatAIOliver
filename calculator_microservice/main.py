@@ -131,7 +131,7 @@ def execute_computation(mode: ComputeMode, expr: sp.Expr, var: Optional[str]) ->
         if var is None:
             raise MissingParameterError("variable required for integration")
         result = sp.integrate(expr, sp.Symbol(var))
-
+    elif mode == ComputeMode.solve:
         if var is None:
             raise MissingParameterError("variable required for solving")
         result = sp.solve(expr, sp.Symbol(var))
