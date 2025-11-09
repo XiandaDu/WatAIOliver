@@ -32,18 +32,6 @@ class MissingParameterError(Exception):
 def secure_parse(expr: str) -> sp.Expr | str:
     """
     Parse a mathematical expression string into a SymPy expression with security checks.
-
-    Validates input length and restricts allowed mathematical functions for security.
-    Only permits safe mathematical operations to prevent code injection.
-
-    Args:
-        expr: The mathematical expression string to parse
-
-    Returns:
-        Parsed SymPy expression if successful, or error message string if failed
-
-    Raises:
-        ExpressionTooLongError: If expression exceeds 500 character limit
     """
     # Check expression length for security (prevents DoS attacks)
     if len(expr) > 500:
@@ -118,18 +106,6 @@ def secure_parse(expr: str) -> sp.Expr | str:
 def execute_computation(mode: ComputeMode, expr: sp.Expr, var: Optional[str]) -> str:
     """
     Execute the requested mathematical computation on the parsed expression.
-
-    Args:
-        mode: The computation mode (eval, simplify, differentiate, integrate, solve)
-        expr: The parsed SymPy expression to operate on
-        var: Variable name for symbolic operations (required for differentiate, integrate, solve)
-
-    Returns:
-        String representation of the computation result
-
-    Raises:
-        MissingParameterError: When a required variable parameter is not provided
-        Exception: For computation errors during mathematical operations
     """
     if mode == ComputeMode.eval:
         # Evaluate expression to numerical value
@@ -138,9 +114,7 @@ def execute_computation(mode: ComputeMode, expr: sp.Expr, var: Optional[str]) ->
         # Attempt to simplify the expression, preferring factored polynomials when appropriate
         simplified = sp.simplify(expr)
         try:
-            # For polynomials, factoring often produces more readable results
             factored = sp.factor(expr)
-            # Choose factored form if it's reasonably concise
             if factored != simplified and len(str(factored)) <= len(str(simplified)) * 1.5:
                 result = factored
             else:
@@ -154,12 +128,10 @@ def execute_computation(mode: ComputeMode, expr: sp.Expr, var: Optional[str]) ->
             raise MissingParameterError("variable required for differentiation")
         result = sp.diff(expr, sp.Symbol(var))
     elif mode == ComputeMode.integrate:
-        # Compute indefinite integral with respect to specified variable
         if var is None:
             raise MissingParameterError("variable required for integration")
         result = sp.integrate(expr, sp.Symbol(var))
-    elif mode == ComputeMode.solve:
-        # Solve equation for specified variable
+
         if var is None:
             raise MissingParameterError("variable required for solving")
         result = sp.solve(expr, sp.Symbol(var))
@@ -179,9 +151,6 @@ async def health_check():
 async def compute(request: ComputeRequest):
     """
     Main computation endpoint that processes mathematical expressions.
-
-    Handles parsing, validation, computation, and enforces security timeouts.
-    Supports evaluation, simplification, differentiation, integration, and equation solving.
     """
     try:
         # Parse and validate the input expression for security
@@ -195,9 +164,7 @@ async def compute(request: ComputeRequest):
                 message=parsed_result
             )
 
-        # Execute computation with timeout protection in separate thread
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            # Submit computation task to thread pool
             future = executor.submit(execute_computation, request.mode, parsed_result, request.var)
 
             try:
