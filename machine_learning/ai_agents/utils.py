@@ -214,28 +214,24 @@ async def perform_rag_retrieval(
             logger.info(f"RAG completed - found {len(sources)} sources")
             _debug_log(f"Sources found: {len(sources)}")
 
-            # Always log the actual RAG results to debug log for extraction
-            for i, source in enumerate(sources[:3]):
+            # Always log ALL RAG results to debug log for extraction
+            for i, source in enumerate(sources):
                 content = source.get('content', '')
                 score = source.get('score', 'N/A')
                 score_type = type(score).__name__
                 # Log to both logger and debug log
                 logger.info(f"  {i+1}. Score={score} ({score_type}), Content='{content[:100]}...'")
-                _debug_log(f"  Source {i+1}: Score={score} ({score_type}), Content='{content[:50]}...'")
-
-            if len(sources) > 3:
-                logger.info(f"  ... and {len(sources) - 3} more sources")
-                _debug_log(f"  ... and {len(sources) - 3} more sources")
+                _debug_log(f"  Source {i+1}: Score={score} ({score_type}), Content='{content[:50]}...')")
 
             # Send progress update with detailed results
             if progress_callback:
                 try:
                     if sources:
-                        scores = [f"{s.get('score', 0):.3f}" for s in sources[:3]]
+                        scores = [f"{s.get('score', 0):.3f}" for s in sources]
                         completion_data = {
                             "status": "in_progress",
                             "stage": "retrieve_complete",
-                            "message": f"✅ Found {len(sources)} documents (top scores: {', '.join(scores)})",
+                            "message": f"✅ Found {len(sources)} documents (scores: {', '.join(scores)})",
                             "agent": "retrieve",
                             "details": {
                                 "query": query,
@@ -248,7 +244,7 @@ async def perform_rag_retrieval(
                                         "content_preview": s.get('content', '')[:100] + ('...' if len(s.get('content', '')) > 100 else ''),
                                         "metadata": s.get('metadata', {})
                                     }
-                                    for s in sources[:3]
+                                    for s in sources
                                 ],
                                 "all_scores": [float(s.get('score', 0)) for s in sources]
                             }

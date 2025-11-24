@@ -131,13 +131,6 @@ const ReasoningStep = ({ step, isLatest }) => {
                       </p>
                     </div>
                   ))}
-
-                  {step.ragDetails.all_scores && step.ragDetails.all_scores.length > 3 && (
-                    <p className="text-xs text-green-600 font-medium">
-                      + {step.ragDetails.all_scores.length - 3} more documents
-                      (scores: {step.ragDetails.all_scores.slice(3).map(s => s.toFixed(3)).join(', ')})
-                    </p>
-                  )}
                 </div>
               )}
             </div>

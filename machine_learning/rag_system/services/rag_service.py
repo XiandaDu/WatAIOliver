@@ -198,7 +198,7 @@ class RAGService:
             # Get documents directly from vector search with scores preserved
             scored_results = self.vector_client.similarity_search_with_score(
                 query=question,
-                k=4,  # Match default retrieval k
+                k=10,  # Match default retrieval k
                 filter={"course_id": course_id}
             )
             
@@ -243,6 +243,8 @@ Please provide a detailed answer based on the context provided. If the context d
                     "metadata": doc.metadata or {}
                 }
                 sources.append(source_info)
+            
+            print("SOURCE INFO", sources)
             
             return {
                 "answer": answer,

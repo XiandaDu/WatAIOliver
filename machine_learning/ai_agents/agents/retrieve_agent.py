@@ -20,11 +20,12 @@ from pydantic import BaseModel, Field
 
 from ai_agents.state import WorkflowState, RetrievalResult, log_agent_execution
 from ai_agents.utils import (
-    create_langchain_llm, 
-    perform_rag_retrieval, 
+    create_langchain_llm,
+    perform_rag_retrieval,
     debug_course_chunks,
     format_rag_results_for_agents
 )
+from ai_agents.retrieval_logger import RetrievalLogger
 
 # Import simple logger for backup logging
 try:
@@ -50,22 +51,26 @@ class SpeculativeRetrievalChain(Chain):
     """
     Custom chain that implements the full retrieval workflow:
     1. Initial retrieval -> 2. Quality assessment -> 3. Conditional reframing -> 4. Merge & rerank
-    
+
     This is a true chain where outputs flow between stages.
+
+    When external_decision_mode=True, the chain only performs initial retrieval
+    and skips internal quality assessment, allowing external decision agents to control expansion.
     """
-    
+
     # Required chain components
     initial_retrieval_func: Any  # RAG service function
     reframing_chain: LLMChain
     reranking_chain: Optional[LLMChain] = None  # Made optional since we're not using it
     expansion_chain: Optional[SequentialChain] = None  # The sequential expansion chain (built lazily)
-    
+
     # Configuration
     min_quality_threshold: float = 0.7  # Adjusted to match actual embedding scores
     course_id: str = ""
     logger: Any = None
     rag_service: Any = None
     context: Any = None  # Agent context for progress callbacks
+    external_decision_mode: bool = False  # When True, skip internal quality checks
     
     @property
     def input_keys(self) -> List[str]:
@@ -92,10 +97,12 @@ class SpeculativeRetrievalChain(Chain):
         """
         Execute the chained retrieval workflow.
         Each stage's output flows into the next stage.
+
+        If external_decision_mode=True, only performs initial retrieval and returns.
         """
         query = inputs["query"]
         course_id = inputs.get("course_id", self.course_id)
-        
+
         if self.logger:
             self.logger.info("="*80)
             simple_log.info("="*80)
@@ -103,23 +110,65 @@ class SpeculativeRetrievalChain(Chain):
             simple_log.info("SPECULATIVE RETRIEVAL CHAIN - Starting")
             self.logger.info(f"Query: {query}")
             simple_log.info(f"Query: {query}")
+            self.logger.info(f"External Decision Mode: {self.external_decision_mode}")
+            simple_log.info(f"External Decision Mode: {self.external_decision_mode}")
             self.logger.info("="*80)
             simple_log.info("="*80)
-            
+
             # Also log to simple logger
             simple_log.info("RETRIEVAL CHAIN START", {
                 "query": query,
                 "course_id": course_id,
-                "threshold": self.min_quality_threshold
+                "threshold": self.min_quality_threshold,
+                "external_decision_mode": self.external_decision_mode
             })
-        
+
         # Stage 1: Initial Retrieval
         initial_results = await self._stage_initial_retrieval(query, course_id)
-        
+
+        # If external decision mode, return initial results without LLM quality check
+        # But still calculate the score from retrieval results for reference
+        if self.external_decision_mode:
+            if self.logger:
+                self.logger.info("External decision mode: Returning initial results (decision agent will evaluate)")
+                simple_log.info("External decision mode: Returning initial results (decision agent will evaluate)")
+
+            # Calculate average score from retrieval results (not used for decision, just for reference)
+            sources = initial_results.get('sources', [])
+            if self.logger:
+                self.logger.info(f"DEBUG: initial_results has {len(sources)} sources")
+                simple_log.info(f"DEBUG: initial_results has {len(sources)} sources")
+                self.logger.info(f"DEBUG: initial_results keys: {initial_results.keys()}")
+                simple_log.info(f"DEBUG: initial_results keys: {initial_results.keys()}")
+                if sources:
+                    self.logger.info(f"DEBUG: First source keys: {sources[0].keys()}")
+                    simple_log.info(f"DEBUG: First source keys: {sources[0].keys()}")
+
+            if sources:
+                scores = [s.get('score', 0.0) for s in sources]
+                avg_score = sum(scores) / len(scores) if scores else 0.0
+            else:
+                avg_score = 0.0
+
+            formatted = self._format_results(initial_results)
+            if self.logger:
+                self.logger.info(f"DEBUG: _format_results returned {len(formatted)} results")
+                simple_log.info(f"DEBUG: _format_results returned {len(formatted)} results")
+                if formatted:
+                    self.logger.info(f"DEBUG: First formatted result keys: {formatted[0].keys()}")
+                    simple_log.info(f"DEBUG: First formatted result keys: {formatted[0].keys()}")
+
+            return {
+                "results": formatted,
+                "quality_score": avg_score,  # Average similarity score (for reference only)
+                "strategy": "initial_only",
+                "speculative_queries": []
+            }
+
         # Stage 2: Quality Assessment (receives initial_results as input)
         quality_output = await self._stage_quality_assessment(query, initial_results)
         quality_score = quality_output["score"]
-        
+
         # Simple log quality assessment
         simple_log.info("QUALITY ASSESSMENT", {
             "query": query,
@@ -128,7 +177,7 @@ class SpeculativeRetrievalChain(Chain):
             "will_expand": quality_score < self.min_quality_threshold,
             "issues": quality_output.get("issues", [])
         })
-        
+
         # Stage 3: Conditional Reframing using SequentialChain
         if quality_score < self.min_quality_threshold:
             if self.logger:
@@ -553,6 +602,60 @@ class SpeculativeRetrievalChain(Chain):
             })
         return results
 
+    async def execute_with_expansion(self, query: str, course_id: str, initial_results: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Execute query expansion on already-retrieved initial results.
+        Used when external decision agent decides to expand the query.
+
+        Args:
+            query: Original query
+            course_id: Course identifier
+            initial_results: Results from initial retrieval (raw format with 'sources')
+
+        Returns:
+            Expanded and merged results with speculative queries
+        """
+        if self.logger:
+            self.logger.info("\n[EXECUTING EXPANSION FROM EXTERNAL DECISION]")
+            simple_log.info("\n[EXECUTING EXPANSION FROM EXTERNAL DECISION]")
+
+        # Build the expansion chain if not already built
+        if self.expansion_chain is None:
+            self.expansion_chain = self._build_expansion_sequential_chain()
+
+        # Calculate average score from initial results
+        sources = initial_results.get('sources', [])
+        scores = [s.get('score', 0.0) for s in sources]
+        avg_score = sum(scores) / len(scores) if scores else 0.0
+
+        # Create inputs for the expansion chain
+        chain_inputs = {
+            "query": query,
+            "quality_score": avg_score,
+            "quality_issues": "External decision agent requested expansion",
+            "course_id": course_id,
+            "initial_results": initial_results
+        }
+
+        if self.logger:
+            self.logger.info(f"Expansion chain inputs: quality_score={avg_score:.3f}, num_sources={len(sources)}")
+            simple_log.info(f"Expansion chain inputs: quality_score={avg_score:.3f}, num_sources={len(sources)}")
+
+        # Execute expansion chain
+        chain_result = self.expansion_chain.invoke(chain_inputs)
+        speculative_queries = chain_result.get("alternative_queries", [])
+
+        if self.logger:
+            self.logger.info(f"Expansion complete: {len(speculative_queries)} alternative queries used")
+            simple_log.info(f"Expansion complete: {len(speculative_queries)} alternative queries used")
+
+        return {
+            "results": chain_result["final_results"],
+            "quality_score": chain_result["final_score"],
+            "strategy": f"external_decision_expanded_{len(speculative_queries)}",
+            "speculative_queries": speculative_queries
+        }
+
 
 class RetrieveAgent:
     """
@@ -569,16 +672,26 @@ class RetrieveAgent:
         self.logger = context.logger.getChild("retrieve")
         self.rag_service = context.rag_service
         self.llm_client = context.llm_client
-        
+
+        # Initialize structured retrieval logger
+        self.retrieval_logger = RetrievalLogger(self.logger)
+
         # Create LangChain-compatible LLM
         self.llm = create_langchain_llm(self.llm_client)
-        
+
         # Quality thresholds
         self.min_quality_threshold = 0.7  # Adjusted to match actual embedding scores (typically 0.49-0.52)
         self.rerank_threshold = 0.6  # Add reranking step for scores above this
         self.min_results_count = 3
-        
-        # Initialize the composite chain
+
+        # Retry configuration for decision agent
+        self.max_retries = 2  # Maximum 2 retries to avoid infinite loops
+
+        # Initialize decision agent
+        from ai_agents.agents.decision_agent import MiniDecisionAgent
+        self.decision_agent = MiniDecisionAgent(llm_client=self.llm_client)
+
+        # Initialize the composite chain with external decision mode
         self._setup_composite_chain()
         
     def _setup_composite_chain(self):
@@ -621,13 +734,16 @@ QUERY: most recent course content and examples""")
         )
         
         # Create the composite chain that chains everything together
+        # Enable external_decision_mode so the chain only does initial retrieval
+        # and lets the decision agent control expansion
         self.retrieval_chain = SpeculativeRetrievalChain(
             reframing_chain=self.reframing_chain,
             initial_retrieval_func=perform_rag_retrieval,
             min_quality_threshold=self.min_quality_threshold,
             logger=self.logger,
             rag_service=self.rag_service,
-            context=self.context
+            context=self.context,
+            external_decision_mode=True  # Decision agent controls expansion
         )
     
     def _format_retrieval_output(self, results: List[RetrievalResult], strategy: str = "initial", no_results_suggestion: str = None) -> Dict[str, Any]:
@@ -660,58 +776,228 @@ QUERY: most recent course content and examples""")
         return formatted_results
     
     async def __call__(self, state: WorkflowState) -> WorkflowState:
-        """Execute retrieval using the composite chain"""
+        """
+        Execute retrieval with decision agent controlling query expansion.
+
+        Implements retry loop as specified in Task 1.3:
+        1. Execute retrieval (returns k=10 results max)
+        2. Ask mini decision agent to evaluate
+        3. If decision == "use_current": use results and break
+        4. If decision == "expand_query": trigger expansion and retry (max 2 retries)
+        """
         start_time = time.time()
-        
+
         try:
             self.logger.info("="*250)
             simple_log.info("="*250)
-            self.logger.info("RETRIEVE AGENT - CHAINED RETRIEVAL WORKFLOW")
-            simple_log.info("RETRIEVE AGENT - CHAINED RETRIEVAL WORKFLOW")
+            self.logger.info("RETRIEVE AGENT - DECISION-BASED RETRIEVAL WORKFLOW")
+            simple_log.info("RETRIEVE AGENT - DECISION-BASED RETRIEVAL WORKFLOW")
             self.logger.info("="*250)
             simple_log.info("="*250)
-            
+
             query = state["query"]
             course_id = state["course_id"]
-            
+
             self.logger.info(f"Query: '{query}'")
             simple_log.info(f"Query: '{query}'")
             self.logger.info(f"Course ID: {course_id}")
             simple_log.info(f"Course ID: {course_id}")
-            
+            self.logger.info(f"Max retries: {self.max_retries}")
+            simple_log.info(f"Max retries: {self.max_retries}")
+
             # Debug chunks first (for logging purposes)
             await debug_course_chunks(self.rag_service, course_id, query, self.logger)
-            
-            # Execute the complete retrieval chain
-            # The chain internally handles:
-            # 1. Initial retrieval
-            # 2. Quality assessment  
-            # 3. Conditional reframing
-            # 4. Alternative retrieval
-            # 5. Merging and reranking
-            
-            self.logger.info("\nExecuting composite retrieval chain...")
-            simple_log.info("\nExecuting composite retrieval chain...")
-            chain_output = await self.retrieval_chain._acall({
-                "query": query,
-                "course_id": course_id
-            })
-            
-            # Extract results from chain output
-            results = chain_output.get("results", [])
-            quality_score = chain_output.get("quality_score", 0.0)
-            strategy = chain_output.get("strategy", "unknown")
-            speculative_queries = chain_output.get("speculative_queries", [])
-            
-            # Log what we got
-            self.logger.info(f"Chain output type: {type(chain_output)}")
-            simple_log.info(f"Chain output type: {type(chain_output)}")
-            self.logger.info(f"Results type: {type(results)}, length: {len(results) if isinstance(results, list) else 'N/A'}")
-            simple_log.info(f"Results type: {type(results)}, length: {len(results) if isinstance(results, list) else 'N/A'}")
-            
+
+            # Create session log
+            session_id = state.get("session_id", "unknown")
+            session_uuid = await self.retrieval_logger.create_session(
+                session_id=session_id,
+                course_id=course_id,
+                query=query
+            )
+
+            # Initialize tracking variables
+            retry_count = 0
+            all_decisions = []  # Track all decisions for logging
+            final_results = None
+            final_strategy = "unknown"
+            speculative_queries_used = []
+            initial_score = None  # Track initial score for metrics
+
+            # Retry loop with decision agent
+            while retry_count <= self.max_retries:
+                self.logger.info(f"\n{'='*80}")
+                self.logger.info(f"RETRY ITERATION {retry_count + 1}/{self.max_retries + 1}")
+                self.logger.info(f"{'='*80}")
+                simple_log.info(f"RETRY ITERATION {retry_count + 1}/{self.max_retries + 1}")
+
+                # Execute retrieval (returns k=10 results max)
+                self.logger.info(f"\n[Step 1] Executing retrieval (k=10)...")
+                simple_log.info(f"[Step 1] Executing retrieval (k=10)...")
+
+                retrieval_start = time.time()
+                chain_output = await self.retrieval_chain._acall({
+                    "query": query,
+                    "course_id": course_id
+                })
+                retrieval_time_ms = (time.time() - retrieval_start) * 1000
+
+                # Extract results from chain output
+                results = chain_output.get("results", [])
+                raw_results = chain_output  # Keep raw results for potential expansion
+
+                self.logger.info(f"Retrieved {len(results)} results")
+                simple_log.info(f"Retrieved {len(results)} results")
+                self.logger.info(f"DEBUG: chain_output keys: {chain_output.keys()}")
+                simple_log.info(f"DEBUG: chain_output keys: {chain_output.keys()}")
+                if results:
+                    self.logger.info(f"DEBUG: First result type: {type(results[0])}, keys: {results[0].keys() if isinstance(results[0], dict) else 'not a dict'}")
+                    simple_log.info(f"DEBUG: First result type: {type(results[0])}, keys: {results[0].keys() if isinstance(results[0], dict) else 'not a dict'}")
+
+                # Log retrieval to structured logger
+                import uuid
+                retrieval_uuid = str(uuid.uuid4())
+                strategy = "initial" if retry_count == 0 else "expanded"
+                await self.retrieval_logger.log_retrieval(
+                    session_uuid=session_uuid,
+                    retrieval_uuid=retrieval_uuid,
+                    strategy=strategy,
+                    results=results,
+                    processing_time_ms=retrieval_time_ms
+                )
+
+                # Store initial score for metrics
+                if retry_count == 0 and results:
+                    scores = [r.get('score', 0.0) for r in results]
+                    initial_score = sum(scores) / len(scores) if scores else 0.0
+
+                # Convert results to format expected by decision agent
+                # Decision agent expects objects with .score and .content attributes
+                class ResultObject:
+                    def __init__(self, result_dict):
+                        self.score = result_dict.get('score', 0.0)
+                        self.content = result_dict.get('content', '')
+
+                retrieval_results_for_decision = [ResultObject(r) for r in results]
+
+                # [Step 2] Ask mini LLM agent to evaluate
+                self.logger.info(f"\n[Step 2] Asking decision agent to evaluate quality...")
+                simple_log.info(f"[Step 2] Asking decision agent to evaluate quality...")
+
+                decision_output = await self.decision_agent.evaluate_retrieval_quality(
+                    query=query,
+                    retrieval_results=retrieval_results_for_decision
+                )
+
+                # Log this decision
+                self.logger.info(f"\n[DECISION AGENT OUTPUT]")
+                self.logger.info(f"  Decision: {decision_output['decision']}")
+                self.logger.info(f"  Reason: {decision_output['reason']}")
+                self.logger.info(f"  Confidence: {decision_output['confidence']:.2f}")
+                simple_log.info(f"Decision: {decision_output['decision']}, Reason: {decision_output['reason']}, Confidence: {decision_output['confidence']:.2f}")
+
+                # Log decision to structured logger with input references
+                scores_for_llm = [r.get('score', 0.0) for r in results]
+                await self.retrieval_logger.log_decision(
+                    session_uuid=session_uuid,
+                    retrieval_uuid=retrieval_uuid,
+                    decision_data=decision_output,
+                    retry_count=retry_count,
+                    input_data={
+                        "num_results": len(results),
+                        "top_scores": scores_for_llm,
+                        "query": query
+                    }
+                )
+
+                # Track decision in state for logging
+                all_decisions.append({
+                    "iteration": retry_count + 1,
+                    "decision": decision_output["decision"],
+                    "reason": decision_output["reason"],
+                    "confidence": decision_output["confidence"],
+                    "num_results": len(results)
+                })
+
+                # [Step 3] Act on decision
+                if decision_output["decision"] == "use_current":
+                    # Good enough - use these results
+                    self.logger.info(f"\n✅ Decision: USE_CURRENT - Results are sufficient")
+                    simple_log.info(f"✅ Decision: USE_CURRENT - Results are sufficient")
+                    final_results = results
+                    final_strategy = f"decision_agent_approved_iteration_{retry_count + 1}"
+                    break
+
+                elif decision_output["decision"] == "expand_query":
+                    self.logger.info(f"\n🔄 Decision: EXPAND_QUERY - Triggering expansion")
+                    simple_log.info(f"🔄 Decision: EXPAND_QUERY - Triggering expansion")
+
+                    if retry_count >= self.max_retries:
+                        # Out of retries - use what we have
+                        self.logger.info(f"⚠️  Max retries reached - using current results anyway")
+                        simple_log.info(f"⚠️  Max retries reached - using current results anyway")
+                        final_results = results
+                        final_strategy = f"max_retries_reached_iteration_{retry_count + 1}"
+                        break
+
+                    # Trigger query expansion
+                    # We need to reconstruct the raw retrieval results for expansion
+                    # The chain needs results in the format with 'sources'
+                    raw_sources = []
+                    for r in results:
+                        raw_sources.append({
+                            'content': r.get('content', ''),
+                            'score': r.get('score', 0.0),
+                            'metadata': r.get('metadata', {})
+                        })
+
+                    initial_results_for_expansion = {'sources': raw_sources, 'success': True}
+
+                    self.logger.info(f"\n[Step 3] Triggering expansion chain...")
+                    simple_log.info(f"[Step 3] Triggering expansion chain...")
+
+                    # Trigger expansion using the chain's expansion method
+                    expanded_output = await self.retrieval_chain.execute_with_expansion(
+                        query=query,
+                        course_id=course_id,
+                        initial_results=initial_results_for_expansion
+                    )
+
+                    # Update results with expanded results
+                    results = expanded_output.get("results", results)
+                    speculative_queries_used.extend(expanded_output.get("speculative_queries", []))
+
+                    self.logger.info(f"Expansion complete: {len(results)} results after merging")
+                    simple_log.info(f"Expansion complete: {len(results)} results after merging")
+
+                    # Increment retry count and continue loop
+                    retry_count += 1
+                    continue
+
+                else:
+                    # Unknown decision - treat as use_current
+                    self.logger.warning(f"⚠️  Unknown decision '{decision_output['decision']}' - using current results")
+                    final_results = results
+                    final_strategy = f"unknown_decision_iteration_{retry_count + 1}"
+                    break
+
+            # After loop completes
+            if final_results is None:
+                final_results = results  # Fallback
+                final_strategy = "fallback_after_loop"
+
+            # Log final outcome
+            self.logger.info(f"\n{'='*80}")
+            self.logger.info(f"DECISION LOOP COMPLETE")
+            self.logger.info(f"{'='*80}")
+            self.logger.info(f"Final strategy: {final_strategy}")
+            self.logger.info(f"Total decisions made: {len(all_decisions)}")
+            self.logger.info(f"Speculative queries used: {len(speculative_queries_used)}")
+            simple_log.info(f"Decision loop complete: {final_strategy}, {len(all_decisions)} decisions")
+
             # Convert to RetrievalResult format for state
             retrieval_results = []
-            for r in results:
+            for r in final_results:
                 # Ensure r is a dictionary
                 if not isinstance(r, dict):
                     self.logger.warning(f"Unexpected result type: {type(r)}, value: {r}")
@@ -735,29 +1021,40 @@ QUERY: most recent course content and examples""")
             # Format output as JSON
             json_output = self._format_retrieval_output(
                 retrieval_results[:10],  # Top 10 results
-                strategy=strategy,
+                strategy=final_strategy,
                 no_results_suggestion=f"Try rephrasing '{query}' to be more specific about the course material."
             )
-            
+
             # Log the JSON output
             self.logger.info("="*250)
             simple_log.info("="*250)
-            self.logger.info("CHAIN OUTPUT (JSON)")
-            simple_log.info("CHAIN OUTPUT (JSON)")
+            self.logger.info("FINAL OUTPUT (JSON)")
+            simple_log.info("FINAL OUTPUT (JSON)")
             self.logger.info("="*250)
             simple_log.info("="*250)
             self.logger.info(json.dumps(json_output, indent=2))
             simple_log.info(json.dumps(json_output, indent=2))
             self.logger.info("="*250)
             simple_log.info("="*250)
-            
-            # Update state with chain results
+
+            # Calculate final quality score from results
+            if retrieval_results:
+                scores = [r.score for r in retrieval_results]
+                final_quality_score = sum(scores) / len(scores) if scores else 0.0
+            else:
+                final_quality_score = 0.0
+
+            # Update state with results and decision tracking
             state["retrieval_results"] = retrieval_results[:10]
-            state["retrieval_quality_score"] = quality_score
-            state["retrieval_strategy"] = strategy
-            state["speculative_queries"] = speculative_queries
+            state["retrieval_quality_score"] = final_quality_score
+            state["retrieval_strategy"] = final_strategy
+            state["speculative_queries"] = speculative_queries_used
             state["workflow_status"] = "retrieving"
             state["formatted_retrieval_output"] = json_output
+
+            # Track all decisions in state for logging
+            state["retrieval_decisions"] = all_decisions
+            state["retrieval_iterations"] = len(all_decisions)
 
             # Extract structured RAG info for frontend reasoning display
             if retrieval_results:
@@ -769,26 +1066,50 @@ QUERY: most recent course content and examples""")
                     "top_scores": top_scores,
                     "formatted_message": f"Retrieved {total_docs} documents with relevance scores: {', '.join([f'{score:.3f}' for score in top_scores])}"
                 }
-            
-            # Log execution
+
+            # Calculate total processing time
             processing_time = time.time() - start_time
+            total_time_ms = processing_time * 1000
+
+            # Complete session logging
+            await self.retrieval_logger.complete_session(
+                session_uuid=session_uuid,
+                final_quality_score=final_quality_score,
+                total_retries=retry_count
+            )
+
+            # Log quality metrics
+            was_expanded = retry_count > 0
+            retrieval_strategy_count = 1 + retry_count  # Initial + retries
+            await self.retrieval_logger.log_quality_metrics(
+                session_uuid=session_uuid,
+                initial_score=initial_score,
+                final_score=final_quality_score,
+                retrieval_strategy_count=retrieval_strategy_count,
+                was_expanded=was_expanded,
+                total_time_ms=total_time_ms
+            )
+
+            # Log execution
             log_agent_execution(
                 state=state,
                 agent_name="Retrieve",
                 input_summary=f"Query: {query}",
-                output_summary=f"Chain retrieved {len(retrieval_results)} chunks, quality: {quality_score:.3f}, strategy: {strategy}",
+                output_summary=f"Decision-based retrieval: {len(retrieval_results)} chunks, {len(all_decisions)} decisions, quality: {final_quality_score:.3f}, strategy: {final_strategy}",
                 processing_time=processing_time,
                 success=True
             )
-            
-            self.logger.info(f"Chained retrieval completed in {processing_time:.2f}s")
-            simple_log.info(f"Chained retrieval completed in {processing_time:.2f}s")
+
+            self.logger.info(f"Decision-based retrieval completed in {processing_time:.2f}s")
+            simple_log.info(f"Decision-based retrieval completed in {processing_time:.2f}s")
             
         except Exception as e:
-            self.logger.error(f"Chained retrieval failed: {str(e)}")
+            self.logger.error(f"Decision-based retrieval failed: {str(e)}")
+            import traceback
+            self.logger.error(f"Traceback: {traceback.format_exc()}")
             state["error_messages"].append(f"Retrieve agent error: {str(e)}")
             state["workflow_status"] = "failed"
-            
+
             log_agent_execution(
                 state=state,
                 agent_name="Retrieve",
@@ -797,7 +1118,7 @@ QUERY: most recent course content and examples""")
                 processing_time=time.time() - start_time,
                 success=False
             )
-        
+
         return state
     
 
